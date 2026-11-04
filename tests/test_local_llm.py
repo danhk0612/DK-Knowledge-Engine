@@ -132,6 +132,7 @@ class LlamaCliTests(unittest.TestCase):
         argv = run.call_args.args[0]
         self.assertIn("--single-turn", argv)
         self.assertIn("--reasoning", argv)
+        self.assertIn("--jinja", argv)
         self.assertEqual(argv[argv.index("--reasoning") + 1], "off")
         self.assertEqual(argv[argv.index("-ngl") + 1], "0")
         self.assertEqual(argv[argv.index("-m") + 1], str(self.model.resolve()))
@@ -153,6 +154,14 @@ class LlamaCliTests(unittest.TestCase):
             returncode=0, stdout="<think>unfinished", stderr=""
         )):
             with self.assertRaisesRegex(RuntimeError, "no visible answer"):
+                cli.generate("system", "user")
+
+    def test_console_transcript_is_rejected(self):
+        cli = LlamaCli(self.executable, self.model)
+        with patch("llm.local_llm.subprocess.run", return_value=SimpleNamespace(
+            returncode=0, stdout="Loading model... <references> 포트 3308 Exiting...", stderr=""
+        )):
+            with self.assertRaisesRegex(RuntimeError, "console transcript"):
                 cli.generate("system", "user")
 
     def test_missing_files_rejected_before_subprocess(self):
