@@ -50,4 +50,6 @@ jobs:
       - name: Install Builder dependencies
         run: python -m pip install -r requirements-builder.txt
       - name: Build WPF example and exercise shared client on real localhost TCP
+        env:
+          PYTHONPATH: .
         run: python tests/t06_windows_smoke.py
