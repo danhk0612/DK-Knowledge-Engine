@@ -46,7 +46,7 @@ class PortableEntrypointTests(unittest.TestCase):
         (config / "settings.json").write_text(
             json.dumps({"port": 8765, "allowed_origins": ["*"]}), encoding="utf-8"
         )
-        self.assertEqual(run(root=self.root), 1)
+        self.assertEqual(run([], root=self.root), 1)
 
     def test_no_runtime_or_model_refuses_to_start(self):
         config = self.root / "config"
@@ -54,7 +54,7 @@ class PortableEntrypointTests(unittest.TestCase):
         (config / "settings.json").write_text(
             json.dumps({"port": 8765, "allowed_origins": []}), encoding="utf-8"
         )
-        self.assertEqual(run(root=self.root), 1)
+        self.assertEqual(run([], root=self.root), 1)
 
 
 if __name__ == "__main__":
