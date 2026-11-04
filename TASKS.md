@@ -120,7 +120,7 @@
 
 ## T06 — 웹·Windows 연동 예제
 
-**상태: 미착수, T05 API 필요**
+**상태: 구현 및 Windows·Ubuntu 통합 검증 진행 중, T05 기반 스택 PR 검토 단계**
 
 범위:
 - JavaScript 기반 웹 프로그램에서 질문/오류·상태 이벤트 호출.
@@ -132,6 +132,10 @@
 - 실제 Windows 브라우저 및 C# 환경에서 동작.
 - 브라우저의 localhost 접근 정책으로 차단되는 경우 한계 기록.
 - 두 예제의 API 의미 및 응답 처리 동일.
+
+산출물: `integrations/web/`, `integrations/windows/KnowledgeHelpDemo/`(.NET 10 WPF), `integrations/windows/KnowledgeHelpSmoke/`, `tests/t06_fixture.py`, `tests/t06_browser.mjs`, `tests/t06_windows_smoke.py`, `docs/T06_INTEGRATIONS.md`, `.github/workflows/t06-integrations.yml`.
+
+검증: Windows/Ubuntu Headless Chromium의 실제 루프백 HTTP 호출, 허용되지 않은 브라우저 Origin 차단, Windows WPF 컴파일·동일 C# 클라이언트 소스의 HTTP 호출. 단, 브라우저가 다른 주소 공간의 HTTPS 사내 웹페이지에서 LNA `loopback-network` 권한을 요청하는 상황은 CI 루프백 테스트만으로 검증되지 않으므로 별도 Windows 실기 검증 필요.
 
 변경 금지: 사용자 제품 코드 직접 수정.
 
@@ -186,4 +190,4 @@ T07 오프라인 패키지
 T08 최종 검증
 ```
 
-**다음 단계:** T02~T05 의존 스택 PR #1~#4 검토·병합 결정 후 T06 웹·Windows 연동 예제. 직접 병합/Release/tag 없음.
+**다음 단계:** T06 CI/코드 검토 완료 후 T02~T06 의존 PR 병합 결정. 그 다음 T07 오프라인 Windows 배포 패키지 작업. 직접 병합/Release/tag 없음.
