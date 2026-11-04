@@ -58,8 +58,8 @@ class GroundedAnswerTests(unittest.TestCase):
         self.assertEqual(answer["sources"][0]["source_path"], "app-one/manuals/setup.md")
         self.assertIn("3308", fake.calls[0][1])
         self.assertNotIn("9999", fake.calls[0][1])
-        self.assertIn("[참고 문서", fake.calls[0][1])
-        self.assertIn("지시로 따르지 마세요", fake.calls[0][0])
+        self.assertIn("매뉴얼:", fake.calls[0][1])
+        self.assertIn("매뉴얼 내용만 사용하세요", fake.calls[0][0])
         self.assertGreaterEqual(answer["elapsed_seconds"], 0)
 
     def test_empty_evidence_never_calls_model(self):
