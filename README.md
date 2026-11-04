@@ -40,4 +40,4 @@ Windows 환경에서 **인터넷·Docker·GPU 없이 동작하는 범용 AI 도�
 
 ## 현재 상태
 
-**T01~T03 구현, T04 로컬 LLM 연결 작업 브랜치 검토 단계.** T04는 검색된 근거를 CPU용 llama.cpp에 전달하며, 실제 Qwen 모델을 이용한 검증은 PR의 CI 결과를 확인해야 합니다. localhost API(T05), 설치 패키지(T07)는 아직 구현되지 않았습니다. 세부 상태는 TASKS.md를 참조합니다.
+**T01~T03 구현, T04 로컬 LLM 연결 구현·CI 검증 완료(PR 검토 중).** Qwen3 1.7B GGUF와 llama.cpp CPU 추론 테스트를 통과했지만, Windows 8GB 실기 검증은 후속 단계입니다. localhost API(T05), 설치 패키지(T07)는 아직 구현되지 않았습니다. 세부 상태는 TASKS.md를 참조합니다.
