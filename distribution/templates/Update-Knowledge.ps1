@@ -23,7 +23,7 @@ function Get-Sha256([string]$FilePath) {
     }
 }
 
-$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$root = $PSScriptRoot
 $dataDir = Join-Path $root 'knowledge'
 $current = Join-Path $dataDir 'knowledge.db'
 $backup = Join-Path $dataDir 'knowledge.previous.db'
