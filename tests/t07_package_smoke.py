@@ -79,6 +79,21 @@ def probe_cpu_runtime(package: Path) -> None:
     model = package / "models" / "Qwen3-1.7B-Q4_K_M.gguf"
     runtime_files = sorted(p.name for p in executable.parent.iterdir() if p.is_file())
     print("T07_RUNTIME_FILES:", runtime_files, flush=True)
+
+    # CI-only PE import inspection: a Windows loader failure often reports
+    # STATUS_DLL_NOT_FOUND without saying which import caused it.
+    import pefile
+
+    pe = pefile.PE(str(executable))
+    dlls = sorted({entry.dll.decode("ascii", "replace")
+                   for entry in getattr(pe, "DIRECTORY_ENTRY_IMPORT", [])})
+    print("T07_NATIVE_IMPORTS:", [
+        {"dll": name,
+         "in_runtime": (executable.parent / name).exists(),
+         "in_system32": (Path(os.environ["SystemRoot"]) / "System32" / name).exists()}
+        for name in dlls
+    ], flush=True)
+    pe.close()
     command = [
         str(executable),
         "-m", str(model),
@@ -96,6 +111,13 @@ def probe_cpu_runtime(package: Path) -> None:
     print("T07_DIRECT_CLI_STDERR:", result.stderr[-2500:], flush=True)
     print("T07_DIRECT_CLI_STDOUT:", result.stdout[-1000:], flush=True)
     if result.returncode != 0:
+        normal = subprocess.run(
+            command, input="", text=True, capture_output=True, encoding="utf-8",
+            errors="replace", cwd=package, env=os.environ.copy(), timeout=180,
+        )
+        print(f"T07_NORMAL_PATH_CLI_EXIT={normal.returncode}", flush=True)
+        print("T07_NORMAL_PATH_CLI_STDERR:", normal.stderr[-2500:], flush=True)
+        print("T07_NORMAL_PATH_CLI_STDOUT:", normal.stdout[-700:], flush=True)
         raise AssertionError("Standalone packaged llama-completion failed before HTTP layer")
     if "3308" not in result.stdout:
         raise AssertionError("Standalone packaged llama-completion did not answer from evidence")
