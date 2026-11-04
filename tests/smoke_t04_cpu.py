@@ -38,6 +38,9 @@ def main() -> None:
         assert answer["grounded"], answer
         assert answer["sources"] and answer["sources"][0]["source_path"].endswith("setup.md"), answer
         assert "3308" in answer["answer"], answer
+        assert "Loading model..." not in answer["answer"], answer
+        assert "<references>" not in answer["answer"], answer
+        assert "Exiting..." not in answer["answer"], answer
         print(json.dumps(answer, ensure_ascii=False, indent=2))
 
 
