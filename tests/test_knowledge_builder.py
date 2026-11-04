@@ -5,6 +5,7 @@ import json
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 
 from builder.knowledge_builder import build, _make_chunks, Segment
@@ -28,8 +29,7 @@ class BuilderTests(unittest.TestCase):
     def db(self):
         db = sqlite3.connect(self.out)
         db.row_factory = sqlite3.Row
-        self.addCleanup(db.close)
-        return db
+        return closing(db)
 
     def snapshot(self, db):
         return {
@@ -191,7 +191,7 @@ class BuilderTests(unittest.TestCase):
         build(self.root, self.out)
 
         def logical_snapshot():
-            with sqlite3.connect(self.out) as db:
+            with closing(sqlite3.connect(self.out)) as db:
                 documents = db.execute("SELECT document_id, product_id, title, source_path, source_hash FROM documents ORDER BY source_path").fetchall()
                 chunks = db.execute("SELECT chunk_id, document_id, section_title, content, page_from, sequence FROM chunks ORDER BY chunk_id").fetchall()
                 return documents, chunks
@@ -210,7 +210,7 @@ class BuilderTests(unittest.TestCase):
         self.assertEqual(self.out.read_bytes(), original_bytes)
 
     def test_invalid_existing_db_schema_rejected(self):
-        with sqlite3.connect(self.out) as db:
+        with closing(sqlite3.connect(self.out)) as db:
             db.execute("CREATE TABLE other (name TEXT)")
         self.put("product-one/manuals/a.txt", "Text")
         with self.assertRaisesRegex(ValueError, "no recognized schema_info"):
