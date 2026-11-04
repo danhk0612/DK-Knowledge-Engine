@@ -73,7 +73,7 @@
 
 ## T04 — 소형 LLM 연결
 
-**상태: 구현 및 단위·통합 검증 완료, 실제 모델 CPU smoke CI 확인 중 (T03 기반 스택 PR)**
+**상태: 구현 및 자동·실모델 CPU smoke 검증 완료, T03 기반 스택 PR 검토 중**
 
 범위:
 - llama.cpp 기반 Qwen3 1.7B GGUF CPU 실행.
@@ -90,6 +90,8 @@
 산출물: `llm/local_llm.py`, `tests/test_local_llm.py`, `tests/smoke_t04_cpu.py`, `docs/T04_LOCAL_LLM.md`, `.github/workflows/t04-cpu-smoke.yml`.
 
 모델 기준: ggml-org/Qwen3-1.7B-GGUF Q4_K_M (SHA-256: d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5), llama.cpp v0.8.0 CPU 후보. 매 요청 시 모델 새로 적재하는 CLI형으로, 장시간 유지하는 실행 정책은 T05와 별도 검토. 모델 파일과 실행 바이너리는 저장소에 포함하지 않음.
+
+실측 검증: [Windows/Ubuntu 38개 회귀 모두 통과](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41761185105), [Ubuntu llama.cpp CPU + Qwen3 Q4_K_M 실추론 성공](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41761185104). SHA-256 일치, 매뉴얼 포트 3308 근거 답변·출처 정상, 해당 CI 환경에서 호출 5.27초. Windows 10/11 8GB 실기와 평균 성능은 미검증(T08).
 
 변경 금지: 모델 파인튜닝 및 다른 런타임 어댑터 구현.
 
@@ -178,4 +180,4 @@ T07 오프라인 패키지
 T08 최종 검증
 ```
 
-**다음 단계:** T02/T03 의존 PR과 T04 PR 검토·CI 확인. T04 실제 CPU 모델 실행의 검증이 완료된 뒤 T05 API 작업을 검토한다. 직접 병합/배포는 하지 않음. T04 LLM 검증은 별도 작업으로 진행할 수 있다.
+**다음 단계:** T02/T03/T04 의존 PR 검토 및 병합 결정 후 T05 localhost API 개발. 직접 병합/Release/tag 없음. T04 LLM 검증은 별도 작업으로 진행할 수 있다.
