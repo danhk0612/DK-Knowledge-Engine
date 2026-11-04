@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 import sqlite3
+import subprocess
 import threading
 from contextlib import closing
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -134,7 +135,11 @@ class KnowledgeHandler(BaseHTTPRequestHandler):
         if len(hosts) != 1 or hosts[0] != expected_host:
             self._reject(403, "invalid_host")
             return False
-        origin = self.headers.get("Origin")
+        origins = self.headers.get_all("Origin", [])
+        if len(origins) > 1:
+            self._reject(403, "origin_not_allowed")
+            return False
+        origin = origins[0] if origins else None
         if origin is not None and not self.server.origin_allowed(origin):
             self._reject(403, "origin_not_allowed")
             return False
@@ -258,7 +263,7 @@ class KnowledgeHandler(BaseHTTPRequestHandler):
             self._reject(400, str(exc))
         except (sqlite3.Error, OSError):
             self._reject(503, "knowledge_unavailable")
-        except TimeoutError:
+        except (TimeoutError, subprocess.TimeoutExpired):
             self._reject(504, "llm_timeout")
         except RuntimeError:
             self._reject(503, "llm_inference_failed")
