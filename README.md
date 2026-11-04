@@ -43,4 +43,4 @@ Windows 환경에서 **인터넷·Docker·GPU 없이 동작하는 범용 AI 도�
 
 ## 현재 상태
 
-**T01 설계 및 T02~T05 구현·CI 검증 완료, PR #1~#4 검토 대기.** T05는 localhost HTTP API 4종을 제공하며 Windows·Ubuntu에서 전체 회귀가 통과했습니다. T04 실제 CPU 추론은 Ubuntu CI에서 검증했지만 Windows 8GB 실기 검증은 후속 단계입니다. 웹/C# 연동 예제(T06)는 구현 후 Windows·Ubuntu Chromium과 Windows WPF·C# 통합 검증을 통과했으며 PR 검토 중입니다. T07 Windows 포터블 ZIP 빌드·DB 교체·복구는 작업 브랜치에서 구현하고 실제 Windows CI 검증 중입니다.
+**T01~T07 구현 및 자동 검증 완료, 스택 PR #1~#6 검토 대기.** T02~T05 핵심 기능과 T06 웹/Windows 연동, T07 Windows x64 포터블 ZIP·실제 Qwen3 CPU 답변·지식 DB 갱신/롤백을 GitHub Actions에서 검증했습니다. 시험용 ZIP은 [Windows CI 실행 41786316047](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41786316047)의 아티팩트에 있으며 정식 Release가 아닙니다. Windows 10/11의 실제 GPU 없는 8GB PC·완전 네트워크 차단 실기 검증 및 모델 품질 비교는 T08에서 진행해야 합니다.

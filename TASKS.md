@@ -143,7 +143,7 @@
 
 ## T07 — 오프라인 배포 및 지식 갱신 패키징
 
-**상태: 구현 및 Windows CI 검증 중, T06 기반 스택 PR 검토 단계**
+**상태: 구현 및 Windows ZIP·실모델·DB 교체/롤백 CI 검증 완료, T06 기반 PR #6 검토 중 (실기 검증 T08 별도)**
 
 범위:
 - 엔진 실행 파일·llama.cpp 런타임·GGUF·지식 DB·설정 묶음.
@@ -159,7 +159,9 @@
 
 산출물: `distribution/server_entry.py`, `distribution/Build-Portable.ps1`, `distribution/templates/`, `tests/test_distribution.py`, `tests/t07_prepare_db.py`, `tests/t07_package_smoke.py`, `.github/workflows/t07-portable-windows.yml`, `docs/T07_WINDOWS_PACKAGE.md`.
 
-구성: PyInstaller onedir 엔진, llama.cpp v0.8.0 CPU 실행 파일/의존 DLL, SHA-256 검증한 Qwen3 1.7B Q4_K_M GGUF, 사전 생성한 SQLite FTS5 DB, 설정, 라이선스, 개별 파일 무결성 manifest. 지식 DB는 별도 SHA와 SQLite 검사 후 전체 교체·롤백하며 사용자 환경에서 재색인하지 않음. 정식 Release/tag 미생성.
+구성: PyInstaller onedir 엔진, llama.cpp v0.8.0 CPU·OpenSSL 비활성·정적 라이브러리/MSVC 런타임 실행 파일, SHA-256 검증한 Qwen3 1.7B Q4_K_M GGUF, 사전 생성한 SQLite FTS5 DB, 설정, 라이선스, 개별 파일 무결성 manifest. 지식 DB는 별도 SHA와 SQLite 검사 후 전체 교체·롤백하며 사용자 환경에서 재색인하지 않음. 정식 Release/tag 미생성.
+
+검증 증거: [Windows Actions run 41786316047](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41786316047)에서 실제 ZIP 생성·압축 해제·무결성·127.0.0.1 API·CPU 모델 `/chat`·DB 업데이트·롤백·잘못된 해시 및 스크립트 변조 차단까지 성공. 샘플 DB가 포함된 아티팩트이며 Release 아님. Windows/Ubuntu 62개 자동 회귀 테스트도 통과. 물리적 네트워크 차단과 Windows 10/11 8GB 실기는 미검증(T08).
 
 변경 금지: 온라인 업데이트 서버, 델타 패치 시스템 선제 구축.
 
@@ -196,4 +198,4 @@ T07 오프라인 패키지
 T08 최종 검증
 ```
 
-**다음 단계:** T07 Windows 실제 ZIP CI 검증 및 T02~T07 의존 스택 PR 검토. 이후 T08 저사양 PC 실기·정답률 비교 검증. 직접 병합/Release/tag 없음.
+**다음 단계:** T02~T07 의존 스택 PR #1~#6 검토·병합 결정(아직 미병합). 후속 T08에서 Windows 10/11의 저사양·물리적 오프라인·정답률·서명/SmartScreen 등 실기 검증. 직접 병합/Release/tag 없음.

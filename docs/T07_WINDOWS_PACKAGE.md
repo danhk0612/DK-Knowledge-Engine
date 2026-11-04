@@ -24,7 +24,7 @@ DK-Knowledge-Engine-Win-x64/
 │  └─ _internal/              (PyInstaller 포함 런타임)
 ├─ runtime/
 │  ├─ llama-completion.exe
-│  └─ *.dll                   (Windows CPU 실행 의존성)
+│  └─ (정적 링크 빌드에는 추가 DLL 없음)
 ├─ models/
 │  └─ Qwen3-1.7B-Q4_K_M.gguf
 ├─ knowledge/
@@ -48,7 +48,7 @@ DK-Knowledge-Engine-Win-x64/
 
 ## 제작자 PC에서 빌드
 
-패키징 입력은 T02 Builder로 생성한 DB, 공식 GGUF 모델 파일, Windows에서 빌드된 `llama-completion.exe` 및 의존 DLL, 필수 라이선스 사본입니다.
+패키징 입력은 T02 Builder로 생성한 DB, 공식 GGUF 모델 파일, Windows에서 빌드된 `llama-completion.exe`(정적 링크 방식; 추가 DLL이 필요한 빌드에서는 의존 DLL 포함) 및 필수 라이선스 사본입니다.
 
 기본 빌드 도구:
 
@@ -98,3 +98,12 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Update-Knowledge.ps1 -
 - 빌드 환경의 Windows Server 2025만으로 Windows 10/11 사용자 PC 전 기종의 호환성, 8GB RAM 성능, 서명되지 않은 EXE의 SmartScreen 정책까지 보장할 수 없습니다. 이 항목은 T08 실기 테스트가 필요합니다.
 - ZIP은 포터블 패키지이므로 Windows 서비스 설치/업데이트 서비스 또는 Windows 설치 프로그램(MSI/EXE)을 제공하지 않습니다.
 - 모델과 llama.cpp는 각각 공식 배포 출처·라이선스를 포함합니다. 최종 상용 재배포 전에는 실제 포함된 3자 DLL·소스·NOTICE를 추가 점검해야 합니다.
+
+## T07 GitHub Actions 최종 검증 결과 (2026-11-04)
+
+- [실제 Windows 포터블 ZIP 빌드·추론·DB 교체/롤백 CI 성공](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41786316047) — ZIP 압축 해제 후 시스템 Python을 PATH에서 배제하고 비활성 프록시를 지정한 상태에서 엔진·문서 검색·이벤트·Qwen3 CPU 한국어 답변 성공.
+- 문서 DB 갱신: 무효 SHA-256 거부, 새 DB 전체 교체 및 삭제 반영, 이전 DB 롤백, 실행 스크립트 변조 감지 성공.
+- 모델 자체는 Qwen3 1.7B Q4_K_M 공식 GGUF SHA-256과 일치. 샘플 ZIP은 Actions 아티팩트 `DK-Knowledge-Engine-Win-x64-demo-T07` (7일 보관, 2026-11-11 만료 예정)이며 **고객용 정식 Release가 아닙니다**.
+- 초기 실패 원인: llama.cpp 기본 OpenSSL 의존성 `libcrypto-3-x64.dll`·`libssl-3-x64.dll` 누락. HTTPS를 쓰지 않는 로컬 추론에 맞게 `LLAMA_OPENSSL=OFF`, `BUILD_SHARED_LIBS=OFF` 및 MSVC 정적 런타임으로 재빌드한 뒤 Windows PE import 검사와 오프라인 PATH에서 확인했습니다.
+- 테스트 콘솔의 한국어 코드 페이지 차이에 따른 로그 출력 오류는 테스트 측 ASCII-safe 출력으로 수정했습니다. **실제 한국어 답변은 정상 생성**됐습니다.
+- **T08 미검증 사항:** 고객 PC Windows 10/11 x64, GPU 없는 8GB RAM 실측, 물리적 네트워크 차단, 브라우저 사내 HTTPS→localhost 권한, 실행 파일 서명 및 SmartScreen 정책, 여러 실제 매뉴얼에 대한 정답률과 속도.
