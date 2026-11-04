@@ -108,16 +108,16 @@ def probe_cpu_runtime(package: Path) -> None:
         errors="replace", cwd=package, env=offline_environment(), timeout=180,
     )
     print(f"T07_DIRECT_CLI_EXIT={result.returncode}", flush=True)
-    print("T07_DIRECT_CLI_STDERR:", result.stderr[-2500:], flush=True)
-    print("T07_DIRECT_CLI_STDOUT:", result.stdout[-1000:], flush=True)
+    print("T07_DIRECT_CLI_STDERR:", ascii(result.stderr[-2500:]), flush=True)
+    print("T07_DIRECT_CLI_STDOUT:", ascii(result.stdout[-1000:]), flush=True)
     if result.returncode != 0:
         normal = subprocess.run(
             command, input="", text=True, capture_output=True, encoding="utf-8",
             errors="replace", cwd=package, env=os.environ.copy(), timeout=180,
         )
         print(f"T07_NORMAL_PATH_CLI_EXIT={normal.returncode}", flush=True)
-        print("T07_NORMAL_PATH_CLI_STDERR:", normal.stderr[-2500:], flush=True)
-        print("T07_NORMAL_PATH_CLI_STDOUT:", normal.stdout[-700:], flush=True)
+        print("T07_NORMAL_PATH_CLI_STDERR:", ascii(normal.stderr[-2500:]), flush=True)
+        print("T07_NORMAL_PATH_CLI_STDOUT:", ascii(normal.stdout[-700:]), flush=True)
         raise AssertionError("Standalone packaged llama-completion failed before HTTP layer")
     if not result.stdout.strip():
         raise AssertionError("Standalone packaged llama-completion generated no output")
@@ -174,7 +174,7 @@ def verify_content(package: Path, port: int, expected_port: int, *, test_chat: b
         })
         assert answer["grounded"] and str(expected_port) in answer["answer"], answer
         assert answer["sources"][0]["source_path"] == "example-program/manuals/setup.md", answer
-        print("T07_REAL_CPU_CHAT:", answer["answer"], flush=True)
+        print("T07_REAL_CPU_CHAT:", json.dumps(answer["answer"], ensure_ascii=True), flush=True)
 
 
 def main() -> None:
