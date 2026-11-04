@@ -5,6 +5,8 @@ param(
     [Parameter(Mandatory=$true)] [string]$ModelFile,
     [Parameter(Mandatory=$true)] [string]$LlamaLicense,
     [Parameter(Mandatory=$true)] [string]$ModelLicense,
+    [Parameter(Mandatory=$true)] [string]$PythonLicense,
+    [Parameter(Mandatory=$true)] [string]$PyInstallerLicense,
     [Parameter(Mandatory=$true)] [string]$OutputDir,
     [string]$LlamaCommit = 'unknown',
     [string]$Python = 'python'
@@ -16,6 +18,8 @@ $runtimeDir = (Resolve-Path -LiteralPath $LlamaBinDir).Path
 $model = (Resolve-Path -LiteralPath $ModelFile).Path
 $llamaLicensePath = (Resolve-Path -LiteralPath $LlamaLicense).Path
 $modelLicensePath = (Resolve-Path -LiteralPath $ModelLicense).Path
+$pythonLicensePath = (Resolve-Path -LiteralPath $PythonLicense).Path
+$pyInstallerLicensePath = (Resolve-Path -LiteralPath $PyInstallerLicense).Path
 $exe = Join-Path $runtimeDir 'llama-completion.exe'
 if (-not (Test-Path -LiteralPath $exe -PathType Leaf)) {
     throw 'Required CPU llama-completion.exe was not found in LlamaBinDir'
@@ -50,12 +54,14 @@ try {
     Copy-Item -LiteralPath $knowledge -Destination (Join-Path $package 'knowledge\knowledge.db')
     Copy-Item -LiteralPath $llamaLicensePath -Destination (Join-Path $package 'licenses\llama.cpp-LICENSE')
     Copy-Item -LiteralPath $modelLicensePath -Destination (Join-Path $package 'licenses\Qwen3-Apache-2.0-LICENSE')
+    Copy-Item -LiteralPath $pythonLicensePath -Destination (Join-Path $package 'licenses\CPython-LICENSE')
+    Copy-Item -LiteralPath $pyInstallerLicensePath -Destination (Join-Path $package 'licenses\PyInstaller-COPYING.txt')
 
     foreach ($name in @('Start-AIHelp.cmd','Update-Knowledge.ps1','Verify-AIHelp.ps1')) {
         Copy-Item -LiteralPath (Join-Path $repoRoot ('distribution\templates\' + $name)) -Destination (Join-Path $package $name)
     }
     $settings = [ordered]@{ port = 8765; allowed_origins = @() }
-    $settings | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $package 'config\settings.json') -Encoding UTF8
+    [System.IO.File]::WriteAllText((Join-Path $package 'config\settings.json'), ($settings | ConvertTo-Json -Depth 4), (New-Object System.Text.UTF8Encoding($false)))
 
     $engine = Join-Path $package 'engine\DK-Knowledge-API.exe'
     $db = Join-Path $package 'knowledge\knowledge.db'
@@ -81,7 +87,7 @@ try {
         runtime_commit = $LlamaCommit
         immutable_files = $hashes
     }
-    $manifest | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath (Join-Path $package 'manifest.json') -Encoding UTF8
+    [System.IO.File]::WriteAllText((Join-Path $package 'manifest.json'), ($manifest | ConvertTo-Json -Depth 10), (New-Object System.Text.UTF8Encoding($false)))
 
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $package 'Verify-AIHelp.ps1')
     if ($LASTEXITCODE -ne 0) { throw 'Portable package verification failed' }
