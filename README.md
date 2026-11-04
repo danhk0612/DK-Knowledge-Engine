@@ -38,7 +38,8 @@ Windows 환경에서 **인터넷·Docker·GPU 없이 동작하는 범용 AI 도�
 - [T03 지식 검색 모듈 사용법](docs/T03_KNOWLEDGE_SEARCH.md)
 - [T04 CPU용 로컬 LLM 연결](docs/T04_LOCAL_LLM.md)
 - [T05 localhost HTTP API 사용법](docs/T05_LOCALHOST_API.md)
+- [T06 웹·Windows 프로그램 연동 예제](docs/T06_INTEGRATIONS.md)
 
 ## 현재 상태
 
-**T01 설계 및 T02~T05 구현·CI 검증 완료, PR #1~#4 검토 대기.** T05는 localhost HTTP API 4종을 제공하며 Windows·Ubuntu에서 전체 회귀가 통과했습니다. T04 실제 CPU 추론은 Ubuntu CI에서 검증했지만 Windows 8GB 실기 검증은 후속 단계입니다. 웹/C# 연동 예제(T06)와 설치 패키지(T07)는 아직 구현되지 않았습니다.
+**T01 설계 및 T02~T05 구현·CI 검증 완료, PR #1~#4 검토 대기.** T05는 localhost HTTP API 4종을 제공하며 Windows·Ubuntu에서 전체 회귀가 통과했습니다. T04 실제 CPU 추론은 Ubuntu CI에서 검증했지만 Windows 8GB 실기 검증은 후속 단계입니다. 웹/C# 연동 예제(T06)는 작업 브랜치에서 구현·검증 중이며 설치 패키지(T07)는 아직 구현되지 않았습니다.
