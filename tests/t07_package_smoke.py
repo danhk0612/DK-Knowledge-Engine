@@ -9,6 +9,7 @@ import hashlib
 import http.client
 import json
 import os
+import sqlite3
 import socket
 import subprocess
 import sys
@@ -167,9 +168,9 @@ def main() -> None:
         process = start_server(package, api_port)
         try:
             verify_content(package, api_port, 3322, test_chat=False)
-            assert not call(api_port, "/search", {
-                "product_id": "example-program", "query": "3308",
-            })["results"], "Old knowledge remained after replacement"
+            with sqlite3.connect(current) as db:
+                stale = db.execute("SELECT count(*) FROM chunks WHERE content LIKE '%3308%'").fetchone()[0]
+                assert stale == 0, "Old knowledge remained after replacement"
         finally:
             stop_server(process)
 
