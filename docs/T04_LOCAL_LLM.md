@@ -2,7 +2,7 @@
 
 ## 목표 및 범위
 
-T03 `search_documents()`의 근거 청크를 llama.cpp `llama-cli`에 전달하는 **제작/검증 단계의 최소 CPU 추론 계층**입니다. 이 작업에는 별도의 로컬 API 서버, 인터페이스, Docker, 파인튜닝, 자동 다운로드, 모델 배포 파일이 없습니다.
+T03 `search_documents()`의 근거 청크를 llama.cpp `llama-completion`에 전달하는 **제작/검증 단계의 최소 CPU 추론 계층**입니다. 이 작업에는 별도의 로컬 API 서버, 인터페이스, Docker, 파인튜닝, 자동 다운로드, 모델 배포 파일이 없습니다.
 
 T03의 `match_event()`는 별도 경로로 남아 있어 오류·이벤트 정확 매칭 시 LLM을 사용하지 않습니다.
 
@@ -22,13 +22,13 @@ T03의 `match_event()`는 별도 경로로 남아 있어 오류·이벤트 정�
 
 ## 로컬 사용 예
 
-Python 3.11 이상(제작 PC), T02/T03 코드, 로컬 `llama-cli` 실행 파일 및 GGUF 파일 준비 후:
+Python 3.11 이상(제작 PC), T02/T03 코드, 로컬 `llama-completion` 실행 파일 및 GGUF 파일 준비 후:
 
 ```python
 from llm.local_llm import LlamaCli, answer_from_knowledge
 
 local_llm = LlamaCli(
-    executable=r"C:\ai-runtime\llama-cli.exe",
+    executable=r"C:\ai-runtime\llama-completion.exe",
     model=r"C:\ai-runtime\Qwen3-1.7B-Q4_K_M.gguf",
     threads=4,
     ctx_size=4096,
@@ -44,7 +44,7 @@ result = answer_from_knowledge(
 print(result)
 ```
 
-모델은 질문 때마다 CLI 프로세스로 로드하므로 첫 응답과 동시 요청 처리 성능이 제한적입니다. 향후 T05의 API 서버 프로세스 생명주기/동시성 정책은 별도 결정입니다. `llama-cli`는 CPU 전용 `-ngl 0`으로 실행하고 GPU는 필요 없습니다.
+모델은 질문 때마다 CLI 프로세스로 로드하므로 첫 응답과 동시 요청 처리 성능이 제한적입니다. 향후 T05의 API 서버 프로세스 생명주기/동시성 정책은 별도 결정입니다. `llama-completion`는 CPU 전용 `-ngl 0`으로 실행하고 GPU는 필요 없습니다.
 
 출력 구조: `answer`(한국어 답변), `grounded`(검색 근거가 있고 지정된 모름 문구가 아닌가), `sources`(T03 출처), 성공 호출 시 `elapsed_seconds`(모델 호출 소요). 근거가 없으면 모델 호출 없이 `grounded=false`, `sources=[]`를 반환합니다.
 
@@ -64,3 +64,5 @@ python -m unittest discover -s tests -v
 - 모델은 근거 문서 내용을 명령이 아닌 데이터로 취급하도록 프롬프트를 구성하지만, 프롬프트 인젝션 및 환각이 완전히 방지되는 것은 아닙니다.
 - 추론 결과 품질/속도는 실제 CPU·운영체제·컨텍스트 길이에 따라 달라집니다. 8GB RAM 최소 사양은 T08에서 검증해야 합니다.
 - 초기에 Qwen3 1.7B Q4_K_M 단일 모델만 검증합니다. 모델 변경·Qwen3.5 2B 비교는 T08 범위입니다.
+
+실모델 출력 검증은 명령줄 안내 배너·프롬프트 재출력을 답변으로 오인하지 않도록 확인해야 합니다.
