@@ -4,6 +4,18 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+function Get-Sha256([string]$FilePath) {
+    $stream = [System.IO.File]::OpenRead($FilePath)
+    $hasher = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return [System.BitConverter]::ToString($hasher.ComputeHash($stream)).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $stream.Dispose()
+        $hasher.Dispose()
+    }
+}
+
 if ([string]::IsNullOrWhiteSpace($Root)) { $Root = $PSScriptRoot }
 $Root = (Resolve-Path -LiteralPath $Root).Path
 $manifestPath = Join-Path $Root 'manifest.json'
@@ -23,7 +35,7 @@ foreach ($entry in $manifest.immutable_files.PSObject.Properties) {
     if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
         throw "Missing package file: $relative"
     }
-    $actual = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash.ToLowerInvariant()
+    $actual = (Get-Sha256 $path)
     if ($actual -ne [string]$entry.Value) {
         throw "Package SHA-256 mismatch: $relative"
     }
@@ -35,7 +47,7 @@ if (-not (Test-Path -LiteralPath $db -PathType Leaf) -or -not (Test-Path -Litera
     throw 'Knowledge DB or knowledge.sha256 is missing'
 }
 $expected = (Get-Content -LiteralPath $expectedPath -Raw).Trim().ToLowerInvariant()
-$actual = (Get-FileHash -LiteralPath $db -Algorithm SHA256).Hash.ToLowerInvariant()
+$actual = (Get-Sha256 $db)
 if ($expected -notmatch '^[0-9a-f]{64}$' -or $actual -ne $expected) {
     throw 'Knowledge database SHA-256 mismatch'
 }
