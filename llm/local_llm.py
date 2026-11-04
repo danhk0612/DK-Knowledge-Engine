@@ -73,7 +73,6 @@ class LlamaCli:
             "--single-turn",
             "--simple-io",
             "--no-display-prompt",
-            "--no-show-timings",
             "--color", "off",
         ]
         result = subprocess.run(
