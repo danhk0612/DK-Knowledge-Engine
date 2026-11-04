@@ -49,7 +49,7 @@
 
 ## T03 — 검색 모듈
 
-**상태: 구현 및 로컬 회귀 검증 완료, GitHub CI/코드 검토 확인 중 (T02 기반 스택 PR)**
+**상태: 구현 완료, Windows·Ubuntu CI 통과, T02 기반 스택 PR 검토 중**
 
 범위:
 - `product_id`, 버전, `error_code`, `event_id`, `screen_id` 검색.
@@ -66,6 +66,8 @@
 산출물: `search/knowledge_search.py`, `tests/test_knowledge_search.py`, `tests/test_search_integration.py`, `docs/T03_KNOWLEDGE_SEARCH.md`.
 
 초기 버전 정책: 숫자·점 버전만 비교, 버전 경계 포함, 미지원 버전 표현은 일치시키지 않음. 여러 동일 우선순위 규칙은 임의 선택 없이 충돌 처리. 한국어 형태소 검색은 지원하지 않으며 한계를 테스트로 기록. 검색 모듈은 읽기 전용이고 HTTP/LLM 기능 없음.
+
+검증: 로컬 검색 회귀 13개 통과. GitHub Actions Python 3.11의 Windows/Ubuntu에서 T02+T03 전체 회귀 **각 25개 통과** ([run 41756062442](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41756062442)). 초기 Windows 실행의 테스트 SQLite 연결 종료 오류를 수정하고 재검증 완료. 실제 대상 사무용 PC 성능 측정은 T08 범위.
 
 변경 금지: 외부 벡터 DB 또는 임베딩 검색을 자동 채택하지 않음.
 
