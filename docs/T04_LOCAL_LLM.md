@@ -66,3 +66,11 @@ python -m unittest discover -s tests -v
 - 초기에 Qwen3 1.7B Q4_K_M 단일 모델만 검증합니다. 모델 변경·Qwen3.5 2B 비교는 T08 범위입니다.
 
 실모델 출력 검증은 명령줄 안내 배너·프롬프트 재출력을 답변으로 오인하지 않도록 확인해야 합니다.
+
+## 2026-11-04 검증 기록
+
+- 자동 회귀: Python 3.11, Windows 및 Ubuntu **각 38개 통과** — [Actions run 41761185105](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41761185105).
+- 실모델: Linux GitHub Actions CPU 환경에서 llama.cpp **v0.8.0** 빌드 성공, **Qwen3-1.7B-Q4_K_M.gguf SHA-256 일치** — [Actions run 41761185104](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41761185104).
+- 실제 단일 RAG 질문: **“데이터베이스 연결 오류가 나면 DB 서버 포트 3308을 확인해야 합니다.”**; 출처 `example-program/manuals/setup.md`, `grounded=true`, 모델 호출 소요 **5.27초**(해당 CI 한 번의 측정값).
+- 첫 시도에서는 명령줄 대화 배너·프롬프트가 답변으로 잘못 수집되는 문제와 복잡한 프롬프트에서 출력이 불안정한 문제를 발견해, **단일 응답 llama-completion + 간결한 본문/질문 입력**으로 수정 후 실추론까지 검증했습니다.
+- 보류: Windows 10/11 실기, 8GB 최소 사양 및 다양한 문서 품질·정답률·동시성의 광범위한 검증(T08). 서버·배포(T05~T07)는 미구현.
