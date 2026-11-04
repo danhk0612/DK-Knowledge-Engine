@@ -36,6 +36,6 @@ jobs:
       - name: Real Qwen CPU answer from indexed source
         shell: bash
         run: |
-          python tests/smoke_t04_cpu.py \
+          PYTHONPATH=. python tests/smoke_t04_cpu.py \
             --llama-cli /tmp/llama-build/bin/llama-cli \
             --model /tmp/qwen3-1.7b-q4_k_m.gguf
