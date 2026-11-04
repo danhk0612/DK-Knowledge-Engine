@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import http.client
 import json
+import subprocess
 import threading
 import unittest
 import tempfile
@@ -258,6 +259,33 @@ class LocalApiTests(unittest.TestCase):
             status, result, _ = self.request("POST", "/search", **kwargs)
             self.assertEqual(status, code, (kwargs, result))
         self.assertEqual(self.request("POST", "/search", request)[0], 200)
+
+    def test_model_timeout_and_runtime_failure_are_status_errors(self):
+        class Failing:
+            def __init__(self, error):
+                self.error = error
+            def generate(self, system, user):
+                raise self.error
+
+        self.server.generator = Failing(
+            subprocess.TimeoutExpired(cmd=["llama-completion"], timeout=1)
+        )
+        status, result, _ = self.request("POST", "/chat", {
+            "product_id": "app-a", "version": "2.5", "question": "연결 오류",
+        })
+        self.assertEqual((status, result["error"]), (504, "llm_timeout"))
+
+        self.server.generator = Failing(RuntimeError("model internal details"))
+        status, result, _ = self.request("POST", "/chat", {
+            "product_id": "app-a", "version": "2.5", "question": "연결 오류",
+        })
+        self.assertEqual((status, result["error"]), (503, "llm_inference_failed"))
+        self.assertNotIn("model internal details", str(result))
+
+    def test_untrusted_origin_list_is_rejected_at_startup(self):
+        for origin in ("*", "null", "https://trusted.example/path", "https://trusted.example/"):
+            with self.assertRaises(ValueError):
+                KnowledgeHttpServer(self.server.database, port=0, allowed_origins=(origin,))
 
     def test_invalid_event_without_identifiers_fails(self):
         status, body, _ = self.request("POST", "/event", {
