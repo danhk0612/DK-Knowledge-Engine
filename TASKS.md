@@ -143,7 +143,7 @@
 
 ## T07 — 오프라인 배포 및 지식 갱신 패키징
 
-**상태: 미착수, T02~T06 결과 필요**
+**상태: 구현 및 Windows CI 검증 중, T06 기반 스택 PR 검토 단계**
 
 범위:
 - 엔진 실행 파일·llama.cpp 런타임·GGUF·지식 DB·설정 묶음.
@@ -156,6 +156,10 @@
 - DB 업데이트 후 이전 내용 수정·삭제가 반영됨.
 - 기존 코드와 지식 DB의 독립적인 교체 가능성 검증.
 - 업데이트 중 손상/부분 적용 방지 및 되돌림 절차 기록.
+
+산출물: `distribution/server_entry.py`, `distribution/Build-Portable.ps1`, `distribution/templates/`, `tests/test_distribution.py`, `tests/t07_prepare_db.py`, `tests/t07_package_smoke.py`, `.github/workflows/t07-portable-windows.yml`, `docs/T07_WINDOWS_PACKAGE.md`.
+
+구성: PyInstaller onedir 엔진, llama.cpp v0.8.0 CPU 실행 파일/의존 DLL, SHA-256 검증한 Qwen3 1.7B Q4_K_M GGUF, 사전 생성한 SQLite FTS5 DB, 설정, 라이선스, 개별 파일 무결성 manifest. 지식 DB는 별도 SHA와 SQLite 검사 후 전체 교체·롤백하며 사용자 환경에서 재색인하지 않음. 정식 Release/tag 미생성.
 
 변경 금지: 온라인 업데이트 서버, 델타 패치 시스템 선제 구축.
 
@@ -192,4 +196,4 @@ T07 오프라인 패키지
 T08 최종 검증
 ```
 
-**다음 단계:** T06 CI/코드 검토 완료 후 T02~T06 의존 PR 병합 결정. 그 다음 T07 오프라인 Windows 배포 패키지 작업. 직접 병합/Release/tag 없음.
+**다음 단계:** T07 Windows 실제 ZIP CI 검증 및 T02~T07 의존 스택 PR 검토. 이후 T08 저사양 PC 실기·정답률 비교 검증. 직접 병합/Release/tag 없음.
