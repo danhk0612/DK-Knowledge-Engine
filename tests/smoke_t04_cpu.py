@@ -28,6 +28,12 @@ def main() -> None:
         db = tmp / "knowledge.db"
         build(tmp / "sources", db)
         runner = LlamaCli(args.llama_cli, args.model, threads=2, max_tokens=128, timeout_seconds=240)
+        # Diagnostic control: can this model extract an explicit value at all?
+        control = runner.generate(
+            "답변은 간단한 한국어 한 문장으로 하세요.",
+            "매뉴얼: 연결 실패 시 DB 서버 포트 3308을 확인하십시오. 질문: 확인할 포트 번호는? 답변:",
+        )
+        print("DIRECT_CONTROL_ANSWER:", repr(control))
         answer = answer_from_knowledge(
             db,
             product_id="example-program",
