@@ -1,9 +1,10 @@
 [CmdletBinding()]
 param(
-    [string]$Root = (Split-Path -Parent $MyInvocation.MyCommand.Path)
+    [string]$Root
 )
 
 $ErrorActionPreference = 'Stop'
+if ([string]::IsNullOrWhiteSpace($Root)) { $Root = $PSScriptRoot }
 $Root = (Resolve-Path -LiteralPath $Root).Path
 $manifestPath = Join-Path $Root 'manifest.json'
 if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
