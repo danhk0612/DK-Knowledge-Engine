@@ -16,6 +16,7 @@ import sys
 import tempfile
 import time
 import zipfile
+from contextlib import closing
 from pathlib import Path
 
 from t07_prepare_db import produce
@@ -202,7 +203,7 @@ def main() -> None:
         process = start_server(package, api_port)
         try:
             verify_content(package, api_port, 3322, test_chat=False)
-            with sqlite3.connect(current) as db:
+            with closing(sqlite3.connect(current)) as db:
                 stale = db.execute("SELECT count(*) FROM chunks WHERE content LIKE '%3308%'").fetchone()[0]
                 assert stale == 0, "Old knowledge remained after replacement"
         finally:
