@@ -134,7 +134,7 @@ class LlamaCliTests(unittest.TestCase):
         self.assertIn("--reasoning", argv)
         self.assertEqual(argv[argv.index("--reasoning") + 1], "off")
         self.assertEqual(argv[argv.index("-ngl") + 1], "0")
-        self.assertEqual(argv[argv.index("-m") + 1], str(self.model))
+        self.assertEqual(argv[argv.index("-m") + 1], str(self.model.resolve()))
         self.assertEqual(argv[argv.index("-p") + 1], "user text")
         self.assertFalse(run.call_args.kwargs.get("shell", False))
         self.assertEqual(run.call_args.kwargs["timeout"], 180)
