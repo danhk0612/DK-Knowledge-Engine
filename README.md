@@ -36,7 +36,8 @@ Windows 환경에서 **인터넷·Docker·GPU 없이 동작하는 범용 AI 도�
 - [T02~T08 작업 계획 및 완료 조건](TASKS.md)
 - [T02 Knowledge Builder 사용법](docs/T02_KNOWLEDGE_BUILDER.md)
 - [T03 지식 검색 모듈 사용법](docs/T03_KNOWLEDGE_SEARCH.md)
+- [T04 CPU용 로컬 LLM 연결](docs/T04_LOCAL_LLM.md)
 
 ## 현재 상태
 
-**T01 기준 문서화, T02 Builder, T03 읽기 전용 검색 모듈 구현 단계.** T03은 작업 브랜치 검토·CI 확인 중입니다. LLM(T04), localhost API(T05), 설치 패키지(T07)는 아직 구현되지 않았습니다. 세부 상태는 TASKS.md를 참조합니다.
+**T01~T03 구현, T04 로컬 LLM 연결 작업 브랜치 검토 단계.** T04는 검색된 근거를 CPU용 llama.cpp에 전달하며, 실제 Qwen 모델을 이용한 검증은 PR의 CI 결과를 확인해야 합니다. localhost API(T05), 설치 패키지(T07)는 아직 구현되지 않았습니다. 세부 상태는 TASKS.md를 참조합니다.
