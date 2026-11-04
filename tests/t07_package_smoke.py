@@ -63,6 +63,43 @@ def pick_port() -> int:
         return server.getsockname()[1]
 
 
+def offline_environment() -> dict[str, str]:
+    env = os.environ.copy()
+    env["PATH"] = os.environ["SystemRoot"] + r"\System32;" + os.environ["SystemRoot"]
+    env["HTTP_PROXY"] = "http://127.0.0.1:1"
+    env["HTTPS_PROXY"] = "http://127.0.0.1:1"
+    env["ALL_PROXY"] = "http://127.0.0.1:1"
+    return env
+
+
+def probe_cpu_runtime(package: Path) -> None:
+    """Distinguish native DLL/CLI loading failures from Python HTTP errors."""
+    executable = package / "runtime" / "llama-completion.exe"
+    model = package / "models" / "Qwen3-1.7B-Q4_K_M.gguf"
+    runtime_files = sorted(p.name for p in executable.parent.iterdir() if p.is_file())
+    print("T07_RUNTIME_FILES:", runtime_files, flush=True)
+    command = [
+        str(executable),
+        "-m", str(model),
+        "-sys", "답변은 간단한 한국어로 하세요.",
+        "-p", "매뉴얼: 연결 오류 시 포트 3308을 확인하세요.\\n질문: 확인할 포트는? 답변:",
+        "-t", "4", "-c", "4096", "-n", "64", "-ngl", "0",
+        "--temp", "0", "--reasoning", "off", "--jinja",
+        "--single-turn", "--simple-io", "--no-display-prompt", "--color", "off",
+    ]
+    result = subprocess.run(
+        command, input="", text=True, capture_output=True, encoding="utf-8",
+        errors="replace", cwd=package, env=offline_environment(), timeout=180,
+    )
+    print(f"T07_DIRECT_CLI_EXIT={result.returncode}", flush=True)
+    print("T07_DIRECT_CLI_STDERR:", result.stderr[-2500:], flush=True)
+    print("T07_DIRECT_CLI_STDOUT:", result.stdout[-1000:], flush=True)
+    if result.returncode != 0:
+        raise AssertionError("Standalone packaged llama-completion failed before HTTP layer")
+    if "3308" not in result.stdout:
+        raise AssertionError("Standalone packaged llama-completion did not answer from evidence")
+
+
 def start_server(package: Path, port: int) -> subprocess.Popen:
     settings = package / "config" / "settings.json"
     settings.write_text(
@@ -70,11 +107,7 @@ def start_server(package: Path, port: int) -> subprocess.Popen:
     )
     exe = package / "engine" / "DK-Knowledge-API.exe"
     # The target executable is self-contained; no system Python or network setup.
-    env = os.environ.copy()
-    env["PATH"] = os.environ["SystemRoot"] + r"\System32;" + os.environ["SystemRoot"]
-    env["HTTP_PROXY"] = "http://127.0.0.1:1"
-    env["HTTPS_PROXY"] = "http://127.0.0.1:1"
-    env["ALL_PROXY"] = "http://127.0.0.1:1"
+    env = offline_environment()
     process = subprocess.Popen(
         [str(exe)], cwd=package, env=env,
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
@@ -142,6 +175,7 @@ def main() -> None:
         checked = powershell(verify)
         assert "PACKAGE_VERIFY_OK" in checked.stdout, checked.stdout
         print("T07_PACKAGE_VERIFY_OK", flush=True)
+        probe_cpu_runtime(package)
 
         api_port = pick_port()
         process = start_server(package, api_port)
