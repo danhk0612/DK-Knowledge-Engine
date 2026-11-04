@@ -1,0 +1,11 @@
+{
+  "name": "dk-knowledge-engine-web-integration-tests",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "playwright": "1.57.0"
+  },
+  "scripts": {
+    "test": "node ../../tests/t06_browser.mjs"
+  }
+}
