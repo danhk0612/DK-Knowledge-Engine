@@ -97,7 +97,7 @@
 
 ## T05 — localhost API
 
-**상태: 미착수, T03/T04 기능 필요**
+**상태: 구현 완료, Windows·Ubuntu CI 통과, T04 기반 스택 PR 검토 중**
 
 범위:
 - `GET /health`, `POST /search`, `POST /chat`, `POST /event`.
@@ -109,6 +109,12 @@
 - `127.0.0.1`에서만 리슨.
 - 무매칭/근거 없음/오류 규칙 충돌의 일관성 확인.
 - 외부 사이트에서 임의 호출 가능한 구성 방지 검증.
+
+산출물: `api/localhost_api.py`, `api/__init__.py`, `tests/test_localhost_api.py`, `docs/T05_LOCALHOST_API.md`.
+
+검증: [GitHub Actions Windows/Ubuntu Python 3.11 각각 **56개 통과**](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41762883450). T02 Builder로 생성한 DB를 실제 localhost TCP에 연동하여 API 4종, 제품·버전 경계, 오류 규칙, 출처, 근거 없는 질문, 동시 LLM 요청 제한, Host/Origin/CORS, Private Network preflight, JSON 오류·모델 시간 초과 등을 검증. HTTP 테스트의 LLM은 모의 생성기; 실제 Qwen CPU 검증은 T04에서 별도 통과. 브라우저에서 내부망 웹 프로그램의 실제 호출은 T06에서 검증.
+
+정책: `127.0.0.1`에만 바인딩, Host 정확 검사, 브라우저 Origin은 기본 동일 Origin 및 명시 허용한 Origin만. Origin 없는 Windows 로컬 프로세스는 접근 가능하며 이는 인증 수단이 아님. 채팅은 동시 1회, 검색·이벤트는 별도 처리. Docker·외부 서버·인증 서비스 미포함.
 
 변경 금지: 인증 서비스·온라인 기능 추가.
 
@@ -180,4 +186,4 @@ T07 오프라인 패키지
 T08 최종 검증
 ```
 
-**다음 단계:** T02/T03/T04 의존 PR 검토 및 병합 결정 후 T05 localhost API 개발. 직접 병합/Release/tag 없음. T04 LLM 검증은 별도 작업으로 진행할 수 있다.
+**다음 단계:** T02~T05 의존 스택 PR #1~#4 검토·병합 결정 후 T06 웹·Windows 연동 예제. 직접 병합/Release/tag 없음.
