@@ -25,8 +25,8 @@ jobs:
           git clone --depth 1 --branch v0.8.0 https://github.com/ggml-org/llama.cpp.git /tmp/llama.cpp
           git -C /tmp/llama.cpp rev-parse HEAD
           cmake -S /tmp/llama.cpp -B /tmp/llama-build -DCMAKE_BUILD_TYPE=Release -DGGML_CUDA=OFF -DLLAMA_BUILD_TESTS=OFF
-          cmake --build /tmp/llama-build --config Release --target llama-cli --parallel 3
-          /tmp/llama-build/bin/llama-cli --version
+          cmake --build /tmp/llama-build --config Release --target llama-completion --parallel 3
+          /tmp/llama-build/bin/llama-completion --version
       - name: Fetch model and verify pinned SHA-256
         shell: bash
         run: |
@@ -37,5 +37,5 @@ jobs:
         shell: bash
         run: |
           PYTHONPATH=. python tests/smoke_t04_cpu.py \
-            --llama-cli /tmp/llama-build/bin/llama-cli \
+            --llama-completion /tmp/llama-build/bin/llama-completion \
             --model /tmp/qwen3-1.7b-q4_k_m.gguf
