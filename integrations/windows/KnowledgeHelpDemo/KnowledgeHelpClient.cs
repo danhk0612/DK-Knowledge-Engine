@@ -1,5 +1,6 @@
 using System.Net.Http;
-using System.Net.Http.Json;
+using System.Net.Http.Headers;
+using System.Text;
 using System.Text.Json;
 
 namespace KnowledgeHelpDemo;
@@ -16,7 +17,9 @@ public sealed class KnowledgeHelpClient : IDisposable
 
     private async Task<JsonElement> PostAsync(string path, object body)
     {
-        using var response = await _http.PostAsJsonAsync(path, body);
+        // T05 accepts a fixed Content-Length, not chunked transfer encoding.
+        using var content = new StringContent(JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
+        using var response = await _http.PostAsync(path, content);
         response.EnsureSuccessStatusCode();
         using var json = await JsonDocument.ParseAsync(
             await response.Content.ReadAsStreamAsync());
