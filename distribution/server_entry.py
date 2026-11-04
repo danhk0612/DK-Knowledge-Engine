@@ -93,6 +93,17 @@ def run(argv: list[str] | None = None, *, root: Path | None = None) -> int:
     except (OSError, json.JSONDecodeError, ValueError, sqlite3.Error) as exc:
         print(f"Portable package startup failed: {exc}", file=sys.stderr)
         return 1
+    # PyInstaller's Windows bootloader sets a DLL directory inherited by
+    # subprocesses. The independent llama.cpp executable must search its own
+    # runtime directory rather than the frozen Python engine's _internal DLLs.
+    # Restore the standard DLL search order before starting the HTTP server.
+    # https://pyinstaller.org/en/stable/common-issues-and-pitfalls.html
+    if sys.platform == "win32" and getattr(sys, "frozen", False):
+        import ctypes
+
+        if not ctypes.windll.kernel32.SetDllDirectoryW(None):
+            raise OSError("Unable to restore native Windows DLL search order")
+
     # Existing API handles loopback binding and CORS; no new network listeners.
     return api_main(cli)
 
