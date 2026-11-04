@@ -120,7 +120,7 @@
 
 ## T06 — 웹·Windows 연동 예제
 
-**상태: 구현 및 Windows·Ubuntu 통합 검증 진행 중, T05 기반 스택 PR 검토 단계**
+**상태: 구현·Windows/Ubuntu 브라우저 및 Windows WPF·C# 통합 검증 완료, T05 기반 스택 PR 검토 중**
 
 범위:
 - JavaScript 기반 웹 프로그램에서 질문/오류·상태 이벤트 호출.
@@ -136,6 +136,8 @@
 산출물: `integrations/web/`, `integrations/windows/KnowledgeHelpDemo/`(.NET 10 WPF), `integrations/windows/KnowledgeHelpSmoke/`, `tests/t06_fixture.py`, `tests/t06_browser.mjs`, `tests/t06_windows_smoke.py`, `docs/T06_INTEGRATIONS.md`, `.github/workflows/t06-integrations.yml`.
 
 검증: Windows/Ubuntu Headless Chromium의 실제 루프백 HTTP 호출, 허용되지 않은 브라우저 Origin 차단, Windows WPF 컴파일·동일 C# 클라이언트 소스의 HTTP 호출. 단, 브라우저가 다른 주소 공간의 HTTPS 사내 웹페이지에서 LNA `loopback-network` 권한을 요청하는 상황은 CI 루프백 테스트만으로 검증되지 않으므로 별도 Windows 실기 검증 필요.
+
+자동 검증 결과: [T06 Actions run 41772218386](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41772218386) Windows Chromium 성공, Ubuntu Chromium 성공, Windows WPF 0 warnings/0 errors 빌드 및 동일 C# 클라이언트의 health/search/event/chat 실제 HTTP 호출 성공. [T02~T05 전체 회귀 run 41772218397](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41772218397) 성공. 실제 HTTPS 사내 웹→localhost LNA 승인 및 Windows 8GB 실기는 미검증.
 
 변경 금지: 사용자 제품 코드 직접 수정.
 

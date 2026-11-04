@@ -1,6 +1,6 @@
 # T06 — 웹·Windows 프로그램 연동 예제
 
-- 상태: T06 검증 대상. 실제 클라이언트 설치·고객 프로그램 통합과 오프라인 배포는 T07~T08에서 별도 확인.
+- 상태: **T06 구현 및 자동 검증 완료(검토용 PR)**. 실제 고객 프로그램 통합과 오프라인 설치·배포는 T07~T08에서 별도 확인.
 - 기준: T05 `http://127.0.0.1:8765` API 네 종류, 정확한 제품 ID와 버전 전달, 근거 출처 표시.
 - 사용한 외부 라이브러리: **실행 예제에는 없음**(브라우저 기본 `fetch`, .NET 기본 `HttpClient`). Playwright는 GitHub Actions의 브라우저 테스트에서만 사용.
 
@@ -69,3 +69,13 @@ Chrome 142 이후 웹사이트→로컬 PC 또는 인트라넷 사이트→루�
 - HTTP 테스트의 LLM 출력은 모의 생성기를 사용합니다. 실제 GGUF 추론은 T04의 독립 검증 결과를 따릅니다.
 
 개발·CI 용도로만 도구 다운로드가 필요할 수 있으나, 프로젝트에서 요구하는 **사용자 실행 시 완전 오프라인** 원칙은 유지됩니다.
+
+## 5. 검증 실행 결과 (2026-11-04)
+
+- [T06 Windows/Ubuntu 브라우저·Windows C# CI](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41772218386): **3개 작업 모두 성공**.
+- Windows Chromium: 실제 웹 UI에서 `/health`, `/search`, `/chat`, `/event` 호출 및 출처 표시 성공. 허용되지 않은 Origin 차단과 원문 HTML 비실행 검증 성공.
+- Ubuntu Chromium: 같은 항목 통과.
+- Windows (.NET 10): **WPF 프로젝트 Build succeeded, 0 Warning(s), 0 Error(s)**. 동일한 C# `KnowledgeHelpClient` 코드로 실제 `127.0.0.1` API의 네 엔드포인트를 호출해 `T06 C# HTTP client smoke OK: health/search/event/chat` 확인.
+- [T02~T05 기존 회귀 테스트](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41772218397): 성공.
+- 검증 중 C#의 `PostAsJsonAsync`가 보낸 전송 형식이 T05의 `Content-Length` 요구와 맞지 않아 400이 발생했으나, T05 코드는 유지하고 T06 클라이언트를 고정 길이 `StringContent` JSON으로 수정해 통과.
+- **검증하지 않은 범위:** 실제 사내 HTTPS 웹사이트의 LNA 권한 프롬프트, Chrome/Edge 회사 정책, 실사용 Windows 10/11 데스크톱에서 GUI 직접 클릭·사용성, GPU 없는 8GB PC의 성능, 오프라인 설치 패키지(T07).
