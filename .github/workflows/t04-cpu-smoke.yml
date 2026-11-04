@@ -37,5 +37,5 @@ jobs:
         shell: bash
         run: |
           PYTHONPATH=. python tests/smoke_t04_cpu.py \
-            --llama-completion /tmp/llama-build/bin/llama-completion \
+            --llama-cli /tmp/llama-build/bin/llama-completion \
             --model /tmp/qwen3-1.7b-q4_k_m.gguf
