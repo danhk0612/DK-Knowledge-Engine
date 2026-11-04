@@ -4,6 +4,7 @@ import json
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 
 from builder.knowledge_builder import build
@@ -71,7 +72,7 @@ class BuilderSearchIntegrationTests(unittest.TestCase):
         build(self.root, self.db, rebuild=True)
         self.assertEqual(expected, search_documents(self.db,
                                                      product_id="app-a", query="network"))
-        with sqlite3.connect(self.db) as conn:
+        with closing(sqlite3.connect(self.db)) as conn:
             conn.execute("INSERT INTO chunks_fts(chunks_fts) VALUES('integrity-check')")
 
 
