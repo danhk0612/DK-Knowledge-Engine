@@ -11,6 +11,18 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+function Get-Sha256([string]$FilePath) {
+    $stream = [System.IO.File]::OpenRead($FilePath)
+    $hasher = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return [System.BitConverter]::ToString($hasher.ComputeHash($stream)).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $stream.Dispose()
+        $hasher.Dispose()
+    }
+}
+
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $dataDir = Join-Path $root 'knowledge'
 $current = Join-Path $dataDir 'knowledge.db'
@@ -51,7 +63,7 @@ try {
     if ($ExpectedSha256 -notmatch '^[0-9a-f]{64}$') {
         throw 'ExpectedSha256 must contain exactly 64 hexadecimal characters'
     }
-    $actual = (Get-FileHash -LiteralPath $temporary -Algorithm SHA256).Hash.ToLowerInvariant()
+    $actual = (Get-Sha256 $temporary)
     if ($actual -ne $ExpectedSha256) {
         throw 'Incoming knowledge database SHA-256 mismatch'
     }
@@ -60,7 +72,7 @@ try {
         throw 'Incoming knowledge database failed schema / integrity verification'
     }
 
-    $oldHash = (Get-FileHash -LiteralPath $current -Algorithm SHA256).Hash.ToLowerInvariant()
+    $oldHash = (Get-Sha256 $current)
     # File.Replace is an atomic same-volume replacement on Windows.
     # If it fails (for example because the database is open), current is intact.
     [System.IO.File]::Replace($temporary, $current, $backup, $true)
