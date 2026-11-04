@@ -1,6 +1,7 @@
 """T07 Python-side portable entrypoint and SQLite validation regression tests."""
 
 import json
+from contextlib import closing
 import sqlite3
 import tempfile
 import unittest
@@ -31,7 +32,7 @@ class PortableEntrypointTests(unittest.TestCase):
             verify_database(invalid)
 
     def test_unknown_schema_rejected(self):
-        with sqlite3.connect(self.db) as conn:
+        with closing(sqlite3.connect(self.db)) as conn, conn:
             conn.execute("UPDATE schema_info SET value='999' WHERE key='schema_version'")
         with self.assertRaisesRegex(ValueError, "schema version"):
             verify_database(self.db)
