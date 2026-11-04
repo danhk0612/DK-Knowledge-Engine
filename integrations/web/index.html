@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DK Knowledge Engine — 웹 연동 예제</title>
+  <style>
+    body {font: 15px/1.6 system-ui, sans-serif; margin: 2rem auto; padding: 0 1rem; max-width: 760px;}
+    label {display: block; margin: 0.65rem 0;}
+    input {width: 100%; padding: .45rem; box-sizing: border-box;}
+    button {margin: .4rem .35rem .4rem 0; padding: .45rem .8rem;}
+    output {white-space: pre-wrap; display: block; border: 1px solid #888; padding: 1rem; min-height: 6rem;}
+    #sources {white-space: pre-wrap; font-size: .85rem; margin-top: 1rem;}
+  </style>
+</head>
+<body>
+  <h1>DK Knowledge Engine — 웹 연동 예제</h1>
+  <p>이 예제는 같은 PC의 <code>http://127.0.0.1:8765</code> API만 호출합니다.</p>
+  <label>제품 ID <input id="product" value="example-program"></label>
+  <label>제품 버전 <input id="version" value="2.1.0"></label>
+  <label>검색·질문 <input id="question" value="데이터베이스 연결 오류"></label>
+  <button id="health" type="button">엔진 상태</button>
+  <button id="search" type="button">매뉴얼 검색</button>
+  <button id="chat" type="button">AI 질문</button>
+  <fieldset>
+    <legend>오류·상태 이벤트</legend>
+    <label>이벤트 ID <input id="event" value="connection_failed"></label>
+    <label>오류 코드 <input id="code" value="DB-1001"></label>
+    <label>화면 ID <input id="screen" value="db_settings"></label>
+    <button id="event-help" type="button">오류 도움말</button>
+  </fieldset>
+  <h2>결과</h2>
+  <output id="result" aria-live="polite">준비</output>
+  <div id="sources" aria-label="문서 출처"></div>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
