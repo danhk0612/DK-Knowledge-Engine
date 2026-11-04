@@ -36,7 +36,7 @@ jobs:
           git clone --depth 1 --branch v0.8.0 https://github.com/ggml-org/llama.cpp.git "$env:RUNNER_TEMP\llama.cpp"
           $commit = git -C "$env:RUNNER_TEMP\llama.cpp" rev-parse HEAD
           $commit | Set-Content -Path "$env:RUNNER_TEMP\llama-commit.txt"
-          cmake -S "$env:RUNNER_TEMP\llama.cpp" -B "$env:RUNNER_TEMP\llama-build" -A x64 -DGGML_CUDA=OFF -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DLLAMA_CURL=OFF -DLLAMA_BUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+          cmake -S "$env:RUNNER_TEMP\llama.cpp" -B "$env:RUNNER_TEMP\llama-build" -A x64 -DGGML_CUDA=OFF -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DLLAMA_OPENSSL=OFF -DLLAMA_BUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
           if ($LASTEXITCODE -ne 0) { throw 'CMake configure failed' }
           cmake --build "$env:RUNNER_TEMP\llama-build" --config Release --target llama-completion --parallel 4
           if ($LASTEXITCODE -ne 0) { throw 'CMake build failed' }
