@@ -81,7 +81,7 @@ def probe_cpu_runtime(package: Path) -> None:
     command = [
         str(executable),
         "-m", str(model),
-        "-sys", "답변은 간단한 한국어로 하세요.",
+        "-sys", "답변은 간단한 한국어 한 문장으로 하세요.",
         "-p", "매뉴얼: 연결 오류 시 포트 3308을 확인하세요.\\n질문: 확인할 포트는? 답변:",
         "-t", "4", "-c", "4096", "-n", "64", "-ngl", "0",
         "--temp", "0", "--reasoning", "off", "--jinja",
