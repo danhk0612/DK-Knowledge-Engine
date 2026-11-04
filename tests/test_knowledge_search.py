@@ -41,13 +41,13 @@ class SearchTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.path = Path(self.temp.name) / "knowledge.db"
-        with closing(sqlite3.connect(self.path)) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             db.executescript(SCHEMA)
             db.execute("INSERT INTO schema_info VALUES ('schema_version', '1')")
 
     def doc(self, doc_id, product="app-a", start=None, end=None,
             text="설치 오류 해결 안내", title="Manual", page=2):
-        with closing(sqlite3.connect(self.path)) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("INSERT INTO documents VALUES (?,?,?,?,?,?,?,?,?,?)",
                        (doc_id, product, title, f"{product}/manuals/{doc_id}.md",
                         "md", start, end, "ko", "sha", "meta"))
@@ -60,7 +60,7 @@ class SearchTests(unittest.TestCase):
 
     def rule(self, rule_id, doc_id, *, event=None, error=None, screen=None,
              start=None, end=None):
-        with closing(sqlite3.connect(self.path)) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("INSERT INTO help_rules VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                        (rule_id, "app-a", event, error, screen, start, end,
                         doc_id, f"{doc_id}:000001", "도움말", f"조치 {rule_id}",
@@ -113,7 +113,7 @@ class SearchTests(unittest.TestCase):
     def test_updated_and_removed_fts_data(self):
         self.doc("a", text="oldtoken")
         self.assertEqual(len(self.docs("oldtoken")), 1)
-        with closing(sqlite3.connect(self.path)) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             rowid = db.execute("SELECT id FROM chunks WHERE chunk_id='a:000001'").fetchone()[0]
             db.execute("""INSERT INTO chunks_fts(chunks_fts, rowid, section_title, content)
                           VALUES ('delete', ?, ?, ?)""", (rowid, "Troubleshooting", "oldtoken"))
@@ -122,7 +122,7 @@ class SearchTests(unittest.TestCase):
                        (rowid, "Troubleshooting", "newtoken"))
         self.assertEqual(self.docs("oldtoken"), [])
         self.assertEqual(len(self.docs("newtoken")), 1)
-        with closing(sqlite3.connect(self.path)) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("DELETE FROM chunks_fts WHERE rowid=?", (rowid,))
             db.execute("DELETE FROM chunks WHERE id=?", (rowid,))
         self.assertEqual(self.docs("newtoken"), [])
@@ -179,7 +179,7 @@ class SearchTests(unittest.TestCase):
         self.assertEqual(len(self.docs("hello")), 1)
 
     def test_wrong_database_schema(self):
-        with closing(sqlite3.connect(self.path)) as db:
+        with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("UPDATE schema_info SET value='2' WHERE key='schema_version'")
         with self.assertRaisesRegex(ValueError, "schema version"):
             self.docs("hello")
