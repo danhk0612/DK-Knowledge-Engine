@@ -88,7 +88,7 @@ def run_browser(channel: str, api_port: int, web_port: int, forbidden_port: int)
 
             def click_and_check(action: str) -> str:
                 page.locator(f'button[data-action="{action}"]').click()
-                page.locator("#status").get_by_text("요청 성공").wait_for(timeout=12000)
+                page.locator("#status").filter(has_text="요청 성공").wait_for(timeout=12000)
                 return page.locator("#result").inner_text()
 
             search = json.loads(click_and_check("search"))
@@ -119,7 +119,7 @@ def run_browser(channel: str, api_port: int, web_port: int, forbidden_port: int)
             denied.locator("#version").fill("2.5")
             denied.locator("#question").fill("연결")
             denied.locator('button[data-action="search"]').click()
-            denied.locator("#status").get_by_text("연결 실패", exact=False).wait_for(timeout=12000)
+            denied.locator("#status").filter(has_text="연결 실패").wait_for(timeout=12000)
             assert not denied.locator("#result").inner_text().strip()
             print(f"{channel}: localhost browser CRUD-API and forbidden Origin PASS", flush=True)
             context.close()
@@ -146,9 +146,7 @@ def run_browser(channel: str, api_port: int, web_port: int, forbidden_port: int)
             permission_text = sample.locator("#permission").inner_text()
             sample.locator('button[data-action="search"]').click()
             try:
-                sample.locator("#status").get_by_text(
-                    "요청 성공", exact=True
-                ).wait_for(timeout=3500)
+                sample.locator("#status").filter(has_text="요청 성공").wait_for(timeout=3500)
                 result = "granted"
             except Exception:
                 result = sample.locator("#status").inner_text()
