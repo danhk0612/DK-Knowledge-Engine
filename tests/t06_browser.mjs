@@ -86,7 +86,49 @@ try {
   await securePage.locator("#search").click();
   await waitResult(securePage, "3308");
   assert.ok((await securePage.locator("#sources").innerText()).includes("example-program/manuals/setup.md"));
+  // Same allowed HTTPS origin, but a site CSP forbids localhost connections.
+  // Browser permission and CORS cannot override connect-src restrictions.
+  await httpsContext.route(httpsOrigin + "/csp.html", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "text/html; charset=utf-8",
+      headers: { "Content-Security-Policy": "connect-src 'self'" },
+      body: readFileSync(new URL("../integrations/web/index.html", import.meta.url)),
+    });
+  });
+  const cspPage = await httpsContext.newPage();
+  await cspPage.goto(httpsOrigin + "/csp.html");
+  await cspPage.locator("#search").click();
+  await waitResult(cspPage, "요청 실패:");
+  assert.equal(await cspPage.locator("#sources").innerText(), "");
   await httpsContext.close();
+
+  // A second HTTPS origin with permission granted, but NOT listed in the
+  // T05 allowed origins, must still fail CORS/Origin checks.
+  const deniedHttpsOrigin = "https://untrusted.example";
+  const deniedHttpsContext = await browser.newContext();
+  await deniedHttpsContext.grantPermissions(["local-network-access"], { origin: deniedHttpsOrigin });
+  await deniedHttpsContext.route(deniedHttpsOrigin + "/**", async (route) => {
+    const pathname = new URL(route.request().url()).pathname;
+    const file = pathname === "/" ? "index.html" : pathname.slice(1);
+    if (!["index.html", "app.js", "api-client.js"].includes(file)) {
+      await route.fulfill({ status: 404, body: "Not found" });
+      return;
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: file.endsWith(".html") ? "text/html; charset=utf-8" : "text/javascript; charset=utf-8",
+      body: readFileSync(new URL("../integrations/web/" + file, import.meta.url)),
+    });
+  });
+  const deniedHttpsPage = await deniedHttpsContext.newPage();
+  await deniedHttpsPage.goto(deniedHttpsOrigin + "/");
+  assert.equal(await deniedHttpsPage.evaluate(() => globalThis.isSecureContext), true);
+  await deniedHttpsPage.locator("#search").click();
+  await waitResult(deniedHttpsPage, "요청 실패:");
+  assert.equal(await deniedHttpsPage.locator("#sources").innerText(), "");
+  await deniedHttpsContext.close();
+  console.log("T06 HTTPS security boundaries OK: allowed origin, untrusted origin rejected, CSP connect-src blocked");
   console.log("T06 virtual HTTPS-origin -> real localhost API OK: health/search, CORS and secure context");
 
   console.log("T06 Chromium browser integration OK: health/search/chat/event, source, blocked origin");
