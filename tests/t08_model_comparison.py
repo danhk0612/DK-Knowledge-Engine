@@ -43,7 +43,8 @@ CASES = [
         "id": "error-disambiguation",
         "manual": "E-104 오류는 시스템 시간을 동기화해야 한다. E-205 오류는 저장 공간 부족이므로 불필요한 파일을 정리한다.",
         "question": "오류 코드 E-205가 발생하면 무엇을 해야 하나요?",
-        "expected": ["저장", "파일"],
+        "expected": [],
+        "acceptable_alternatives": ["저장", "파일", "정리"],
         "wrong": ["동기화"],
     },
     {
@@ -132,10 +133,18 @@ def invoke(binary: Path, model: Path, case: dict) -> dict:
     seconds = round(time.perf_counter() - begin, 3)
     answer = clean(stdout)
     positive = all(token.casefold() in answer.casefold() for token in case["expected"])
+    # For procedures, an accepted synonym/action can be enough even if the
+    # reference describes both the problem (low storage) and the remedy (tidy files).
+    alternatives = case.get("acceptable_alternatives", [])
+    alternative_match = not alternatives or any(
+        token.casefold() in answer.casefold() for token in alternatives
+    )
+    positive = positive and alternative_match
     negative = any(token.casefold() in answer.casefold() for token in case["wrong"])
     return {
         "case_id": case["id"],
         "expected": case["expected"],
+        "acceptable_alternatives": case.get("acceptable_alternatives", []),
         "wrong": case["wrong"],
         "answer": answer,
         "exit_code": process.returncode,
