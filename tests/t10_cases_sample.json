@@ -1,0 +1,136 @@
+[
+  {
+    "id": "alpha-current-search",
+    "kind": "search",
+    "product_id": "product-alpha",
+    "version": "2.1.0",
+    "query": "연결 오류",
+    "expect_results": true,
+    "expected_source": "product-alpha/manuals/database.md",
+    "forbidden_sources": [
+      "product-alpha/manuals/legacy.md",
+      "product-beta/manuals/database.md"
+    ]
+  },
+  {
+    "id": "alpha-legacy-search",
+    "kind": "search",
+    "product_id": "product-alpha",
+    "version": "1.5.0",
+    "query": "연결 오류",
+    "expect_results": true,
+    "expected_source": "product-alpha/manuals/legacy.md",
+    "forbidden_sources": [
+      "product-alpha/manuals/database.md"
+    ]
+  },
+  {
+    "id": "beta-isolated-search",
+    "kind": "search",
+    "product_id": "product-beta",
+    "version": "2.1.0",
+    "query": "연결 오류",
+    "expect_results": true,
+    "expected_source": "product-beta/manuals/database.md",
+    "forbidden_sources": [
+      "product-alpha/manuals/database.md"
+    ]
+  },
+  {
+    "id": "alpha-approved-event",
+    "kind": "event",
+    "product_id": "product-alpha",
+    "version": "2.1.0",
+    "event_id": "connection_failed",
+    "error_code": "DB-1001",
+    "expect_matched": true,
+    "expected_rule_id": "alpha-db-1001",
+    "expected_source": "product-alpha/manuals/database.md",
+    "expected_any": [
+      "3308"
+    ],
+    "forbidden_any": [
+      "9999"
+    ]
+  },
+  {
+    "id": "beta-approved-event",
+    "kind": "event",
+    "product_id": "product-beta",
+    "version": "2.1.0",
+    "event_id": "connection_failed",
+    "error_code": "DB-1001",
+    "expect_matched": true,
+    "expected_rule_id": "beta-db-1001",
+    "expected_source": "product-beta/manuals/database.md",
+    "expected_any": [
+      "9999"
+    ],
+    "forbidden_any": [
+      "3308"
+    ]
+  },
+  {
+    "id": "alpha-grounded-chat",
+    "kind": "chat",
+    "product_id": "product-alpha",
+    "version": "2.1.0",
+    "question": "연결 오류가 발생하면 확인할 포트 번호는?",
+    "expected_grounded": true,
+    "expected_source": "product-alpha/manuals/database.md",
+    "expected_any": [
+      "3308"
+    ],
+    "forbidden_any": [
+      "9999",
+      "3310"
+    ],
+    "evidence_any": [
+      "3308"
+    ]
+  },
+  {
+    "id": "beta-grounded-chat",
+    "kind": "chat",
+    "product_id": "product-beta",
+    "version": "2.1.0",
+    "question": "연결 오류가 발생하면 확인할 포트 번호는?",
+    "expected_grounded": true,
+    "expected_source": "product-beta/manuals/database.md",
+    "expected_any": [
+      "9999"
+    ],
+    "forbidden_any": [
+      "3308",
+      "3310"
+    ],
+    "evidence_any": [
+      "9999"
+    ]
+  },
+  {
+    "id": "alpha-outside-version-chat",
+    "kind": "chat",
+    "product_id": "product-alpha",
+    "version": "9.0.0",
+    "question": "연결 오류가 발생하면 확인할 포트 번호는?",
+    "expected_grounded": false
+  },
+  {
+    "id": "unknown-product-chat",
+    "kind": "chat",
+    "product_id": "no-such-product",
+    "version": "2.1.0",
+    "question": "연결 오류가 발생하면 확인할 포트 번호는?",
+    "expected_grounded": false
+  },
+  {
+    "id": "alpha-outside-version-event",
+    "kind": "event",
+    "product_id": "product-alpha",
+    "version": "9.0.0",
+    "event_id": "connection_failed",
+    "error_code": "DB-1001",
+    "expect_matched": false
+  }
+]
