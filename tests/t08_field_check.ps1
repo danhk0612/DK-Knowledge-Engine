@@ -55,8 +55,13 @@ foreach ($case in $cases) {
         [string]::IsNullOrWhiteSpace([string]$case.error_code)) {
         throw 'Event requires event_id or error_code'
     }
-    if ($case.kind -eq 'chat' -and @($case.expected_any).Count -eq 0) {
-        throw 'Grounded chat must specify expected_any for an objective check'
+    if ($case.kind -eq 'chat') {
+        $keywords = @($case.expected_any | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+        if ($null -eq $case.expected_any -or
+            $keywords.Count -eq 0 -or
+            $keywords.Count -ne @($case.expected_any).Count) {
+            throw 'Grounded chat must specify non-empty expected_any keywords'
+        }
     }
 }
 $settings = Get-Content -LiteralPath $settingsPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -156,25 +161,36 @@ try {
             if ($null -ne $data) {
                 switch ([string]$case.kind) {
                     'search' {
-                        $hits=@($data.results)
-                        $passed=$hits.Count -gt 0
-                        if ($null -ne $case.expect_results) { $passed=($hits.Count -gt 0) -eq [bool]$case.expect_results }
+                        $validResults = $null -ne $data.PSObject.Properties['results'] -and
+                            $data.results -is [System.Array]
+                        $hits = if ($validResults) { @($data.results) } else { @() }
+                        $passed = $validResults -and $hits.Count -gt 0
+                        if ($null -ne $case.expect_results) {
+                            $passed = $validResults -and (($hits.Count -gt 0) -eq [bool]$case.expect_results)
+                        }
                         $sources=@($hits | ForEach-Object { $_.source_path })
                     }
                     'chat' {
-                        $passed=([bool]$data.grounded)
+                        $validSources = $null -ne $data.PSObject.Properties['sources'] -and
+                            $data.sources -is [System.Array]
+                        $sources = if ($validSources) { @($data.sources | ForEach-Object { $_.source_path }) } else { @() }
+                        $passed = ([bool]$data.grounded) -and $validSources -and $sources.Count -gt 0
                         $answer=[string]$data.answer
                         $matches= @($case.expected_any | Where-Object { $answer.IndexOf([string]$_,[StringComparison]::OrdinalIgnoreCase) -ge 0 })
                         $banned= @($case.forbidden_any | Where-Object { $answer.IndexOf([string]$_,[StringComparison]::OrdinalIgnoreCase) -ge 0 })
                         $passed=$passed -and $matches.Count -gt 0 -and $banned.Count -eq 0
-                        $sources=@($data.sources | ForEach-Object { $_.source_path })
                     }
                     'chat_no_evidence' {
-                        $passed= -not [bool]$data.grounded -and @($data.sources).Count -eq 0
+                        $passed = ($null -ne $data.PSObject.Properties['grounded']) -and
+                            ($data.grounded -eq $false) -and
+                            ($null -ne $data.PSObject.Properties['sources']) -and
+                            ($data.sources -is [System.Array]) -and
+                            ($data.sources.Count -eq 0)
                     }
                     'event' {
                         $expectedMatched= if ($null -ne $case.expect_matched) { [bool]$case.expect_matched } else { $true }
-                        $passed=([bool]$data.matched) -eq $expectedMatched
+                        $passed = ($null -ne $data.PSObject.Properties['matched']) -and
+                            (([bool]$data.matched) -eq $expectedMatched)
                         if ($expectedMatched -and $null -ne $case.expected_rule_id) {
                             $passed=$passed -and $data.rule_id -ceq [string]$case.expected_rule_id
                         }
