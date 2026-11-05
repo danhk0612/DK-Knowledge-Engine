@@ -6,6 +6,8 @@ on:
       - 'tests/t08_field_check.ps1'
       - 'tests/t08_field_cases_sample.json'
       - '.github/workflows/t08-field-validation.yml'
+      - '.github/workflows/t07-portable-windows.yml'
+      - 'distribution/**'
   workflow_dispatch:
 
 permissions:
@@ -13,20 +15,24 @@ permissions:
   actions: read
 
 jobs:
+  same-run-portable:
+    uses: ./.github/workflows/t07-portable-windows.yml
+
   field-script-smoke:
+    needs: same-run-portable
     name: PowerShell 5.1 field-check using verified Windows ZIP
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Download prior validated T07 example ZIP (no production data)
+      - name: Download this run's verified T07 sample ZIP
+        uses: actions/download-artifact@v4
+        with:
+          name: DK-Knowledge-Engine-Win-x64-demo-T07
+          path: ./t08-field-input
+      - name: Extract same-run example ZIP
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh run download 41787427470 -R "$env:GITHUB_REPOSITORY" -n DK-Knowledge-Engine-Win-x64-demo-T07 -D ".\t08-field-input"
-          if ($LASTEXITCODE -ne 0) { throw 'Validated package could not be downloaded' }
-          Expand-Archive -LiteralPath '.\t08-field-input\DK-Knowledge-Engine-Win-x64.zip' -DestinationPath '.\t08-field-extract'
+        run: Expand-Archive -LiteralPath '.\t08-field-input\DK-Knowledge-Engine-Win-x64.zip' -DestinationPath '.\t08-field-extract'
       - name: Evaluate Windows PowerShell 5.1 kit, no target Python
         shell: pwsh
         run: |

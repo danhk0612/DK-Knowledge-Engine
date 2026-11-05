@@ -8,7 +8,11 @@ permissions:
   actions: read
 
 jobs:
+  same-run-portable:
+    uses: ./.github/workflows/t07-portable-windows.yml
+
   windows-portable:
+    needs: same-run-portable
     name: Existing T07 portable ZIP - Windows CPU and memory
     runs-on: windows-latest
     timeout-minutes: 35
@@ -22,14 +26,11 @@ jobs:
         run: |
           python -m pip install -r requirements-builder.txt
           python -m pip install psutil==6.1.1
-      - name: Download previously validated T07 sample package (not a new Release)
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh run download 41787427470 -R "$env:GITHUB_REPOSITORY" -n DK-Knowledge-Engine-Win-x64-demo-T07 -D ".\t08-input"
-          if ($LASTEXITCODE -ne 0) { throw 'T07 validated ZIP artifact not available (retention 7 days)' }
-          if (-not (Test-Path '.\t08-input\DK-Knowledge-Engine-Win-x64.zip')) { throw 'Validated T07 ZIP file absent' }
+      - name: Download this run's verified T07 sample ZIP
+        uses: actions/download-artifact@v4
+        with:
+          name: DK-Knowledge-Engine-Win-x64-demo-T07
+          path: ./t08-input
       - name: Measure existing shipped ZIP on hosted Windows CPU
         shell: pwsh
         env:
