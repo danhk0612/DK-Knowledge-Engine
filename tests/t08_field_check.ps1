@@ -56,11 +56,15 @@ foreach ($case in $cases) {
         throw 'Event requires event_id or error_code'
     }
     if ($case.kind -eq 'chat') {
-        $keywords = @($case.expected_any | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
-        if ($null -eq $case.expected_any -or
-            $keywords.Count -eq 0 -or
-            $keywords.Count -ne @($case.expected_any).Count) {
-            throw 'Grounded chat must specify non-empty expected_any keywords'
+        # A scalar or a numeric value is not a valid JSON string-array
+        # criterion, even if PowerShell can implicitly cast it to text.
+        if ($case.expected_any -isnot [System.Array] -or @($case.expected_any).Count -eq 0) {
+            throw 'Grounded chat must specify non-empty expected_any keywords as an array of strings'
+        }
+        foreach ($keyword in $case.expected_any) {
+            if ($keyword -isnot [string] -or [string]::IsNullOrWhiteSpace($keyword)) {
+                throw 'Grounded chat must specify non-empty expected_any keywords as an array of strings'
+            }
         }
     }
 }
