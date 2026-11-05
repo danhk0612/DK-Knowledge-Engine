@@ -85,7 +85,7 @@ try {
   await waitResult(securePage, "엔진: ready");
   await securePage.locator("#search").click();
   await waitResult(securePage, "3308");
-  assert.match(await securePage.locator("#sources").innerText(), /example-program\\/manuals\\/setup\\.md/);
+  assert.ok((await securePage.locator("#sources").innerText()).includes("example-program/manuals/setup.md"));
   await httpsContext.close();
   console.log("T06 virtual HTTPS-origin -> real localhost API OK: health/search, CORS and secure context");
 
