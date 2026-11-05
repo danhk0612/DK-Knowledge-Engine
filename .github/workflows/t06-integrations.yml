@@ -31,7 +31,7 @@ jobs:
       - name: Install browser testing tools (CI setup only)
         run: npm install --ignore-scripts
       - name: Validate browser localhost LNA fetch options (no browser download)
-        run: node --test tests/t06_lna_options.mjs
+        run: node --test tests/t06_lna_options.mjs tests/t06_lna_field_probe.test.mjs
       - name: Install Chromium (CI testing only)
         run: npx playwright install chromium
       - name: Call real localhost API from Chromium browser
