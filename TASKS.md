@@ -1,6 +1,6 @@
 # DK Knowledge Engine — 개발 작업표
 
-상태: **T01 설계 완료, T02~T10 구현 PR #1~#9 및 DB 복구·CI 재현성 PR #11 `main` 병합 완료. 후속 PR #13~#15 자동 CI 통과·미병합, 고객 현장 검증 미완료.**  
+상태: **T01 설계 완료, T02~T10 구현 PR #1~#9 및 보완 PR #11·#13·#14·#15까지 `main` 병합 완료. 실제 고객 PC 및 문서 현장 검증은 미완료.**  
 기준 문서: [docs/T01_CONTRACT.md](docs/T01_CONTRACT.md)  
 공통 목표: Windows 10/11 x64 · 완전 오프라인 · Docker 미사용 · localhost 허용 · GPU 불필요 목표 · 코드/모델/지식 DB 분리
 
@@ -120,7 +120,7 @@
 
 ## T06 — 웹·Windows 연동 예제
 
-**상태: 웹/Windows 연동 및 Windows/Ubuntu CI 검증 완료, PR #5 `main` 병합. 추가 HTTPS LNA 테스트는 PR #13 병합 대기.**
+**상태: 웹/Windows 연동 및 Windows/Ubuntu CI 검증 완료, PR #5와 HTTPS LNA 보완 PR #13까지 `main` 병합. 기업 브라우저 현장 검증은 별도.**
 
 범위:
 - JavaScript 기반 웹 프로그램에서 질문/오류·상태 이벤트 호출.
@@ -167,7 +167,7 @@
 
 ## T08 — 통합 검증 및 모델 비교
 
-**상태: 모델 비교·Windows 포터블/PowerShell 자동 기능 검증 완료, PR #7 `main` 병합. PowerShell 5.1 평가 판정 보완 PR #14 자동 검증 통과·미병합. 하드웨어 성능 실측은 필수 게이트에서 제외; 실제 고객 매뉴얼·오프라인·보안 정책은 현장 미검증.**
+**상태: 모델 비교·Windows 포터블/PowerShell 자동 기능 검증 완료, PR #7 및 PowerShell 5.1 판정 보완 PR #14 `main` 병합. 하드웨어 성능 실측은 필수 게이트에서 제외; 실제 고객 매뉴얼·오프라인·보안 정책은 현장 미검증.**
 
 범위:
 - 대표적인 사용 설명서/트러블슈팅 질문과 오류 이벤트 테스트.
@@ -206,9 +206,9 @@ T07 오프라인 패키지
 T08 최종 검증
 ```
 
-**다음 단계:** PR #13(HTTPS LNA), #14(T08 PowerShell 평가), #15(T10 공백 품질 기준)의 코드 리뷰 및 별도 병합 판단. 실제 Windows 10/11 현장 환경에서 물리적 네트워크 차단, 사내 HTTPS 브라우저 정책/LNA 승인·거부, SmartScreen/서명, 고객 문서 답변 정합성·재배포 라이선스를 검증한 뒤에만 고객 배포 적합 여부를 판정한다. 하드웨어별 속도·RAM 측정은 필수 승인이 아니며, PR 직접 병합·Release/tag·배포는 수행하지 않는다.
+**다음 단계:** 통합된 `main`으로 Windows 시험용 ZIP을 빌드·검증하고 Git으로 소스를 내려받은 시험 PC에서 기능·오프라인 작동을 검증한다. 실제 Windows 10/11 환경에서 사내 HTTPS 브라우저 정책/LNA 승인·거부, SmartScreen/서명, 고객 문서의 정답성과 재배포 라이선스를 확인하기 전에는 **정식 고객 배포 적합**으로 판정하지 않는다. 하드웨어별 속도·RAM 측정은 필수 조건이 아니다.
 
-## 추가 검증 PR (2026-11-05 기준, `main` 미병합)
+## 추가 검증 PR (2026-11-05 기준, `main` 병합 완료)
 
 | PR | 자동 검증 완료 범위 | 현장 미완료 |
 |---|---|---|
@@ -216,7 +216,7 @@ T08 최종 검증
 | [#14 Windows PowerShell 5.1 판정](https://github.com/danhk0612/DK-Knowledge-Engine/pull/14) | [T07 빌드·T08 기능 7/7](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41980402764), [T02 회귀 2/2](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41980402564) | 실사용 Windows PC·실제 고객 질문 |
 | [#15 T10 품질 기대값 검증](https://github.com/danhk0612/DK-Knowledge-Engine/pull/15) | [Windows/Ubuntu 단위 검증 및 실제 모델·인공 DB 14/14](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41981987505), [T02 회귀 2/2](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41981987468) | 고객 매뉴얼 정답성과 근거의 담당자 검토 |
 
-위 통과 수치는 **자동 CI의 합성 테스트 자료**에만 해당하며 사내 PC 검증·법적 재배포 승인으로 간주하지 않는다.
+위 PR #13~#15는 `main`에 병합되었고 각 PR HEAD의 자동 CI가 통과했다. 이 수치는 **합성 테스트 자료**에만 해당하며, 실제 사내 PC 검증·법적 재배포 승인으로 간주하지 않는다. 시험용 ZIP을 실제 PC에서 확인할 때에는 사용한 Git 커밋과 ZIP 검증 결과를 함께 기록한다.
 
 ## T09 — 선택형 로컬 모델 및 추론 설정
 
@@ -240,7 +240,7 @@ T09 Windows 검증: [Actions run 41955872865](https://github.com/danhk0612/DK-Kn
 
 ## T10 — 근거 출처·정답성·오프라인/배포 보안 검증
 
-**상태: Windows/Ubuntu 평가기 테스트 및 실제 Windows 모델·인공 매뉴얼 14/14 자동 검증 완료, PR #9 `main` 병합. 공백 품질 키워드 검사 보완 PR #15 자동 검증 통과·미병합. 실제 고객 문서·현장 오프라인·보안 평가는 미검증.**
+**상태: Windows/Ubuntu 평가기 및 실제 Windows 모델·인공 매뉴얼 14/14 자동 검증 완료, PR #9와 공백 품질 기준 보완 PR #15 `main` 병합. 실제 고객 문서·현장 오프라인·보안 평가는 미검증.**
 
 범위:
 - 개발자 환경에서 실제 검색 결과와 /chat에 표시된 문서·청크·페이지 출처를 대조하고 정답·금지 키워드를 별도로 평가.
