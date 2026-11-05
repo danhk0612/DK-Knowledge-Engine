@@ -41,6 +41,8 @@ class LlamaCli:
         ctx_size: int = 4096,
         max_tokens: int = 192,
         timeout_seconds: int = 180,
+        gpu_layers: int = 0,
+        prompt_mode: str = "qwen3",
     ) -> None:
         self.executable = Path(executable).resolve()
         self.model = Path(model).resolve()
@@ -51,22 +53,43 @@ class LlamaCli:
         self.threads = threads
         self.ctx_size = ctx_size
         self.max_tokens = max_tokens
+        if type(gpu_layers) is not int or gpu_layers < 0:
+            raise ValueError("gpu_layers must be a non-negative integer")
+        if prompt_mode not in ("qwen3", "raw_chatml"):
+            raise ValueError("prompt_mode must be qwen3 or raw_chatml")
         self.timeout_seconds = timeout_seconds
+        self.gpu_layers = gpu_layers
+        self.prompt_mode = prompt_mode
 
     def generate(self, system: str, user: str) -> str:
         command = [
             str(self.executable),
             "-m", str(self.model),
-            "-sys", system,
-            "-p", user,
             "-t", str(self.threads),
             "-c", str(self.ctx_size),
             "-n", str(self.max_tokens),
-            "-ngl", "0",   # CPU-only even if this PC has a GPU
+            "-ngl", str(self.gpu_layers),
             "--temp", "0",
-            "--reasoning", "off",
-            "--jinja",
-            "--single-turn",
+        ]
+        if self.prompt_mode == "qwen3":
+            command += [
+                "-sys", system,
+                "-p", user,
+                "--reasoning", "off",
+                "--jinja",
+                "--single-turn",
+            ]
+        else:
+            # Compatibility mode for llama.cpp versions/models whose Jinja
+            # conversation mode rejects the synthetic -sys/-p single turn.
+            # Only intended for models that use ChatML tokens.
+            prompt = (
+                "<|im_start|>system\n" + system + "<|im_end|>\n"
+                + "<|im_start|>user\n" + user + "<|im_end|>\n"
+                + "<|im_start|>assistant\n<think>\n\n</think>\n"
+            )
+            command += ["-no-cnv", "-p", prompt]
+        command += [
             "--simple-io",
             "--no-display-prompt",
             "--color", "off",
