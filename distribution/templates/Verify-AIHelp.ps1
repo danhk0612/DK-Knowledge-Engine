@@ -1,0 +1,60 @@
+[CmdletBinding()]
+param(
+    [string]$Root
+)
+
+$ErrorActionPreference = 'Stop'
+function Get-Sha256([string]$FilePath) {
+    $stream = [System.IO.File]::OpenRead($FilePath)
+    $hasher = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return [System.BitConverter]::ToString($hasher.ComputeHash($stream)).Replace('-', '').ToLowerInvariant()
+    }
+    finally {
+        $stream.Dispose()
+        $hasher.Dispose()
+    }
+}
+
+if ([string]::IsNullOrWhiteSpace($Root)) { $Root = $PSScriptRoot }
+$Root = (Resolve-Path -LiteralPath $Root).Path
+$manifestPath = Join-Path $Root 'manifest.json'
+if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
+    throw "Missing package manifest: $manifestPath"
+}
+$manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+if ($manifest.package_format -ne 1 -or $manifest.schema_version -ne '1') {
+    throw 'Unsupported package manifest or DB schema version'
+}
+foreach ($entry in $manifest.immutable_files.PSObject.Properties) {
+    $relative = $entry.Name
+    if ($relative.StartsWith('/') -or $relative.StartsWith('\') -or $relative.Contains('..') -or [System.IO.Path]::IsPathRooted($relative)) {
+        throw "Invalid manifest path: $relative"
+    }
+    $path = Join-Path $Root ($relative.Replace('/', [IO.Path]::DirectorySeparatorChar))
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        throw "Missing package file: $relative"
+    }
+    $actual = (Get-Sha256 $path)
+    if ($actual -ne [string]$entry.Value) {
+        throw "Package SHA-256 mismatch: $relative"
+    }
+}
+
+$db = Join-Path $Root 'knowledge\knowledge.db'
+$expectedPath = Join-Path $Root 'knowledge\knowledge.sha256'
+if (-not (Test-Path -LiteralPath $db -PathType Leaf) -or -not (Test-Path -LiteralPath $expectedPath -PathType Leaf)) {
+    throw 'Knowledge DB or knowledge.sha256 is missing'
+}
+$expected = (Get-Content -LiteralPath $expectedPath -Raw).Trim().ToLowerInvariant()
+$actual = (Get-Sha256 $db)
+if ($expected -notmatch '^[0-9a-f]{64}$' -or $actual -ne $expected) {
+    throw 'Knowledge database SHA-256 mismatch'
+}
+
+$engine = Join-Path $Root 'engine\DK-Knowledge-API.exe'
+& $engine --verify-db $db
+if ($LASTEXITCODE -ne 0) {
+    throw 'Knowledge DB schema / SQLite integrity verification failed'
+}
+Write-Output 'PACKAGE_VERIFY_OK'
