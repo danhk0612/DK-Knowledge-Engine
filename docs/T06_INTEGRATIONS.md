@@ -55,7 +55,7 @@ Chrome 142 이후 웹사이트→로컬 PC 또는 인트라넷 사이트→루�
 
 - 사내 사이트는 HTTPS 등 보안 컨텍스트에서 제공하고, `config/settings.json`의 `allowed_origins`에 **정확한 사이트 Origin**을 등록해야 합니다.
 - 허용/거부 선택 및 회사 정책에 따른 실제 요청 성공 여부는 해당 Chrome/Edge 및 운영 PC에서 별도로 확인해야 합니다.
-- `tests/t06_lna_options.mjs`는 네 요청의 옵션과 JSON 계약을 검증합니다. 기존 Playwright 브라우저 회귀는 루프백 출발 페이지에서 수행하므로 **사내 HTTPS 페이지의 LNA 권한 테스트를 대신하지 않습니다**.
+- `tests/t06_lna_options.mjs`는 네 요청의 옵션과 JSON 계약을 검증합니다. `tests/t06_browser.mjs`는 루프백 개발 페이지 외에 **Playwright가 네트워크 대신 응답하는 가상 HTTPS `https://intranet.example` 페이지**에서 실제 localhost API의 `/health`와 `/search`를 호출합니다. 테스트에서는 브라우저 권한을 미리 부여하므로, **사내 HTTPS 사이트의 사용자 승인/거부 또는 조직 정책 테스트는 아닙니다**.
 - `targetAddressSpace`를 모르는 구형 브라우저는 이 옵션을 무시할 수 있으며, 해당 브라우저의 실제 정책은 별도 확인이 필요합니다.
 
 참고: [Chrome Local Network Access 공식 가이드](https://developer.chrome.com/docs/modern-web-guidance/guides/security/local-network-access), [Chrome Enterprise 릴리스 노트](https://support.google.com/chrome/a/answer/10314655?hl=ko).
