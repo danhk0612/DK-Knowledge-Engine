@@ -10,6 +10,9 @@ async function request(path, body) {
         body: JSON.stringify(body),
       };
 
+  // Chrome/Edge LNA: HTTPS pages explicitly target this PC's loopback API.
+  // This does not override user or enterprise network permissions.
+  options.targetAddressSpace = "loopback";
   const response = await fetch(API_BASE + path, options);
   const data = await response.json();
   if (!response.ok) {

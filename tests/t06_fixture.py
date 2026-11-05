@@ -59,7 +59,7 @@ def setup_fixture(home: Path, *, web: bool):
     api = KnowledgeHttpServer(
         database, port=8765,
         generator=FakeGenerator(),
-        allowed_origins=("http://127.0.0.1:8766",),
+        allowed_origins=("http://127.0.0.1:8766", "https://intranet.example"),
     )
     servers = [api]
     if web:
