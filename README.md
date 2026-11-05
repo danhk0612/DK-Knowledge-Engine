@@ -35,7 +35,8 @@ Windows 환경에서 **인터넷·Docker·GPU 없이 동작하는 범용 AI 도�
 - [T01 요구사항 및 데이터·API 계약](docs/T01_CONTRACT.md)
 - [T02~T08 작업 계획 및 완료 조건](TASKS.md)
 - [T02 Knowledge Builder 사용법](docs/T02_KNOWLEDGE_BUILDER.md)
+- [T03 지식 검색 모듈 사용법](docs/T03_KNOWLEDGE_SEARCH.md)
 
 ## 현재 상태
 
-**T01 기준 문서화 완료, T02 Knowledge Builder 구현 및 회귀 검증 단계.** 검색 API(T03), LLM(T04), localhost API(T05), 설치 패키지(T07)는 아직 구현되지 않았습니다. 실제 Windows 테스트 및 코드 검토 상태는 TASKS.md를 참조합니다.
+**T01 기준 문서화, T02 Builder, T03 읽기 전용 검색 모듈 구현 단계.** T03은 작업 브랜치 검토·CI 확인 중입니다. LLM(T04), localhost API(T05), 설치 패키지(T07)는 아직 구현되지 않았습니다. 세부 상태는 TASKS.md를 참조합니다.

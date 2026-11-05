@@ -49,7 +49,7 @@
 
 ## T03 — 검색 모듈
 
-**상태: 미착수, T02의 스키마 필요**
+**상태: 구현 완료, Windows·Ubuntu CI 통과, T02 기반 스택 PR 검토 중**
 
 범위:
 - `product_id`, 버전, `error_code`, `event_id`, `screen_id` 검색.
@@ -62,6 +62,12 @@
 - 문서 추가·교체·삭제가 검색에 반영.
 - 무매칭·중복/충돌 조건에서 임의의 잘못된 문서 반환하지 않음.
 - 재현 가능한 테스트 및 결과 기록.
+
+산출물: `search/knowledge_search.py`, `tests/test_knowledge_search.py`, `tests/test_search_integration.py`, `docs/T03_KNOWLEDGE_SEARCH.md`.
+
+초기 버전 정책: 숫자·점 버전만 비교, 버전 경계 포함, 미지원 버전 표현은 일치시키지 않음. 여러 동일 우선순위 규칙은 임의 선택 없이 충돌 처리. 한국어 형태소 검색은 지원하지 않으며 한계를 테스트로 기록. 검색 모듈은 읽기 전용이고 HTTP/LLM 기능 없음.
+
+검증: 로컬 검색 회귀 13개 통과. GitHub Actions Python 3.11의 Windows/Ubuntu에서 T02+T03 전체 회귀 **각 25개 통과** ([run 41756062442](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41756062442)). 초기 Windows 실행의 테스트 SQLite 연결 종료 오류를 수정하고 재검증 완료. 실제 대상 사무용 PC 성능 측정은 T08 범위.
 
 변경 금지: 외부 벡터 DB 또는 임베딩 검색을 자동 채택하지 않음.
 
@@ -168,4 +174,4 @@ T07 오프라인 패키지
 T08 최종 검증
 ```
 
-**다음 단계:** T02 코드 검토·병합 결정 후 T03 검색 구현. T04 LLM 검증은 별도 작업으로 진행할 수 있다.
+**다음 단계:** T02 PR 병합 결정과 T03 스택 PR 검토/자동 테스트 확인. 이후 T04 LLM 연결 및 T05 API 단계로 진행. T04 LLM 검증은 별도 작업으로 진행할 수 있다.
