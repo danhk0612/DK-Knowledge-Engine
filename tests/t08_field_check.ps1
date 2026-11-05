@@ -161,11 +161,16 @@ try {
             if ($null -ne $data) {
                 switch ([string]$case.kind) {
                     'search' {
-                        # PowerShell 5.1 may unwrap a one-item JSON array into a
-                        # PSCustomObject; accept that legitimate shape as well.
+                        # Windows PowerShell 5.1 may expose a single JSON
+                        # result as an object rather than an Array. Keep the
+                        # required results field, reject null/string payloads,
+                        # and accept a single structured result with source_path.
+                        $entries = @($data.results | Where-Object { $null -ne $_ })
                         $validResults = ($null -ne $data.PSObject.Properties['results']) -and
-                            (($data.results -is [System.Array]) -or ($data.results -is [pscustomobject]))
-                        $hits = if ($validResults) { @($data.results) } else { @() }
+                            (($data.results -is [System.Array]) -or
+                             ($entries.Count -eq 1 -and
+                              $null -ne $entries[0].PSObject.Properties['source_path']))
+                        $hits = if ($validResults) { $entries } else { @() }
                         $passed = $validResults -and $hits.Count -gt 0
                         if ($null -ne $case.expect_results) {
                             $passed = $validResults -and (($hits.Count -gt 0) -eq [bool]$case.expect_results)
