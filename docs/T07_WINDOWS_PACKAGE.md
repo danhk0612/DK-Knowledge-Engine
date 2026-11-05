@@ -107,3 +107,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Update-Knowledge.ps1 -
 - 초기 실패 원인: llama.cpp 기본 OpenSSL 의존성 `libcrypto-3-x64.dll`·`libssl-3-x64.dll` 누락. HTTPS를 쓰지 않는 로컬 추론에 맞게 `LLAMA_OPENSSL=OFF`, `BUILD_SHARED_LIBS=OFF` 및 MSVC 정적 런타임으로 재빌드한 뒤 Windows PE import 검사와 오프라인 PATH에서 확인했습니다.
 - 테스트 콘솔의 한국어 코드 페이지 차이에 따른 로그 출력 오류는 테스트 측 ASCII-safe 출력으로 수정했습니다. **실제 한국어 답변은 정상 생성**됐습니다.
 - **T08 미검증 사항:** 고객 PC Windows 10/11 x64, GPU 없는 8GB RAM 실측, 물리적 네트워크 차단, 브라우저 사내 HTTPS→localhost 권한, 실행 파일 서명 및 SmartScreen 정책, 여러 실제 매뉴얼에 대한 정답률과 속도.
+
+## T09 선택형 모델 설정 참고
+
+본 T07 문서는 **최초 검증된 기본 모델과 CPU 패키지**의 기록입니다. T09부터는 기본 파일을 유지하면서 `models/` 안에 다른 GGUF를 추가하고 `config/settings.json`으로 모델 파일·호환 실행 파일·스레드/컨텍스트/생성 설정을 선택할 수 있습니다. [T09 설정 방법](T09_MODEL_CONFIGURATION.md)을 참조하십시오. GPU 가속을 사용하려면 GPU용 호환 llama.cpp 실행 파일과 해당 의존 파일을 직접 제공해야 하며 기본 T07 CPU 빌드만으로 GPU 가속이 활성화되지는 않습니다.

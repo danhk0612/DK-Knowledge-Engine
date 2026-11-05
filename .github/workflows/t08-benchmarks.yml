@@ -1,11 +1,6 @@
 name: T08 CPU evidence and model comparison
 
 on:
-  pull_request:
-    paths:
-      - 'tests/t08_*'
-      - '.github/workflows/t08-benchmarks.yml'
-      - 'docs/T08_VALIDATION.md'
   workflow_dispatch:
 
 permissions:

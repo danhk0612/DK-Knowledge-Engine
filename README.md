@@ -18,7 +18,7 @@ Windows 환경에서 **인터넷·Docker·GPU 없이 동작하는 범용 AI 도�
 - 명확한 오류 코드·이벤트는 LLM 호출 없이 규칙에 따라 응답
 - 자연어 질문은 지식 검색 후 로컬 LLM에서 답변
 - 개인화 방식은 **RAG**이며, 모델 가중치에 문서를 파인튜닝하지 않음
-- 초기 목표 환경: Windows 10/11 x64, GPU 없는 8GB RAM PC (실측 전 목표치)
+- 실행 환경: Windows x64 포터블, PC 상황에 맞춰 모델·스레드·컨텍스트·CPU/GPU용 실행 파일을 사용자가 선택 (하드웨어별 권장 사양 측정은 필수 조건 아님)
 - 출처가 없는 경우 추측으로 해결책을 제시하지 않음
 
 ## 재사용·지식 갱신 원칙
@@ -33,7 +33,7 @@ Windows 환경에서 **인터넷·Docker·GPU 없이 동작하는 범용 AI 도�
 ## 문서
 
 - [T01 요구사항 및 데이터·API 계약](docs/T01_CONTRACT.md)
-- [T02~T08 작업 계획 및 완료 조건](TASKS.md)
+- [T02~T09 작업 계획 및 완료 조건](TASKS.md)
 - [T02 Knowledge Builder 사용법](docs/T02_KNOWLEDGE_BUILDER.md)
 - [T03 지식 검색 모듈 사용법](docs/T03_KNOWLEDGE_SEARCH.md)
 - [T04 CPU용 로컬 LLM 연결](docs/T04_LOCAL_LLM.md)
@@ -41,8 +41,9 @@ Windows 환경에서 **인터넷·Docker·GPU 없이 동작하는 범용 AI 도�
 - [T06 웹·Windows 프로그램 연동 예제](docs/T06_INTEGRATIONS.md)
 - [T07 Windows 포터블 ZIP 및 지식 DB 갱신](docs/T07_WINDOWS_PACKAGE.md)
 - [T08 CPU 계측·모델 비교 및 고객 PC 검증 조건](docs/T08_VALIDATION.md)
-- [T08 실제 Windows 8GB PC 검증 도구와 절차](docs/T08_FIELD_CHECKLIST.md)
+- [T08 현장 기능·보안 확인 절차 (사양 측정 없음)](docs/T08_FIELD_CHECKLIST.md)
+- [T09 사용자별 모델·실행 환경 선택](docs/T09_MODEL_CONFIGURATION.md)
 
 ## 현재 상태
 
-**T01~T07 구현 및 자동 검증 완료, 스택 PR #1~#6 검토 대기.** T02~T05 핵심 기능과 T06 웹/Windows 연동, T07 Windows x64 포터블 ZIP·실제 Qwen3 CPU 답변·지식 DB 갱신/롤백을 GitHub Actions에서 검증했습니다. 시험용 ZIP은 [Windows CI 실행 41786316047](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41786316047)의 아티팩트에 있으며 정식 Release가 아닙니다. Windows 10/11의 실제 GPU 없는 8GB PC·완전 네트워크 차단 실기 검증 및 모델 품질 비교는 T08 호스팅 CPU 계측·모델 비교 및 PowerShell 5.1 현장 검증 도구(샘플 CI 7/7)는 성공했고 [PR #7](https://github.com/danhk0612/DK-Knowledge-Engine/pull/7) 검토 중입니다. 실제 Windows 10/11 8GB PC, 물리적 오프라인·사내 브라우저 권한·SmartScreen 검증은 남아 있어 최종 배포 적합 판정은 보류합니다.
+**T01~T08 구현과 자동 검증 결과는 스택 PR #1~#7에 보존되어 있으며 현재 미병합입니다.** T07 포터블 ZIP에서 CPU 로컬 답변과 지식 DB 교체/복구를 검증했습니다. T08의 Windows/Ubuntu 계측은 과거 비교 참고 자료로 남기되 **RAM 8GB·특정 GPU/CPU 성능 검증을 완료 필수 조건으로 요구하지 않습니다.** 사용자가 자신의 장비에 맞춰 모델과 실행 옵션을 선택하는 T09는 [PR #8](https://github.com/danhk0612/DK-Knowledge-Engine/pull/8)에서 구현되어 Windows 포터블 실모델 CI를 통과했습니다. T08의 현장 기능 검증은 사양 측정 없이 진행합니다. 고객 매뉴얼의 정확도·물리적 오프라인·브라우저 권한·서명/조직 보안 정책은 별개 검증 항목입니다.

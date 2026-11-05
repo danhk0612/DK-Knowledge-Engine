@@ -35,14 +35,16 @@ jobs:
           $data = Get-Content '.\t08-field-output\field-validation.json' -Raw -Encoding UTF8 | ConvertFrom-Json
           if ($data.passed_count -ne $data.total_count -or $data.total_count -ne 7) { throw 'Unexpected case results' }
           if ($data.offline.operator_attests_disconnected_network -or $data.offline.independent_physical_offline_verification) { throw 'CI cannot claim physical airgap' }
-          if ($data.hardware.approximately_8gb_ram) { throw 'Hosted 16GB CI must not claim 8GB target validation' }
+          if ($data.PSObject.Properties.Name -contains 'hardware' -or
+              $data.PSObject.Properties.Name -contains 'startup_seconds' -or
+              $data.PSObject.Properties.Name -contains 'approximate_peak_process_tree_rss_mb') {
+            throw 'Hardware measurements must no longer be collected'
+          }
           @(
-            '### T08 Windows field-check script smoke'
+            '### T08 Windows functional field-check smoke'
             ''
             ('- Cases passed: {0}/{1}' -f $data.passed_count, $data.total_count)
-            ('- RAM detected: {0} GiB (hosted CI, NOT actual 8GB field PC)' -f $data.hardware.physical_ram_gib)
-            ('- Cold API startup: {0} seconds' -f $data.startup_seconds)
-            ('- Approximate sampled process RSS peak: {0} MiB' -f $data.approximate_peak_process_tree_rss_mb)
+            '- No RAM, CPU, GPU, latency, or RSS measurements are recorded'
             '- Physical offline: NOT verified, operator did not attest'
             '- Enterprise browser LNA and SmartScreen: manual pending'
           ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8

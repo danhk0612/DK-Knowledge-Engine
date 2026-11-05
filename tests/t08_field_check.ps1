@@ -101,27 +101,11 @@ if ($LASTEXITCODE -ne 0) { throw 'Package verification failed' }
 
 New-Item -ItemType Directory -Path $OutputDir | Out-Null
 $env:SystemRoot | Out-Null
-$computer = Get-CimInstance Win32_ComputerSystem
 $os = Get-CimInstance Win32_OperatingSystem
-$cpu = @(Get-CimInstance Win32_Processor)
-$ramGiB = [Math]::Round([double]$computer.TotalPhysicalMemory / 1GB,2)
-$cards = @()
-try { $cards = @(Get-CimInstance Win32_VideoController | ForEach-Object { $_.Name }) } catch {}
-$adapters = @()
-try {
-    $adapters = @(Get-NetAdapter -Physical -ErrorAction Stop | ForEach-Object {
-        [pscustomobject]@{name=$_.Name; status=[string]$_.Status}
-    })
-} catch {}
-$hardware = [ordered]@{
+$platform = [ordered]@{
     windows_caption = [string]$os.Caption
     windows_version = [string]$os.Version
     architecture = [string]$os.OSArchitecture
-    cpu_name = ($cpu | ForEach-Object { $_.Name }) -join '; '
-    physical_ram_gib = $ramGiB
-    approximately_8gb_ram = ($ramGiB -ge 7.0 -and $ramGiB -le 9.0)
-    graphics_devices = $cards
-    physical_adapter_status = $adapters
 }
 $offline = [ordered]@{
     operator_attests_disconnected_network = [bool]$OfflineOperatorAttested
@@ -131,13 +115,8 @@ $offline = [ordered]@{
 $logOut = Join-Path $OutputDir 'api-stdout.log'
 $logErr = Join-Path $OutputDir 'api-stderr.log'
 $process = $null
-$job = $null
-$flag = Join-Path $OutputDir '.rss-active'
 $results = New-Object System.Collections.Generic.List[object]
-$startup = $null
-$memory = @()
 try {
-    $begin = [Diagnostics.Stopwatch]::StartNew()
     $process = Start-Process -FilePath $exe -WorkingDirectory $PackageRoot -PassThru -RedirectStandardOutput $logOut -RedirectStandardError $logErr
     $ready = $false
     for ($attempt=0;$attempt -lt 80;$attempt++) {
@@ -149,29 +128,6 @@ try {
         Start-Sleep -Milliseconds 250
     }
     if (-not $ready) { throw 'T07 portable API not ready after 20 seconds' }
-    $begin.Stop()
-    $startup = [Math]::Round($begin.Elapsed.TotalSeconds,3)
-
-    # Sampling is a separate job to observe the short-lived llama-completion
-    # child. No extra packages required; sample every ~100ms where scheduled.
-    [System.IO.File]::WriteAllText($flag,'running')
-    $job = Start-Job -ArgumentList $process.Id,$flag -ScriptBlock {
-        param([int]$apiPid,[string]$flagPath)
-        while (Test-Path -LiteralPath $flagPath) {
-            $api = Get-Process -Id $apiPid -ErrorAction SilentlyContinue
-            $models = @(Get-Process -Name 'llama-completion' -ErrorAction SilentlyContinue)
-            $rss = [long]0
-            if ($null -ne $api) { $rss += [long]$api.WorkingSet64 }
-            foreach ($item in $models) { $rss += [long]$item.WorkingSet64 }
-            [pscustomobject]@{
-                rss_mb = [Math]::Round($rss / 1MB,1)
-                model_process_count = $models.Count
-                sampled_at_utc = [DateTime]::UtcNow.ToString('o')
-            }
-            Start-Sleep -Milliseconds 100
-        }
-    }
-
     foreach ($case in $cases) {
         $count = if ($case.kind -eq 'chat') { $RunsPerChat } else { 1 }
         for ($repeat=1;$repeat -le $count;$repeat++) {
@@ -191,12 +147,10 @@ try {
                     }
                 }
             }
-            $timer = [Diagnostics.Stopwatch]::StartNew()
             $errorText=$null
             $data=$null
             try { $data=Request-Json -Path $path -Body $body }
             catch { $errorText=$_.Exception.GetType().Name }
-            $timer.Stop()
             $passed=$false
             $sources=@()
             if ($null -ne $data) {
@@ -236,7 +190,6 @@ try {
                 case_id=[string]$case.id
                 kind=[string]$case.kind
                 iteration=$repeat
-                latency_seconds=[Math]::Round($timer.Elapsed.TotalSeconds,3)
                 passed=[bool]$passed
                 source_paths=@($sources)
                 error_type=$errorText
@@ -244,29 +197,17 @@ try {
         }
     }
 } finally {
-    if (Test-Path -LiteralPath $flag) { Remove-Item -LiteralPath $flag -Force }
-    if ($null -ne $job) {
-        $null=Wait-Job -Job $job -Timeout 10
-        $memory=@(Receive-Job -Job $job -ErrorAction SilentlyContinue)
-        Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
-    }
     if ($null -ne $process -and -not $process.HasExited) {
         $process.Kill()
         $process.WaitForExit(15000) | Out-Null
     }
 }
-$peak=0
-if ($memory.Count -gt 0) { $peak=($memory | Measure-Object -Property rss_mb -Maximum).Maximum }
 $report=[ordered]@{
     schema_version=1
     collected_utc=[DateTime]::UtcNow.ToString('o')
     tested_package_manifest=(Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $PackageRoot 'manifest.json')).Hash.ToLowerInvariant()
-    hardware=$hardware
+    platform=$platform
     offline=$offline
-    startup_seconds=$startup
-    approximate_peak_process_tree_rss_mb=$peak
-    memory_sample_count=$memory.Count
-    memory_note='API WorkingSet + all processes named llama-completion; 100ms separate PowerShell job; shared pages and other llama processes can double count; no 8GB guarantee.'
     tests=@($results.ToArray())
     passed_count=@($results | Where-Object { $_.passed }).Count
     total_count=$results.Count
