@@ -72,7 +72,7 @@ def read_cases(path: Path) -> list[dict]:
             )):
                 raise ValueError(f"{key} must contain non-blank strings")
         for key in ("expected_source", "expected_rule_id"):
-            if key in case and not case[key].strip():
+            if case.get(key) is not None and not case[key].strip():
                 raise ValueError(f"{key} must not be blank")
         if kind == "chat" and case["expected_grounded"] and not case.get("expected_any"):
             raise ValueError("Expected grounded answers require expected_any")
