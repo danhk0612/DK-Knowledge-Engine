@@ -25,7 +25,7 @@ jobs:
       - name: Check browser JavaScript syntax
         run: node --check examples/web/knowledge-client.mjs
       - name: Build the C# console example
-        run: dotnet build examples/windows/KnowledgeClientExample.csproj --no-restore
+        run: dotnet build examples/windows/KnowledgeClientExample.csproj
       - name: Run Windows Chrome Edge and C# clients against T05
         shell: pwsh
         run: |
