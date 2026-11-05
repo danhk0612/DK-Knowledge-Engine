@@ -170,7 +170,11 @@ try {
                             (($data.results -is [System.Array]) -or
                              ($entries.Count -eq 1 -and
                               $null -ne $entries[0].PSObject.Properties['source_path']))
-                        $hits = if ($validResults) { $entries } else { @() }
+                        # The conditional pipeline unwraps a single PSCustomObject
+                        # on Windows PowerShell 5.1, whose .Count is $null.
+                        # Assign inside the branch to keep a one-element array.
+                        $hits = @()
+                        if ($validResults) { $hits = @($entries) }
                         $passed = $validResults -and $hits.Count -gt 0
                         if ($null -ne $case.expect_results) {
                             $passed = $validResults -and (($hits.Count -gt 0) -eq [bool]$case.expect_results)
@@ -203,17 +207,6 @@ try {
                         }
                         if ($data.source) { $sources=@([string]$data.source.source_path) }
                     }
-                }
-                if ($env:GITHUB_ACTIONS -eq 'true' -and $case.id -eq 'sample-search') {
-                    Write-Output ("T08_DIAGNOSTIC sample-search before-source-check " +
-                        "results_field=" + ($null -ne $data.PSObject.Properties['results']) +
-                        " results_type=" + $data.results.GetType().FullName +
-                        " valid_results=" + $validResults +
-                        " hits=" + $hits.Count +
-                        " expect_results=" + [bool]$case.expect_results +
-                        " source_count=" + $sources.Count +
-                        " source_matches=" + ($sources -ccontains [string]$case.expected_source) +
-                        " passed=" + $passed)
                 }
                 if ($null -ne $case.expected_source) {
                     $passed=$passed -and ($sources -ccontains [string]$case.expected_source)
