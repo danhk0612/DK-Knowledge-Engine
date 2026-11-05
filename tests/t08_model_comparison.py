@@ -78,17 +78,27 @@ def clean(text: str) -> str:
     text = THINK.sub("", ANSI.sub("", text))
     if "<think>" in text:
         text = text.split("<think>", 1)[0]
-    return text.replace("<|im_end|>", "").replace("<|eot_id|>", "").strip()
+    return (text.replace("<|im_end|>", "").replace("<|eot_id|>", "")
+            .replace("[end of text]", "").strip())
 
 
 def invoke(binary: Path, model: Path, case: dict) -> dict:
-    prompt = "매뉴얼: " + case["manual"] + "\n질문: " + case["question"] + " 답변:"
+    # Qwen3.5's strict built-in Jinja template rejects llama-completion's
+    # single-turn -sys/-p synthetic conversation with "No user query found".
+    # For a fair same-prompt comparison, feed both models explicit ChatML
+    # system/user messages in raw completion mode instead.
+    user_prompt = "매뉴얼: " + case["manual"] + "\n질문: " + case["question"] + " 답변:"
+    prompt = (
+        "<|im_start|>system\n" + SYSTEM + "<|im_end|>\n"
+        + "<|im_start|>user\n" + user_prompt + "<|im_end|>\n"
+        + "<|im_start|>assistant\n<think>\n\n</think>\n"
+    )
     command = [
         str(binary), "-m", str(model),
-        "-sys", SYSTEM, "-p", prompt,
+        "-no-cnv", "-p", prompt,
         "-t", "4", "-c", "2048", "-n", "192", "-ngl", "0",
-        "--temp", "0", "--reasoning", "off", "--jinja",
-        "--single-turn", "--simple-io", "--no-display-prompt", "--color", "off",
+        "--temp", "0",
+        "--simple-io", "--no-display-prompt", "--color", "off",
     ]
     begin = time.perf_counter()
     process = subprocess.Popen(
