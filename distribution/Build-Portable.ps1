@@ -60,7 +60,20 @@ try {
     foreach ($name in @('Start-AIHelp.cmd','Update-Knowledge.ps1','Verify-AIHelp.ps1')) {
         Copy-Item -LiteralPath (Join-Path $repoRoot ('distribution\templates\' + $name)) -Destination (Join-Path $package $name)
     }
-    $settings = [ordered]@{ port = 8765; allowed_origins = @() }
+    $settings = [ordered]@{
+        port = 8765
+        allowed_origins = @()
+        model = [ordered]@{
+            file = 'models/Qwen3-1.7B-Q4_K_M.gguf'
+            runtime = 'runtime/llama-completion.exe'
+            threads = 4
+            context_size = 4096
+            max_tokens = 192
+            timeout_seconds = 180
+            gpu_layers = 0
+            prompt_mode = 'qwen3'
+        }
+    }
     [System.IO.File]::WriteAllText((Join-Path $package 'config\settings.json'), ($settings | ConvertTo-Json -Depth 4), (New-Object System.Text.UTF8Encoding($false)))
 
     $engine = Join-Path $package 'engine\DK-Knowledge-API.exe'
