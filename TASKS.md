@@ -24,7 +24,7 @@
 
 ## T02 — Knowledge Builder 및 지식 갱신
 
-**상태: 미착수**
+**상태: 구현 완료, Ubuntu/Windows CI 검증 통과, PR 검토 중**
 
 범위:
 - PDF/DOCX/TXT/MD를 읽어 문서·청크·출처(페이지/절/상대 경로/해시)로 정규화.
@@ -40,6 +40,10 @@
 - 전체 재생성 결과와 증분 반영 결과 비교.
 - 문제가 있는 PDF/스캔 등 미추출 내역 보고.
 - DB 포맷·버전과 문서 ID 갱신 정책 명시.
+
+산출물: `builder/knowledge_builder.py`, `tests/test_knowledge_builder.py`, `docs/T02_KNOWLEDGE_BUILDER.md`, `requirements-builder.txt`, `requirements-test.txt`, `.github/workflows/t02-tests.yml`.
+
+로컬 검증: Python 3.13.5 / SQLite 3.46.1 / pypdf 5.9.0 / python-docx 1.2.0, 회귀 11개 통과. GitHub Actions Python 3.11 `ubuntu-latest` 및 `windows-latest`에서 각각 회귀 11개 통과 (run 41754439277). 실제 Windows 10/11 물리 PC 및 8GB RAM 성능 검증은 T07~T08에서 수행. 한국어 형태소 검색 한계 및 OCR 부재는 문서화, 검색 품질 개선은 T03.
 
 변경 금지: LLM 추론·localhost API·별도 GUI 구현.
 
@@ -164,4 +168,4 @@ T07 오프라인 패키지
 T08 최종 검증
 ```
 
-**다음 단계:** T02. 현재 저장소에는 구현 코드가 없으며, 설계 문서만 등록되어 있다.
+**다음 단계:** T02 코드 검토·병합 결정 후 T03 검색 구현. T04 LLM 검증은 별도 작업으로 진행할 수 있다.
