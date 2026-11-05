@@ -1,6 +1,7 @@
 name: T07 portable Windows offline package
 
 on:
+  workflow_call:
   pull_request:
     paths:
       - 'distribution/**'
