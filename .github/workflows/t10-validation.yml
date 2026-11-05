@@ -30,9 +30,12 @@ jobs:
       - name: Run T10 evidence and privacy unit tests
         run: python -m unittest discover -s tests -p test_t10_quality_eval.py -v
 
+  build-t09-package:
+    uses: ./.github/workflows/t09-model-configuration.yml
+
   windows-real-portable:
     name: Real Qwen3 ZIP, two products, version isolation and HTTP boundaries
-    needs: evidence-unit
+    needs: [evidence-unit, build-t09-package]
     runs-on: windows-latest
     timeout-minutes: 40
     steps:
@@ -43,14 +46,15 @@ jobs:
       - name: Install builder dependencies for synthetic noncustomer manuals
         shell: pwsh
         run: python -m pip install -r requirements-builder.txt
-      - name: Download previously validated T09 Windows ZIP
+      - name: Download freshly rebuilt and tested T09 Windows ZIP
+        uses: actions/download-artifact@v4
+        with:
+          name: DK-Knowledge-Engine-Win-x64-configurable-T09
+          path: ./t10-input
+      - name: Extract tested T09 package
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          gh run download 41955872865 -R "$env:GITHUB_REPOSITORY" -n DK-Knowledge-Engine-Win-x64-configurable-T09 -D ".\t10-input"
-          if ($LASTEXITCODE -ne 0) { throw 'Validated T09 ZIP artifact unavailable' }
-          Expand-Archive -LiteralPath '.\t10-input\DK-Knowledge-Engine-Win-x64.zip' -DestinationPath '.\t10-extracted'
+          Expand-Archive -LiteralPath '.\\t10-input\\DK-Knowledge-Engine-Win-x64.zip' -DestinationPath '.\\t10-extracted'
       - name: Prepare two-product, multi-version artificial knowledge DB
         shell: pwsh
         env:
