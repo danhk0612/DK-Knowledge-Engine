@@ -1,0 +1,56 @@
+name: T08 Windows field verification script
+
+on:
+  pull_request:
+    paths:
+      - 'tests/t08_field_check.ps1'
+      - 'tests/t08_field_cases_sample.json'
+      - '.github/workflows/t08-field-validation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  field-script-smoke:
+    name: PowerShell 5.1 field-check using verified Windows ZIP
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download prior validated T07 example ZIP (no production data)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 41787427470 -R "$env:GITHUB_REPOSITORY" -n DK-Knowledge-Engine-Win-x64-demo-T07 -D ".\t08-field-input"
+          if ($LASTEXITCODE -ne 0) { throw 'Validated package could not be downloaded' }
+          Expand-Archive -LiteralPath '.\t08-field-input\DK-Knowledge-Engine-Win-x64.zip' -DestinationPath '.\t08-field-extract'
+      - name: Evaluate Windows PowerShell 5.1 kit, no target Python
+        shell: pwsh
+        run: |
+          & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File .\tests\t08_field_check.ps1 -PackageRoot .\t08-field-extract\DK-Knowledge-Engine-Win-x64 -CasesPath .\tests\t08_field_cases_sample.json -OutputDir .\t08-field-output -RunsPerChat 2
+          if ($LASTEXITCODE -ne 0) { throw 'Field-check script failed' }
+          $data = Get-Content '.\t08-field-output\field-validation.json' -Raw -Encoding UTF8 | ConvertFrom-Json
+          if ($data.passed_count -ne $data.total_count -or $data.total_count -ne 7) { throw 'Unexpected case results' }
+          if ($data.offline.operator_attests_disconnected_network -or $data.offline.independent_physical_offline_verification) { throw 'CI cannot claim physical airgap' }
+          if ($data.hardware.approximately_8gb_ram) { throw 'Hosted 16GB CI must not claim 8GB target validation' }
+          @(
+            '### T08 Windows field-check script smoke'
+            ''
+            ('- Cases passed: {0}/{1}' -f $data.passed_count, $data.total_count)
+            ('- RAM detected: {0} GiB (hosted CI, NOT actual 8GB field PC)' -f $data.hardware.physical_ram_gib)
+            ('- Cold API startup: {0} seconds' -f $data.startup_seconds)
+            ('- Approximate sampled process RSS peak: {0} MiB' -f $data.approximate_peak_process_tree_rss_mb)
+            '- Physical offline: NOT verified, operator did not attest'
+            '- Enterprise browser LNA and SmartScreen: manual pending'
+          ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+      - name: Upload non-sensitive sample field evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: T08-Windows-field-script-smoke
+          path: t08-field-output/field-validation.json
+          if-no-files-found: warn
+          retention-days: 7
