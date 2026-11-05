@@ -29,6 +29,7 @@ jobs:
           $ps51 = Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
           $scriptPath = Join-Path $PWD 'tests/t08_field_check.ps1'
           $utf8 = New-Object System.Text.UTF8Encoding($false)
+          [System.IO.File]::WriteAllText((Join-Path $package 'config/settings.json'), '{"port":8765}', $utf8)
           foreach ($case in @(
             @{ name = 'empty'; expected_any = @('') },
             @{ name = 'whitespace'; expected_any = @('   ') }
