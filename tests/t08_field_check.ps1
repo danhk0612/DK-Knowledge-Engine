@@ -161,8 +161,10 @@ try {
             if ($null -ne $data) {
                 switch ([string]$case.kind) {
                     'search' {
-                        $validResults = $null -ne $data.PSObject.Properties['results'] -and
-                            $data.results -is [System.Array]
+                        # PowerShell 5.1 may unwrap a one-item JSON array into a
+                        # PSCustomObject; accept that legitimate shape as well.
+                        $validResults = ($null -ne $data.PSObject.Properties['results']) -and
+                            (($data.results -is [System.Array]) -or ($data.results -is [pscustomobject]))
                         $hits = if ($validResults) { @($data.results) } else { @() }
                         $passed = $validResults -and $hits.Count -gt 0
                         if ($null -ne $case.expect_results) {
