@@ -48,7 +48,8 @@ document.getElementById("dk-knowledge-lna-field-probe")?.remove();
 
 - Chrome 공식 가이드: [Local Network Access](https://developer.chrome.com/docs/modern-web-guidance/guides/security/local-network-access). 루프백 대상은 `loopback-network` 권한이며 **HTTPS 보안 컨텍스트와 명시적인 사용자 동작**이 중요합니다. `targetAddressSpace: "loopback"`는 혼합 콘텐츠 판정에 정보를 제공하지만 사용자 권한을 우회하지 않습니다.
 - Edge 공식 가이드: [Local Network Access](https://learn.microsoft.com/en-us/deployedge/ms-edge-local-network-access). 회사가 관리하는 브라우저는 사이트 권한 외에도 관리 정책의 영향을 받습니다.
-- Edge 기업 정책의 예: [LoopbackNetworkAllowedForUrls](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-policies/loopbacknetworkallowedforurls) (지원 버전별 차이), 대응되는 차단 정책. 정책의 허용 예외로 요청이 성공한 경우 **사용자 승인 프롬프트를 거쳤다고 기록하지 않습니다**.
+- Edge의 LNA 요청 제한은 **Edge 143부터 기본 적용**됩니다. 단, [LoopbackNetworkAllowedForUrls](https://learn.microsoft.com/en-us/deployedge/microsoft-edge-policies/loopbacknetworkallowedforurls) 기업 정책은 **Edge 146 이상**에 지원되므로 Edge 143~145에서 이 정책이 보이지 않는 것만으로 관리 상태를 단정하면 안 됩니다. 관련 차단 정책과 실제 적용 여부도 확인합니다. 정책 예외로 요청이 성공한 경우 **사용자 승인 프롬프트를 거쳤다고 기록하지 않습니다**.
+- Chrome의 최신 안내는 루프백 목적지에 세분화된 `loopback-network` 권한 조회를 권장합니다. Edge 문서의 `local-network-access` 예시는 브라우저/버전에 따른 차이가 있습니다. 검사 스크립트는 **Chrome에서 구형 통합 권한 이름을 조회하지 않으며**, 권한 상태가 `unsupported`라 해도 HTTP 호출의 성공·실패 및 실제 브라우저 UI와 함께 판단합니다. Chrome 공식 문서는 구형 버전의 `local-network-access` 권한 조회가 렌더러 충돌을 일으킬 수 있다고 안내합니다.
 
 ## 결과 기록 및 보류 조건
 
