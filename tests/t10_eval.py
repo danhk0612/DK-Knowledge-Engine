@@ -64,11 +64,16 @@ def read_cases(path: Path) -> list[dict]:
             or type(case.get("expect_matched")) is not bool
         ):
             raise ValueError("Event requires an event/error code and boolean expect_matched")
+        # A whitespace-only term can match nearly any natural-language answer
+        # and turn a quality gate into a false pass.
         for key in ("forbidden_sources", "expected_any", "forbidden_any", "evidence_any"):
             if key in case and (not isinstance(case[key], list) or not all(
-                isinstance(x, str) and x for x in case[key]
+                isinstance(x, str) and x.strip() for x in case[key]
             )):
-                raise ValueError(f"{key} must contain strings")
+                raise ValueError(f"{key} must contain non-blank strings")
+        for key in ("expected_source", "expected_rule_id"):
+            if case.get(key) is not None and not case[key].strip():
+                raise ValueError(f"{key} must not be blank")
         if kind == "chat" and case["expected_grounded"] and not case.get("expected_any"):
             raise ValueError("Expected grounded answers require expected_any")
     return value
