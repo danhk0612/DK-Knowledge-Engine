@@ -26,7 +26,10 @@ if (-not (Test-Path -LiteralPath $exe -PathType Leaf) -or
 }
 
 # Validate input contracts BEFORE launching executable or creating report files.
-$cases = @(Get-Content -LiteralPath $CasesPath -Encoding UTF8 -Raw | ConvertFrom-Json)
+$parsedCases = Get-Content -LiteralPath $CasesPath -Encoding UTF8 -Raw | ConvertFrom-Json
+# Windows PowerShell 5.1 can return a whole top-level JSON array as ONE
+# pipeline item; expanding it explicitly prevents evaluating all cases as one.
+$cases = if ($parsedCases -is [System.Array]) { @($parsedCases) } else { @($parsedCases) }
 if ($cases.Count -eq 0) { throw 'Cases file must contain at least one case' }
 $caseNames = @{}
 foreach ($case in $cases) {
