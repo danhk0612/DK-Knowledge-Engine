@@ -1,0 +1,113 @@
+name: T08 CPU evidence and model comparison
+
+on:
+  pull_request:
+    paths:
+      - 'tests/t08_*'
+      - '.github/workflows/t08-benchmarks.yml'
+      - 'docs/T08_VALIDATION.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  windows-portable:
+    name: Existing T07 portable ZIP - Windows CPU and memory
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install bench-only dependencies
+        shell: pwsh
+        run: |
+          python -m pip install -r requirements-builder.txt
+          python -m pip install psutil==6.1.1
+      - name: Download previously validated T07 sample package (not a new Release)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh run download 41787427470 -R "$env:GITHUB_REPOSITORY" -n DK-Knowledge-Engine-Win-x64-demo-T07 -D ".\t08-input"
+          if ($LASTEXITCODE -ne 0) { throw 'T07 validated ZIP artifact not available (retention 7 days)' }
+          if (-not (Test-Path '.\t08-input\DK-Knowledge-Engine-Win-x64.zip')) { throw 'Validated T07 ZIP file absent' }
+      - name: Measure existing shipped ZIP on hosted Windows CPU
+        shell: pwsh
+        env:
+          PYTHONPATH: .
+        run: |
+          python tests/t08_windows_benchmark.py --zip ".\t08-input\DK-Knowledge-Engine-Win-x64.zip" --output ".\t08-results"
+          if ($LASTEXITCODE -ne 0) { throw 'Windows CPU baseline failed' }
+          $data = Get-Content '.\t08-results\windows_cpu_baseline.json' -Raw -Encoding UTF8 | ConvertFrom-Json
+          @(
+            '### Windows CI portable CPU observations'
+            ''
+            ('- Runner total RAM: {0} MiB (NOT an 8GB office-PC benchmark)' -f $data.host.ram_total_mb)
+            ('- CPU: {0} logical cores' -f $data.host.cpu_logical)
+            ('- Chat median: {0}s; max: {1}s' -f $data.chat.median_seconds, $data.chat.max_seconds)
+            ('- API + llama child sum peak RSS: {0} MiB (sampling approximation)' -f $data.process_tree_peak_rss_mb)
+            ('- Expected 3308 answer matches: {0}/{1}' -f $data.chat.expected_3308_pass_count, $data.chat.trial_count)
+          ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+      - name: Upload transparent baseline metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: T08-windows-portable-metrics
+          path: t08-results/*.json
+          if-no-files-found: warn
+          retention-days: 7
+
+  model-comparison:
+    name: Same Linux CPU runtime - Qwen3 1.7B vs Qwen3.5 2B
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install psutil for CPU/RSS measurement
+        run: python -m pip install psutil==6.1.1
+      - name: Build fixed llama.cpp v0.9.0 CPU binary for both candidates
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth 1 --branch v0.9.0 https://github.com/ggml-org/llama.cpp.git "$RUNNER_TEMP/llama.cpp"
+          git -C "$RUNNER_TEMP/llama.cpp" rev-parse HEAD | tee "$RUNNER_TEMP/llama-commit.txt"
+          cmake -S "$RUNNER_TEMP/llama.cpp" -B "$RUNNER_TEMP/llama-build" -DCMAKE_BUILD_TYPE=Release -DGGML_CUDA=OFF -DGGML_OPENMP=OFF -DGGML_NATIVE=OFF -DLLAMA_OPENSSL=OFF -DBUILD_SHARED_LIBS=OFF -DLLAMA_BUILD_TESTS=OFF
+          cmake --build "$RUNNER_TEMP/llama-build" --target llama-completion --parallel 4
+      - name: Download and verify exact Q4_K_M candidate model bytes (CI only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 --retry-delay 5 -o "$RUNNER_TEMP/qwen3.gguf" "https://huggingface.co/ggml-org/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q4_K_M.gguf"
+          curl --fail --location --retry 3 --retry-delay 5 -o "$RUNNER_TEMP/qwen35.gguf" "https://huggingface.co/gguf/Qwen3.5-2B-GGUF/resolve/main/qwen3.5-2b-Q4_K_M.gguf"
+          echo "d2387ca2dbfee2ffabce7120d3770dadca0b293052bc2f0e138fdc940d9bc7b5  $RUNNER_TEMP/qwen3.gguf" | sha256sum --check
+          echo "9a3d0aa6c920f096441139b6a254542da855223fdad06855ea00c6c087fd713d  $RUNNER_TEMP/qwen35.gguf" | sha256sum --check
+      - name: Run controlled Korean manual-answer comparison, same llama.cpp and CPU
+        shell: bash
+        run: |
+          set -euo pipefail
+          python tests/t08_model_comparison.py --llama-completion "$RUNNER_TEMP/llama-build/bin/llama-completion" --qwen3 "$RUNNER_TEMP/qwen3.gguf" --qwen35 "$RUNNER_TEMP/qwen35.gguf" --llama-revision "$(cat "$RUNNER_TEMP/llama-commit.txt")" --output t08-results
+          python - <<'PY'
+          import json, os
+          result = json.load(open("t08-results/model_comparison.json", encoding="utf-8"))
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as report:
+              report.write("### T08 model comparison - hosted Ubuntu CPU, not customer PC\n\n")
+              report.write("| Model | Case matches | Median s | Peak RSS MiB |\n|---|---:|---:|---:|\n")
+              for label, model in result["models"].items():
+                  report.write(f"| {label} | {model['passed']}/{model['case_count']} | {model['latency_median_s']} | {model['peak_rss_max_mb']} |\n")
+              report.write("\n5 synthetic Korean excerpts, pinned SHA256; insufficient alone for production default choice.\n")
+          PY
+      - name: Upload raw model responses and benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: T08-llm-comparison-evidence
+          path: t08-results/*.json
+          retention-days: 7
+          if-no-files-found: warn
