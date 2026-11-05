@@ -167,7 +167,7 @@
 
 ## T08 — 통합 검증 및 모델 비교
 
-**상태: 자동 계측·모델 비교 코드 작성, GitHub Actions 검증 대기. 실기 검증 미완료**
+**상태: GitHub 호스팅 Windows CPU 계측 및 Ubuntu 동일 런타임 모델 비교 CI 통과(PR #7), 실제 8GB 고객 PC 등 실기 검증 미완료 — 부분 검증**
 
 범위:
 - 대표적인 사용 설명서/트러블슈팅 질문과 오류 이벤트 테스트.
@@ -181,6 +181,8 @@
 - 성능 목표 미달이나 모델 사용 불가능 시 완료로 가장하지 않음.
 
 산출물(검증 준비): `tests/t08_windows_benchmark.py`, `tests/t08_model_comparison.py`, `.github/workflows/t08-benchmarks.yml`, `docs/T08_VALIDATION.md`.
+
+실행 증거: [T08 최종 CI run 41951563077](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41951563077) 두 벤치마크 작업 성공; [Windows/Ubuntu 62개 자동 회귀 41951563057](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41951563057) 통과. Windows 호스팅 RAM 16GB에서 실제 T07 ZIP의 한국어 답변 3/3, 프로세스 합산 RSS 최고 약 2253MiB, 요청 중앙값 10.24~12.30초(서로 다른 CI 반복). Qwen3 1.7B와 Qwen3.5 2B 모두 5/5 제한된 한국어 매뉴얼 정답 토큰 검사 통과; 서로 다른 CI 반복에서 중앙값 Qwen3 2.57~4.42초, Qwen3.5 2.34~4.22초. 호스트/표본 편차가 커서 **기본 모델 변경 근거 불충분**, 현재 T07 Qwen3 1.7B 유지.
 
 검증 구분: GitHub 호스팅 Windows는 **실제 8GB 고객 PC가 아님**. 모델 비교는 동일 llama.cpp v0.9.0/CPU에서 Qwen3 1.7B와 Qwen3.5 2B를 5개의 정형 질문으로 비교하는 탐색 실험으로, T07 배포 런타임 v0.8.0을 변경하지 않음. 고객 PC 8GB·완전 네트워크 차단·사내 HTTPS LNA·SmartScreen/서명·실제 고객 문서 정답률은 별도 실기 검증 후에만 완료로 판정.
 
@@ -202,4 +204,4 @@ T07 오프라인 패키지
 T08 최종 검증
 ```
 
-**다음 단계:** T08 Windows 호스팅 CPU/메모리 및 동등 조건 모델 비교 CI 확인, 결과 문서화. 이후 실제 Windows 10/11 8GB 환경·물리적 오프라인·브라우저·SmartScreen 검증을 별도로 진행. T02~T07 PR #1~#6 미병합 유지, 직접 병합/Release/tag 없음.
+**다음 단계:** 실제 Windows 10/11 8GB RAM 무GPU PC·물리적 네트워크 차단·사내 HTTPS 브라우저 정책·SmartScreen/서명·실제 매뉴얼 정답률 실측 후 T08 최종 판정. T02~T07 PR #1~#6 미병합 유지, T08 PR #7은 검토 대기, 직접 병합/Release/tag 없음.
