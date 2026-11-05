@@ -1,0 +1,33 @@
+name: T06 Windows Chrome Edge CSharp integration
+
+on:
+  pull_request:
+    paths:
+      - 'examples/**'
+      - 'tests/e2e_t06_clients.py'
+      - '.github/workflows/t06-client-e2e.yml'
+  workflow_dispatch:
+
+jobs:
+  client-e2e:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Install builder test and browser automation dependencies
+        run: python -m pip install -r requirements-builder.txt playwright==1.56.0
+      - name: Check browser JavaScript syntax
+        run: node --check examples/web/knowledge-client.mjs
+      - name: Build the C# console example
+        run: dotnet build examples/windows/KnowledgeClientExample.csproj --no-restore
+      - name: Run Windows Chrome Edge and C# clients against T05
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = "."
+          python tests/e2e_t06_clients.py
