@@ -230,7 +230,7 @@ T09 Windows 검증: [Actions run 41955872865](https://github.com/danhk0612/DK-Kn
 
 ## T10 — 근거 출처·정답성·오프라인/배포 보안 검증
 
-**상태: 자동 평가 도구·인공 다중 제품/버전 사례 및 Windows ZIP CI 작성, 검증 중. T09 기반 스택 PR #9.**
+**상태: Windows/Ubuntu 각 5개 단위 테스트, 실제 Windows T09 ZIP의 인공 매뉴얼 14/14 통합 검증 통과. T09 기반 스택 PR #9 검토 중. 실제 고객 매뉴얼·현장 오프라인/보안 평가는 미완료.**
 
 범위:
 - 개발자 환경에서 실제 검색 결과와 /chat에 표시된 문서·청크·페이지 출처를 대조하고 정답·금지 키워드를 별도로 평가.
@@ -242,3 +242,5 @@ T09 Windows 검증: [Actions run 41955872865](https://github.com/danhk0612/DK-Kn
 산출물: `tests/t10_fixture.py`, `tests/t10_cases_sample.json`, `tests/t10_eval.py`, `tests/t10_run_portable.py`, `tests/test_t10_quality_eval.py`, `.github/workflows/t10-validation.yml`, `docs/T10_VALIDATION.md`.
 
 변경 금지: 기존 T07/T09 API/모델·설정/지식 DB 계약 변경, 시스템 사양/성능 벤치마크 재개, 고객 매뉴얼 공개, PR 직접 병합·Release/tag.
+
+검증 증거: [Windows·Ubuntu 5개 단위 테스트 및 Windows 실모델 14/14 통합 CI 41958831101](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41958831101). 인공 DB 교체·무결성, 제품/버전 격리, 모델 정답 키워드, 실제 검색 청크 인용, Host/Origin 제한 통과. 고객 자료 미사용. 사양 측정은 재개하지 않음. 실고객 지식 DB의 실제 정답성, 물리적 오프라인, 사내 브라우저 정책/서명/법적 재배포 검증은 별도 남음.

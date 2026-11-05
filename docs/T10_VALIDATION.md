@@ -86,3 +86,14 @@ CI는 기존 T09 Windows ZIP에서 사용된 `Verify-AIHelp.ps1`, 지식 DB 전�
 ## 5. CI 증거
 
 [T10 GitHub Actions](../.github/workflows/t10-validation.yml)는 기존 T09 CI 샘플 ZIP을 가져와 인공 DB로 교체한 뒤 실모델 질문 및 차단된 Origin/Host를 검증합니다. 실제 고객 데이터는 사용하지 않습니다. CI 리포트는 7일 보관되는 JSON 아티팩트이며, 통과 사례 ID와 실패 원인 코드만 포함합니다. 테스트 결과가 통과하기 전에는 검증 성공으로 표기하지 않습니다.
+
+## 6. 실제 T10 CI 확인 결과 (2026-11-05)
+
+- [GitHub Actions run 41958831101](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41958831101) **성공**.
+- 평가 도구의 Windows·Ubuntu 단위 테스트 각 **5개 통과**. 인용 위조, 잘못된 제품의 출처, 답변과 문서의 모순이 실제 실패로 처리됨을 검증했습니다.
+- 기존 [T09 검증 포터블 ZIP](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41955872865)의 고객 자료 없는 인공 DB를 T07 지식 갱신 스크립트로 교체했으며, 기존 SHA-256/SQLite 검증에 통과했습니다.
+- 실제 Qwen3 모델 답변을 포함한 **14개 품질·HTTP 보안 게이트 모두 통과(14/14)**. 두 제품의 3308/9999 포트, 구버전 격리, 승인 오류 코드, 문서·청크 인용 일치, 무근거 응답, 위조 Host·미허용 Origin/OPTIONS 차단을 확인했습니다.
+- Actions 아티팩트 `T10-synthetic-quality-and-http-boundaries`에는 원시 질문·답변·출처 경로가 없으며 테스트 ID·통과 여부·실패 코드·검증 범위만 포함됩니다(7일 보존, 2026-11-12 만료 예정).
+- 테스트에서 외부 HTTP 프록시 무효 및 제한된 PATH를 사용했지만 **물리적으로 네트워크를 차단한 것이 아니며**, 브라우저 사내 정책, 서명/SmartScreen, 라이선스 적합성 최종 판정 및 실제 고객 문서 수동 평가는 여전히 미검증입니다.
+
+따라서 **T10 자동 검증 체계는 통과했지만, 고객 배포 적합성 최종 승인으로 해석하지 않습니다.**
