@@ -49,6 +49,6 @@ Windows 환경에서 **인터넷·Docker·GPU 없이 동작하는 범용 AI 도�
 
 **T01 설계 및 T02~T10 구현 PR #1~#9와 DB 갱신 복구·CI 재현성 보완 PR #11이 `main`에 병합되었습니다.** Windows 포터블 CPU 추론, localhost API·웹/WPF 연동, 사용자 설정형 모델 선택 및 인공 매뉴얼 품질·보안 14/14 검증이 자동 CI로 확인되었습니다. PR #11의 DB 교체 중단·SHA 기록 복구도 `main`에 반영된 상태입니다.
 
-**추가 보완 PR(별도 병합 대기):** [#13 사내 HTTPS→localhost LNA 및 Origin/CSP 브라우저 자동 검증](https://github.com/danhk0612/DK-Knowledge-Engine/pull/13), [#14 T08 PowerShell 현장 평가 판정 보정](https://github.com/danhk0612/DK-Knowledge-Engine/pull/14), [#15 T10 공백 키워드 평가 오류 차단](https://github.com/danhk0612/DK-Knowledge-Engine/pull/15). 각각 최신 자동 CI는 성공했지만 **아직 `main`에 병합되지 않았습니다**.
+**후속 검증 보완 PR #13~#15도 `main`에 병합되었습니다.** [#13 사내 HTTPS→localhost LNA 및 Origin/CSP 브라우저 검증](https://github.com/danhk0612/DK-Knowledge-Engine/pull/13), [#14 T08 Windows PowerShell 5.1 현장 평가 판정 수정](https://github.com/danhk0612/DK-Knowledge-Engine/pull/14), [#15 T10 품질 기대값 검증 보강](https://github.com/danhk0612/DK-Knowledge-Engine/pull/15). 각 PR의 최신 자동 CI 검증은 통과했으며, **실제 고객 PC/문서의 현장 검증은 아직 별도**입니다.
 
 **정식 고객 배포 적합성은 아직 미확정**입니다. 실제 사내 HTTPS 웹사이트 LNA 권한, 고객 문서 정답성, 완전 오프라인 현장 점검, 서명/SmartScreen 및 라이선스 적합성 검토가 필요합니다. CPU/RAM/GPU 성능 측정은 T09 결정에 따라 필수 승인 조건이 아닙니다.
