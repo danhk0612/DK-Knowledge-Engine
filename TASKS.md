@@ -212,8 +212,8 @@ T08 최종 검증
 
 | PR | 자동 검증 완료 범위 | 현장 미완료 |
 |---|---|---|
-| [#13 HTTPS 웹→localhost LNA](https://github.com/danhk0612/DK-Knowledge-Engine/pull/13) | [Windows/Ubuntu Chromium, Windows C# 3/3](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41975739790), [T02 회귀 2/2](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41975739783) | 실제 사내 HTTPS·Chrome/Edge LNA 권한 및 기업 정책 |
-| [#14 Windows PowerShell 5.1 판정](https://github.com/danhk0612/DK-Knowledge-Engine/pull/14) | [T07 빌드·T08 기능 7/7](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41980402764), [T02 회귀 2/2](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41980402564) | 실사용 Windows PC·실제 고객 질문 |
+| [#13 HTTPS 웹→localhost LNA](https://github.com/danhk0612/DK-Knowledge-Engine/pull/13) | [Windows/Ubuntu Chromium, Windows C# 3/3](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41985270058), [T02 회귀 2/2](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41985270102) | 실제 사내 HTTPS·Chrome/Edge LNA 권한 및 기업 정책 |
+| [#14 Windows PowerShell 5.1 판정](https://github.com/danhk0612/DK-Knowledge-Engine/pull/14) | [T07 빌드·T08 기능 7/7](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41984774214), [T02 회귀 2/2](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41984774166) | 실사용 Windows PC·실제 고객 질문 |
 | [#15 T10 품질 기대값 검증](https://github.com/danhk0612/DK-Knowledge-Engine/pull/15) | [Windows/Ubuntu 단위 검증 및 실제 모델·인공 DB 14/14](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41981987505), [T02 회귀 2/2](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41981987468) | 고객 매뉴얼 정답성과 근거의 담당자 검토 |
 
 위 PR #13~#15는 `main`에 병합되었고 각 PR HEAD의 자동 CI가 통과했다. 이 수치는 **합성 테스트 자료**에만 해당하며, 실제 사내 PC 검증·법적 재배포 승인으로 간주하지 않는다. 시험용 ZIP을 실제 PC에서 확인할 때에는 사용한 Git 커밋과 ZIP 검증 결과를 함께 기록한다.
