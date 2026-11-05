@@ -49,6 +49,15 @@ Chrome 142 이후 웹사이트→로컬 PC 또는 인트라넷 사이트→루�
 - 회사 PC 정책이나 브라우저 정책으로 로컬 네트워크 접근이 차단될 수 있습니다.
 - 개발용으로 **루프백 웹페이지 → 루프백 API**를 호출하는 자동화는 LNA 승인을 요구하지 않을 수 있습니다. 이 결과만으로 외부/인트라넷 HTTPS 페이지에서의 동작을 일반화할 수 없습니다.
 
+### HTTPS 웹페이지의 루프백 요청 선언
+
+현재 웹 예제의 `api-client.js`는 네 API 요청 모두에 `fetch` 옵션 `targetAddressSpace: "loopback"`을 명시합니다. HTTPS에서 `http://127.0.0.1:8765`로 호출할 때 목적지 주소 공간을 브라우저에 선언하는 방식이며, **브라우저 LNA 권한을 자동으로 부여하거나 CORS 검사를 우회하지 않습니다**. 기존 요청 경로·메서드·JSON 계약은 그대로입니다. 버튼 클릭으로 요청하는 기존 예제 동작도 유지합니다.
+
+- 사내 사이트는 HTTPS 등 보안 컨텍스트에서 제공하고, `config/settings.json`의 `allowed_origins`에 **정확한 사이트 Origin**을 등록해야 합니다.
+- 허용/거부 선택 및 회사 정책에 따른 실제 요청 성공 여부는 해당 Chrome/Edge 및 운영 PC에서 별도로 확인해야 합니다.
+- `tests/t06_lna_options.mjs`는 네 요청의 옵션과 JSON 계약을 검증합니다. 기존 Playwright 브라우저 회귀는 루프백 출발 페이지에서 수행하므로 **사내 HTTPS 페이지의 LNA 권한 테스트를 대신하지 않습니다**.
+- `targetAddressSpace`를 모르는 구형 브라우저는 이 옵션을 무시할 수 있으며, 해당 브라우저의 실제 정책은 별도 확인이 필요합니다.
+
 참고: [Chrome Local Network Access 공식 가이드](https://developer.chrome.com/docs/modern-web-guidance/guides/security/local-network-access), [Chrome Enterprise 릴리스 노트](https://support.google.com/chrome/a/answer/10314655?hl=ko).
 
 ### 별도 수동 검증 시나리오
