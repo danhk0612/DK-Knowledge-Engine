@@ -40,6 +40,8 @@ field-validation.json에는 Windows 버전·아키텍처, 사례별 통과/실�
 
 ## 사내 HTTPS 웹사이트 / SmartScreen (수동)
 
+**LNA 현장 테스트 상세 절차:** [T06 사내 HTTPS→localhost 검증](T06_LNA_FIELD_VALIDATION.md). 이 절차는 운영자 승인/거부, CORS·CSP·네트워크 실패 구분을 돕는 로컬 콘솔 검증 도구이며, 기업 환경에서 실행하기 전 허가가 필요합니다.
+
 - Chrome·Edge에서 사내 HTTPS 페이지를 열고 T07 config/settings.json에 정확한 웹 Origin을 등록 후 API를 재실행합니다.
 - 사용자 권한의 Local Network Access/loopback-network 프롬프트·승인/거부와, CORS 오류를 각각 기록합니다. 브라우저 버전 및 기업 정책을 같이 기록합니다. localhost→localhost 개발 페이지 통과는 이 테스트를 대체하지 못합니다.
 - 정식 Windows 10/11에서 다운로드 ZIP의 SmartScreen·Defender·조직 보안 정책 차단/경고를 기록합니다. 정책을 임의 우회하지 말고 IT 관리자에게 확인합니다.
