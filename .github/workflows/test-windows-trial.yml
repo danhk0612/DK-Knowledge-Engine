@@ -1,0 +1,65 @@
+name: Windows trial package and field smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/test-windows-trial.yml'
+      - 'docs/WINDOWS_TRIAL.md'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  build-verified-portable:
+    name: Build and verify T07 Windows CPU ZIP (synthetic sample only)
+    uses: ./.github/workflows/t07-portable-windows.yml
+
+  verify-trial-package:
+    name: Re-extract trial ZIP and run Windows PowerShell 5.1 field scenarios
+    needs: build-verified-portable
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download freshly built ZIP from this same workflow run
+        uses: actions/download-artifact@v4
+        with:
+          name: DK-Knowledge-Engine-Win-x64-demo-T07
+          path: ./trial-artifact
+
+      - name: Check trial artifact provenance and run 7/7 synthetic field checks
+        shell: pwsh
+        run: |
+          $zip = '.\trial-artifact\DK-Knowledge-Engine-Win-x64.zip'
+          if (-not (Test-Path -LiteralPath $zip -PathType Leaf)) {
+            throw 'Same-run T07 verified ZIP is missing'
+          }
+          $sha = (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          Expand-Archive -LiteralPath $zip -DestinationPath '.\trial-extracted'
+          $package = '.\trial-extracted\DK-Knowledge-Engine-Win-x64'
+          & "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File '.\tests\t08_field_check.ps1' -PackageRoot $package -CasesPath '.\tests\t08_field_cases_sample.json' -OutputDir '.\trial-field-evidence' -RunsPerChat 2
+          if ($LASTEXITCODE -ne 0) { throw 'Trial field script failed' }
+          $report = Get-Content -LiteralPath '.\trial-field-evidence\field-validation.json' -Raw -Encoding UTF8 | ConvertFrom-Json
+          if ($report.total_count -ne 7 -or $report.passed_count -ne 7) {
+            throw 'Trial must pass all seven synthetic field checks'
+          }
+          if ($report.offline.independent_physical_offline_verification -or
+              $report.offline.operator_attests_disconnected_network) {
+            throw 'CI must not claim physical offline verification'
+          }
+          @(
+            '### Windows test-only portable ZIP verified'
+            ''
+            ('- Source commit: `' + $env:GITHUB_SHA + '`')
+            ('- ZIP SHA-256: `' + $sha + '`')
+            '- Artifact name: `DK-Knowledge-Engine-Win-x64-demo-T07`'
+            '- T07 ZIP/real CPU model/DB rollback: verified in called build workflow'
+            '- T08 synthetic Windows PowerShell 5.1 functional checks: 7/7'
+            '- Retention: 7 days; sample manual only; NOT a Release'
+            '- Windows 10/11 physical PC, enterprise LNA, actual air-gap, code signing, customer answers: NOT verified'
+          ) | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
+          Write-Output ('TRIAL_WINDOWS_VERIFIED cases=7/7 zip_sha256=' + $sha + ' source_sha=' + $env:GITHUB_SHA)
