@@ -13,20 +13,25 @@ permissions:
   actions: read
 
 jobs:
+  build-t07-package:
+    uses: ./.github/workflows/t07-portable-windows.yml
+
   field-script-smoke:
     name: PowerShell 5.1 field-check using verified Windows ZIP
+    needs: build-t07-package
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Download prior validated T07 example ZIP (no production data)
+      - name: Download freshly built and verified T07 ZIP from this workflow run
+        uses: actions/download-artifact@v4
+        with:
+          name: DK-Knowledge-Engine-Win-x64-demo-T07
+          path: ./t08-field-input
+      - name: Extract same-run T07 package
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          gh run download 41787427470 -R "$env:GITHUB_REPOSITORY" -n DK-Knowledge-Engine-Win-x64-demo-T07 -D ".\t08-field-input"
-          if ($LASTEXITCODE -ne 0) { throw 'Validated package could not be downloaded' }
-          Expand-Archive -LiteralPath '.\t08-field-input\DK-Knowledge-Engine-Win-x64.zip' -DestinationPath '.\t08-field-extract'
+          Expand-Archive -LiteralPath '.\\t08-field-input\\DK-Knowledge-Engine-Win-x64.zip' -DestinationPath '.\\t08-field-extract'
       - name: Evaluate Windows PowerShell 5.1 kit, no target Python
         shell: pwsh
         run: |
