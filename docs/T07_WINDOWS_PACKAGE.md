@@ -86,6 +86,19 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Update-Knowledge.ps1 -
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Update-Knowledge.ps1 -Rollback
 ```
 
+### 교체 중단 후 복구
+
+DB 파일 교체 자체는 원자적이지만 `knowledge.sha256`·`knowledge.previous.sha256` 기록은 별도 작업입니다. 새 버전은 **교체 전** `knowledge/knowledge.pending.json` 저널에 새/이전 SHA-256을 기록합니다. 갱신 도중 강제 종료·전원 차단 등으로 저널이 남으면 `Verify-AIHelp.ps1`은 정상 검사로 승인하지 않습니다. **서버를 종료한 상태에서** 아래 복구를 먼저 수행하십시오.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Update-Knowledge.ps1 -Recover
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Verify-AIHelp.ps1
+```
+
+저널 기록 후 아직 교체되지 않은 경우에는 원래 DB와 기존 백업의 해시를 확인해 미완료 작업을 취소합니다. DB 교체가 끝났다면 현재/이전 DB의 실제 SHA-256이 저널과 일치할 때만 두 해시 기록을 복구합니다. **파일이 없거나 해시가 다르면 자동 수정하지 않고 중단합니다.** 필요하다면 별도의 백업을 보관하고 수동 조사하십시오. 저널과 파일을 임의 삭제·수정하지 마십시오.
+
+검증 CI에서는 저널 생성 후 교체 전 중단, DB 교체 직후 중단, 해시 하나만 기록된 상태를 재현합니다. 물리적 전원 차단 자체를 재현하는 것은 아닙니다.
+
 업데이트 도구는 변경 전 원본 DB를 `knowledge.previous.db`에 보관하고, 새 DB를 **같은 볼륨 임시 파일**에서 해시·SQLite 무결성·스키마 확인 후 `File.Replace`로 교체합니다. 잘못된 해시·손상된 DB·스키마 불일치는 기존 DB에 영향을 주지 않으며, 서버가 실행 중일 때 교체하지 않도록 검사합니다. 이전 DB 복구 역시 무결성 검사를 거칩니다. **델타 업데이트·자동 온라인 갱신은 없습니다.**
 
 `manifest.json`은 불변 엔진·모델 파일에만 적용되고, 교체 가능한 지식 DB는 `knowledge/knowledge.sha256`로 별도 관리합니다. 수정 가능한 `settings.json`은 서명하거나 강제 검증하지 않으므로 신뢰할 수 있는 관리자가 수정해야 합니다.
@@ -111,3 +124,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Update-Knowledge.ps1 -
 ## T09 선택형 모델 설정 참고
 
 본 T07 문서는 **최초 검증된 기본 모델과 CPU 패키지**의 기록입니다. T09부터는 기본 파일을 유지하면서 `models/` 안에 다른 GGUF를 추가하고 `config/settings.json`으로 모델 파일·호환 실행 파일·스레드/컨텍스트/생성 설정을 선택할 수 있습니다. [T09 설정 방법](T09_MODEL_CONFIGURATION.md)을 참조하십시오. GPU 가속을 사용하려면 GPU용 호환 llama.cpp 실행 파일과 해당 의존 파일을 직접 제공해야 하며 기본 T07 CPU 빌드만으로 GPU 가속이 활성화되지는 않습니다.
+
+### 배포자 신원과 SHA-256의 한계
+
+`manifest.json`은 파일의 예상 SHA-256을 기록하지만 **현재 매니페스트 자체가 전자서명된 것은 아닙니다.** 변조된 파일과 함께 매니페스트까지 교체하는 공격자는 별도의 신뢰된 배포자 확인 없이는 식별되지 않을 수 있습니다. 정식 외부 배포 전에는 배포 경로, 코드 서명 또는 외부에서 검증 가능한 서명·해시 제공 방식, SmartScreen 및 라이선스/NOTICE 의무를 확인해야 합니다. CI ZIP은 서명된 공식 Release가 아닙니다.
