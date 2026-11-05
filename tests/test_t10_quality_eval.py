@@ -100,7 +100,7 @@ class T10EvaluatorTests(unittest.TestCase):
         baseline = next(case for case in self.cases if case["id"] == "alpha-grounded-chat")
         target = self.root / "blank-quality-cases.json"
         for key in ("expected_any", "forbidden_any", "evidence_any", "forbidden_sources"):
-            for term in ("", "   ", "\\t"):
+            for term in ("", "   ", "\t"):
                 candidate = dict(baseline)
                 candidate[key] = [term]
                 target.write_text(json.dumps([candidate], ensure_ascii=False), encoding="utf-8")
