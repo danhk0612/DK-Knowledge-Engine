@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DK Knowledge Engine — 웹 연동 예제</title>
+  <style>
+    body { max-width: 760px; margin: 2rem auto; padding: 0 1rem; font: 16px/1.5 system-ui, sans-serif; }
+    label { display: block; margin-top: .8rem; }
+    input { box-sizing: border-box; width: 100%; padding: .45rem; }
+    button { margin: .7rem .45rem .2rem 0; padding: .5rem .85rem; }
+    pre { white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid #bbb; padding: .9rem; }
+    #status { min-height: 1.5em; }
+  </style>
+</head>
+<body>
+  <h1>DK Knowledge Engine</h1>
+  <p>같은 PC에서 실행 중인 로컬 API로 검색, AI 질문, 오류 안내를 요청합니다.</p>
+  <p id="permission" role="status">브라우저 권한 확인 중</p>
+  <label for="port">로컬 API 포트</label>
+  <input id="port" type="number" value="8765" min="1" max="65535">
+  <label for="product">제품 ID</label>
+  <input id="product" value="example-program">
+  <label for="version">제품 버전 (선택)</label>
+  <input id="version" value="2.1.0">
+  <label for="question">검색어 / 질문</label>
+  <input id="question" value="데이터베이스 연결 실패">
+  <label for="error">오류 코드 (선택)</label>
+  <input id="error" value="DB-1001">
+  <label for="event">이벤트 ID (선택)</label>
+  <input id="event" value="connection_failed">
+  <label for="screen">화면 ID (선택)</label>
+  <input id="screen" value="database_settings">
+  <div>
+    <button type="button" data-action="health">상태 확인</button>
+    <button type="button" data-action="search">문서 검색</button>
+    <button type="button" data-action="chat">AI 질문</button>
+    <button type="button" data-action="event">오류 안내</button>
+  </div>
+  <p id="status" role="status">버튼을 누르면 API를 호출합니다.</p>
+  <h2>응답</h2>
+  <pre id="result" aria-live="polite"></pre>
+  <h2>근거 출처</h2>
+  <ul id="sources"></ul>
+  <script type="module">
+    import { KnowledgeClient, loopbackPermissionState } from "./knowledge-client.mjs";
+
+    const field = (id) => document.getElementById(id).value.trim();
+    const status = document.getElementById("status");
+    const output = document.getElementById("result");
+    const sources = document.getElementById("sources");
+    const permission = document.getElementById("permission");
+
+    if (!window.isSecureContext) {
+      permission.textContent = "보안 컨텍스트가 아닙니다. 내부망 웹 페이지는 HTTPS를 사용해야 합니다.";
+    } else {
+      loopbackPermissionState().then((state) => {
+        permission.textContent = state === "denied"
+          ? "로컬 접근 권한이 거부되었습니다. 브라우저 사이트 설정에서 이 페이지의 Loopback/Local Network 접근을 허용하세요."
+          : state === "prompt"
+            ? "로컬 접근 권한 요청이 나타날 수 있습니다. 아래 버튼을 눌러 연결하세요."
+            : state === "granted"
+              ? "로컬 접근 권한 허용됨"
+              : "권한 조회를 지원하지 않는 브라우저입니다. 버튼으로 연결을 확인하세요.";
+      });
+    }
+
+    function show(data) {
+      output.textContent = JSON.stringify(data, null, 2);
+      sources.replaceChildren();
+      const items = data.results || data.sources || (data.source ? [data.source] : []);
+      for (const item of items) {
+        const li = document.createElement("li");
+        const name = item.title ? item.title + " / " : "";
+        const page = item.page_from == null ? "" : " / p." + item.page_from;
+        li.textContent = name + (item.source_path || "(출처 경로 없음)") + page
+          + " / 문서 " + (item.document_id || "");
+        sources.appendChild(li);
+      }
+    }
+
+    for (const button of document.querySelectorAll("button[data-action]")) {
+      button.addEventListener("click", async () => {
+        status.textContent = "요청 처리 중";
+        output.textContent = "";
+        sources.replaceChildren();
+        try {
+          const client = new KnowledgeClient(Number(field("port")));
+          const product = field("product");
+          const version = field("version") || undefined;
+          let result;
+          if (button.dataset.action === "health") {
+            result = await client.health();
+          } else if (button.dataset.action === "search") {
+            result = await client.search(product, field("question"), version);
+          } else if (button.dataset.action === "chat") {
+            result = await client.chat(product, field("question"), version);
+          } else {
+            result = await client.event(
+              product, field("error"), field("event"), field("screen"), version
+            );
+          }
+          show(result);
+          status.textContent = "요청 성공";
+        } catch (error) {
+          const network = error instanceof TypeError;
+          status.textContent = network
+            ? "연결 실패: API 실행 상태, CORS 허용 Origin, 브라우저 Loopback 접근 권한을 확인하세요."
+            : "API 오류: " + error.message;
+        }
+      });
+    }
+  </script>
+</body>
+</html>
