@@ -1,0 +1,36 @@
+<Window x:Class="KnowledgeHelpDemo.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="DK Knowledge Engine - Windows 연동 예제"
+        Width="680" Height="660" MinWidth="540" MinHeight="500">
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel Margin="20">
+      <TextBlock Text="제품 ID" FontWeight="SemiBold"/>
+      <TextBox x:Name="ProductId" Text="example-program" Margin="0,4,0,12" Padding="6"/>
+      <TextBlock Text="제품 버전"/>
+      <TextBox x:Name="ProductVersion" Text="2.1.0" Margin="0,4,0,12" Padding="6"/>
+      <TextBlock Text="질문 / 검색어"/>
+      <TextBox x:Name="Question" Text="데이터베이스 연결 오류" Margin="0,4,0,12" Padding="6"/>
+      <WrapPanel Margin="0,0,0,14">
+        <Button Content="엔진 상태" Padding="12,6" Margin="0,0,8,0" Click="HealthClick"/>
+        <Button Content="매뉴얼 검색" Padding="12,6" Margin="0,0,8,0" Click="SearchClick"/>
+        <Button Content="AI 질문" Padding="12,6" Click="ChatClick"/>
+      </WrapPanel>
+      <GroupBox Header="오류 · 상태 이벤트" Margin="0,0,0,15">
+        <StackPanel Margin="12">
+          <TextBlock Text="이벤트 ID"/>
+          <TextBox x:Name="EventId" Text="connection_failed" Margin="0,3,0,9" Padding="6"/>
+          <TextBlock Text="오류 코드"/>
+          <TextBox x:Name="ErrorCode" Text="DB-1001" Margin="0,3,0,9" Padding="6"/>
+          <TextBlock Text="화면 ID"/>
+          <TextBox x:Name="ScreenId" Text="db_settings" Margin="0,3,0,10" Padding="6"/>
+          <Button Content="오류 도움말" Padding="12,6" HorizontalAlignment="Left" Click="EventClick"/>
+        </StackPanel>
+      </GroupBox>
+      <TextBlock Text="결과 및 출처" FontWeight="SemiBold" Margin="0,0,0,5"/>
+      <TextBox x:Name="Result" IsReadOnly="True" TextWrapping="Wrap"
+               VerticalScrollBarVisibility="Auto" MinHeight="160" MaxHeight="310"
+               Padding="10" Text="준비"/>
+    </StackPanel>
+  </ScrollViewer>
+</Window>
