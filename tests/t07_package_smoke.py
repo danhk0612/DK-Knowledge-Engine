@@ -9,6 +9,7 @@ import hashlib
 import http.client
 import json
 import os
+import shutil
 import sqlite3
 import socket
 import subprocess
@@ -240,6 +241,62 @@ def main() -> None:
             verify_content(package, api_port, 3308, test_chat=False)
         finally:
             stop_server(process)
+
+        # Simulate abrupt interruption at each DB/metadata transaction boundary.
+        # The production script uses a journal; no test-only runtime flags.
+        journal = package / "knowledge" / "knowledge.pending.json"
+        backup = package / "knowledge" / "knowledge.previous.db"
+        hash_file = package / "knowledge" / "knowledge.sha256"
+        backup_hash_file = package / "knowledge" / "knowledge.previous.sha256"
+        pending_record = {"format": 1, "old_sha256": before_hash, "new_sha256": valid_hash}
+
+        # Crash after journaling but BEFORE File.Replace: retain original DB.
+        journal.write_text(json.dumps(pending_record), encoding="utf-8")
+        powershell(verify, expect_success=False)
+        powershell(update, "-SourceDb", str(replacement), "-ExpectedSha256", valid_hash,
+                   expect_success=False)
+        recovered = powershell(update, "-Recover")
+        assert "KNOWLEDGE_RECOVERY_ABORTED_BEFORE_REPLACE" in recovered.stdout
+        assert not journal.exists() and sha256(current) == before_hash
+        powershell(verify)
+
+        # Crash AFTER File.Replace but BEFORE writing either sidecar hash.
+        # Recreate the atomic replacement's resulting file state without
+        # forcibly killing PowerShell at an OS-dependent instruction boundary.
+        shutil.copy2(current, backup)
+        shutil.copy2(replacement, current)
+        journal.write_text(json.dumps(pending_record), encoding="utf-8")
+        powershell(verify, expect_success=False)
+        recovered = powershell(update, "-Recover")
+        assert "KNOWLEDGE_RECOVERY_OK" in recovered.stdout, recovered.stdout
+        assert not journal.exists()
+        assert sha256(current) == valid_hash
+        assert hash_file.read_text().strip() == valid_hash
+        assert backup_hash_file.read_text().strip() == before_hash
+        powershell(verify)
+
+        # Rollback after recovery must restore the actual previous DB.
+        powershell(update, "-Rollback")
+        assert sha256(current) == before_hash
+        powershell(verify)
+
+        # Crash AFTER one checksum was written but BEFORE the other.
+        shutil.copy2(current, backup)
+        shutil.copy2(replacement, current)
+        journal.write_text(json.dumps(pending_record), encoding="utf-8")
+        hash_file.write_text(valid_hash + "\n", encoding="ascii")
+        powershell(verify, expect_success=False)
+        recovered = powershell(update, "-Recover")
+        assert "KNOWLEDGE_RECOVERY_OK" in recovered.stdout
+        assert hash_file.read_text().strip() == valid_hash
+        assert backup_hash_file.read_text().strip() == before_hash
+        powershell(verify)
+
+        # Restore original sample contents for the existing tamper smoke.
+        powershell(update, "-Rollback")
+        assert sha256(current) == before_hash
+        powershell(verify)
+        print("T07_CRASH_RECOVERY_THREE_PHASES_OK", flush=True)
 
         # Verification must detect binary/script tampering, not just DB damage.
         launcher = package / "Start-AIHelp.cmd"

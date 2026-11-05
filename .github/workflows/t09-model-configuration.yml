@@ -1,5 +1,6 @@
 name: T09 selectable local models and runtime
 on:
+  workflow_call:
   pull_request:
     paths:
       - 'distribution/**'
@@ -15,7 +16,11 @@ permissions:
   actions: read
 
 jobs:
+  build-t07-package:
+    uses: ./.github/workflows/t07-portable-windows.yml
+
   configurable-windows-portable:
+    needs: build-t07-package
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
@@ -28,14 +33,15 @@ jobs:
         run: |
           python -m pip install -r requirements-builder.txt
           python -m pip install pyinstaller==6.22.3
-      - name: Load previously verified CPU runtime, GGUF and demo DB
+      - name: Download same-run T07 validated CPU runtime, model, and sample DB
+        uses: actions/download-artifact@v4
+        with:
+          name: DK-Knowledge-Engine-Win-x64-demo-T07
+          path: ./input
+      - name: Extract T07 package
         shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
         run: |
-          gh run download 41787427470 -R "$env:GITHUB_REPOSITORY" -n DK-Knowledge-Engine-Win-x64-demo-T07 -D ".\input"
-          if ($LASTEXITCODE -ne 0) { throw 'Verified T07 sample artifact unavailable' }
-          Expand-Archive -LiteralPath '.\input\DK-Knowledge-Engine-Win-x64.zip' -DestinationPath '.\input-extracted'
+          Expand-Archive -LiteralPath '.\\input\\DK-Knowledge-Engine-Win-x64.zip' -DestinationPath '.\\input-extracted'
       - name: Rebuild portable API from T09 source using validated model/runtime
         shell: pwsh
         run: |

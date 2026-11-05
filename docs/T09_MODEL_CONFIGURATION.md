@@ -74,3 +74,7 @@ T08의 기존 측정 수치는 **과거 시험 자료로 보존**하지만 RAM 8
 - **다른 GGUF 아키텍처나 GPU 런타임의 실제 호환성을 검증한 것은 아닙니다.** 추가된 파일은 원래 manifest의 고정 해시 검증 대상이 아니므로 출처와 해시·라이선스를 사용자가 별도로 확인해야 합니다.
 - 샘플 ZIP 아티팩트 `DK-Knowledge-Engine-Win-x64-configurable-T09`는 Actions 실행의 Artifacts에 있으며 7일 보관, 정식 Release 아님.
 - 사양/성능 측정은 중단하고 현장 기능 검증에서도 제거했습니다. [Windows PowerShell 기능 검증 7/7](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41956675584).
+
+### 최신 CI 아티팩트 의존성
+
+T09의 재빌드는 이전 Actions 실행 ID를 다운로드하지 않고 **동일 워크플로 안에서 T07 CPU ZIP을 먼저 생성·검증**한 다음 그 모델·런타임을 사용합니다. T10에서도 같은 실행 안에서 T09 패키지를 재빌드합니다. 결과물은 여전히 7일짜리 테스트 아티팩트이며 정식 Release가 아닙니다.

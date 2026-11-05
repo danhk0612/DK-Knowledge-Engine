@@ -85,7 +85,7 @@ CI는 기존 T09 Windows ZIP에서 사용된 `Verify-AIHelp.ps1`, 지식 DB 전�
 
 ## 5. CI 증거
 
-[T10 GitHub Actions](../.github/workflows/t10-validation.yml)는 기존 T09 CI 샘플 ZIP을 가져와 인공 DB로 교체한 뒤 실모델 질문 및 차단된 Origin/Host를 검증합니다. 실제 고객 데이터는 사용하지 않습니다. CI 리포트는 7일 보관되는 JSON 아티팩트이며, 통과 사례 ID와 실패 원인 코드만 포함합니다. 테스트 결과가 통과하기 전에는 검증 성공으로 표기하지 않습니다.
+[T10 GitHub Actions](../.github/workflows/t10-validation.yml)는 **동일 Actions 실행에서 T07→T09를 재빌드·실제 모델 검증한 ZIP**을 받아 인공 DB로 교체한 뒤 실모델 질문 및 차단된 Origin/Host를 검증합니다. 만료된 과거 실행 번호/아티팩트에 의존하지 않습니다. 실제 고객 데이터는 사용하지 않습니다. CI 리포트는 7일 보관되는 JSON 아티팩트이며, 통과 사례 ID와 실패 원인 코드만 포함합니다. 테스트 결과가 통과하기 전에는 검증 성공으로 표기하지 않습니다.
 
 ## 6. 실제 T10 CI 확인 결과 (2026-11-05)
 

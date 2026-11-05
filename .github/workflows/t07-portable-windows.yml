@@ -1,6 +1,7 @@
 name: T07 portable Windows offline package
 
 on:
+  workflow_call:
   pull_request:
     paths:
       - 'distribution/**'
@@ -15,6 +16,26 @@ jobs:
     timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
+      - name: Parse PowerShell maintenance scripts before costly runtime/model build
+        shell: pwsh
+        run: |
+          foreach ($file in @(
+            'distribution/templates/Update-Knowledge.ps1',
+            'distribution/templates/Verify-AIHelp.ps1',
+            'distribution/Build-Portable.ps1'
+          )) {
+            $tokens = $null
+            $errors = $null
+            [void][System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path -LiteralPath $file).Path,
+              [ref]$tokens,
+              [ref]$errors
+            )
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error $_.ToString() }
+              throw "PowerShell parse failed: $file"
+            }
+          }
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
