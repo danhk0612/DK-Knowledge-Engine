@@ -35,7 +35,7 @@ function Write-HashAtomic([string]$FilePath, [string]$Value) {
     try {
         [System.IO.File]::WriteAllText($tempHash, $Value + [Environment]::NewLine, (New-Object System.Text.UTF8Encoding($false)))
         if (Test-Path -LiteralPath $FilePath -PathType Leaf) {
-            [System.IO.File]::Replace($tempHash, $FilePath, $null, $true)
+            [System.IO.File]::Replace($tempHash, $FilePath, $null)
         } else {
             [System.IO.File]::Move($tempHash, $FilePath)
         }
