@@ -204,6 +204,17 @@ try {
                         if ($data.source) { $sources=@([string]$data.source.source_path) }
                     }
                 }
+                if ($env:GITHUB_ACTIONS -eq 'true' -and $case.id -eq 'sample-search') {
+                    Write-Output ("T08_DIAGNOSTIC sample-search before-source-check " +
+                        "results_field=" + ($null -ne $data.PSObject.Properties['results']) +
+                        " results_type=" + $data.results.GetType().FullName +
+                        " valid_results=" + $validResults +
+                        " hits=" + $hits.Count +
+                        " expect_results=" + [bool]$case.expect_results +
+                        " source_count=" + $sources.Count +
+                        " source_matches=" + ($sources -ccontains [string]$case.expected_source) +
+                        " passed=" + $passed)
+                }
                 if ($null -ne $case.expected_source) {
                     $passed=$passed -and ($sources -ccontains [string]$case.expected_source)
                 }
