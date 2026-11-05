@@ -66,3 +66,11 @@ T08의 기존 측정 수치는 **과거 시험 자료로 보존**하지만 RAM 8
 - `.github/workflows/t09-model-configuration.yml`: 검증된 T07 모델/CPU 런타임으로 **현재 T09 코드를 다시 PyInstaller 빌드**하고 포터블 ZIP을 생성·압축 해제하여 실제 기본 모델 및 선택한 모델 별칭·다른 이름의 실행 파일·추론 설정을 테스트합니다.
 - 모델 별칭은 **같은 Qwen3 GGUF 데이터에 다른 파일명을 부여한 것**입니다. 다양한 GGUF 모델 아키텍처나 GPU 드라이버·CUDA 호환성을 테스트했다는 의미가 아닙니다. 추가 모델을 직접 검증할 때는 모델 제공처·실행 파일 버전·실제 Q/A 결과를 기록해야 합니다.
 - 정상 통과한 샘플 ZIP 아티팩트는 7일 보존하며 정식 Release/tag는 만들지 않습니다.
+
+## T09 Windows 통합 검증 기록 (2026-11-05)
+
+- [Windows 포터블 ZIP 재빌드 및 모델 선택 CI 41955872865](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41955872865) **성공**. 새로운 PyInstaller 실행 파일을 포함한 포터블 ZIP을 생성해, 기본 Qwen3 1.7B 실모델 답변, 같은 Qwen3 데이터의 다른 이름 GGUF 선택, 다른 이름의 llama.cpp EXE 선택, 스레드/컨텍스트/토큰 설정, `raw_chatml` 답변, 누락 모델 거부를 확인했습니다.
+- 같은 CI에서 T09 선택 설정 단위 테스트 7개 통과. 기존 [Windows/Ubuntu 회귀 각각 69개 성공](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41955872746).
+- **다른 GGUF 아키텍처나 GPU 런타임의 실제 호환성을 검증한 것은 아닙니다.** 추가된 파일은 원래 manifest의 고정 해시 검증 대상이 아니므로 출처와 해시·라이선스를 사용자가 별도로 확인해야 합니다.
+- 샘플 ZIP 아티팩트 `DK-Knowledge-Engine-Win-x64-configurable-T09`는 Actions 실행의 Artifacts에 있으며 7일 보관, 정식 Release 아님.
+- 사양/성능 측정은 중단하고 현장 기능 검증에서도 제거했습니다. [Windows PowerShell 기능 검증 7/7](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41956675584).

@@ -33,7 +33,7 @@ Windows 환경에서 **인터넷·Docker·GPU 없이 동작하는 범용 AI 도�
 ## 문서
 
 - [T01 요구사항 및 데이터·API 계약](docs/T01_CONTRACT.md)
-- [T02~T08 작업 계획 및 완료 조건](TASKS.md)
+- [T02~T09 작업 계획 및 완료 조건](TASKS.md)
 - [T02 Knowledge Builder 사용법](docs/T02_KNOWLEDGE_BUILDER.md)
 - [T03 지식 검색 모듈 사용법](docs/T03_KNOWLEDGE_SEARCH.md)
 - [T04 CPU용 로컬 LLM 연결](docs/T04_LOCAL_LLM.md)
@@ -41,9 +41,9 @@ Windows 환경에서 **인터넷·Docker·GPU 없이 동작하는 범용 AI 도�
 - [T06 웹·Windows 프로그램 연동 예제](docs/T06_INTEGRATIONS.md)
 - [T07 Windows 포터블 ZIP 및 지식 DB 갱신](docs/T07_WINDOWS_PACKAGE.md)
 - [T08 CPU 계측·모델 비교 및 고객 PC 검증 조건](docs/T08_VALIDATION.md)
-- [T08 현장 기능·보안 확인 절차 (하드웨어 계측 선택 사항)](docs/T08_FIELD_CHECKLIST.md)
+- [T08 현장 기능·보안 확인 절차 (사양 측정 없음)](docs/T08_FIELD_CHECKLIST.md)
 - [T09 사용자별 모델·실행 환경 선택](docs/T09_MODEL_CONFIGURATION.md)
 
 ## 현재 상태
 
-**T01~T08 구현과 자동 검증 결과는 스택 PR #1~#7에 보존되어 있으며 현재 미병합입니다.** T07 포터블 ZIP에서 CPU 로컬 답변과 지식 DB 교체/복구를 검증했습니다. T08의 Windows/Ubuntu 계측은 과거 비교 참고 자료로 남기되 **RAM 8GB·특정 GPU/CPU 성능 검증을 완료 필수 조건으로 요구하지 않습니다.** 사용자가 자신의 장비에 맞춰 모델과 실행 옵션을 선택하는 T09는 [PR #8](https://github.com/danhk0612/DK-Knowledge-Engine/pull/8)에서 작업 중입니다. 고객 매뉴얼의 정확도·물리적 오프라인·브라우저 권한·서명/조직 보안 정책은 별개 검증 항목입니다.
+**T01~T08 구현과 자동 검증 결과는 스택 PR #1~#7에 보존되어 있으며 현재 미병합입니다.** T07 포터블 ZIP에서 CPU 로컬 답변과 지식 DB 교체/복구를 검증했습니다. T08의 Windows/Ubuntu 계측은 과거 비교 참고 자료로 남기되 **RAM 8GB·특정 GPU/CPU 성능 검증을 완료 필수 조건으로 요구하지 않습니다.** 사용자가 자신의 장비에 맞춰 모델과 실행 옵션을 선택하는 T09는 [PR #8](https://github.com/danhk0612/DK-Knowledge-Engine/pull/8)에서 구현되어 Windows 포터블 실모델 CI를 통과했습니다. T08의 현장 기능 검증은 사양 측정 없이 진행합니다. 고객 매뉴얼의 정확도·물리적 오프라인·브라우저 권한·서명/조직 보안 정책은 별개 검증 항목입니다.

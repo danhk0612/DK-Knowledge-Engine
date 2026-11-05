@@ -21,18 +21,16 @@ powershell.exe -NoProfile -File .\tests\t08_field_check.ps1 `
   -RunsPerChat 3
 ~~~
 
-이 스크립트는 기존 Verify-AIHelp.ps1로 해시/DB를 검사한 뒤, 포터블 EXE를 실행해 localhost health·search·event·chat을 요청합니다. 검색과 이벤트는 1회, chat은 지정 횟수(1~10회) 반복합니다. 냉시작 시간과 HTTP 시간, 메모리 사용 표본을 기록한 뒤 자신이 시작한 API만 종료합니다.
+이 스크립트는 기존 Verify-AIHelp.ps1로 해시/DB를 검사한 뒤, 포터블 EXE를 실행해 localhost health·search·event·chat의 기능을 확인합니다. 검색과 이벤트는 1회, chat은 지정 횟수(1~10회) 반복합니다. **RAM·CPU·GPU·응답 속도·메모리를 측정하지 않으며**, 자신이 시작한 API만 종료합니다.
 
 - 테스트 사례 kind: search (query, expect_results), event (event_id/error_code, expect_matched, expected_rule_id), chat (question, expected_any, forbidden_any), chat_no_evidence (question).
 - 공통으로 id, product_id가 필요하며 version, expected_source를 선택적으로 지정합니다.
-- 사례 ID별 결과와 응답 시간, 출처 상대 경로만 저장합니다. 답변 원문, 매뉴얼 본문, 질문 텍스트는 JSON 보고서에 저장하지 않습니다.
+- 사례 ID별 통과 여부와 출처 상대 경로만 저장합니다. 답변 원문, 매뉴얼 본문, 질문 텍스트는 JSON 보고서에 저장하지 않습니다.
 - 결과 디렉터리는 존재하지 않아야 합니다. 실패 시에도 실행 로그가 남을 수 있습니다. 실제 고객 자료 상대 경로가 포함될 수 있으므로 공개 Actions나 이슈에 결과를 업로드하지 마십시오.
 
 ### 보고서의 의미
 
-field-validation.json에는 Windows 버전/총 RAM/CPU/그래픽 장치/물리 NIC 상태, 7~9GiB 범위 여부, API 시작 시간, 사례별 응답 시간과 출처, 실행 상태, 별도 PowerShell Job에서 약 100ms마다 표본 추출한 API 및 llama-completion 프로세스 합산 Working Set의 최대치가 있습니다.
-
-**RSS 표본의 한계:** 공유 메모리 중복, 약 100ms 샘플의 누락, 동일한 프로세스명을 쓰는 다른 앱 혼합 가능성이 있습니다. 시스템 전체 피크 물리 메모리 사용량이 아닙니다. chat 키워드 일치는 부정문·문맥 오류를 잡지 못하므로 실제 답변과 매뉴얼 원문에 대한 담당자의 수동 검토가 필요합니다.
+field-validation.json에는 Windows 버전·아키텍처, 사례별 통과/실패와 출처, 오프라인 운영자 확인 여부, 수동 보안 검증 보류 항목을 기록합니다. **하드웨어 사양, 응답 시간, Working Set/RSS 또는 처리 속도 측정값을 수집하지 않습니다.** Chat 키워드 검사는 부정문·문맥상 오류를 판정하지 못하므로 실제 답변과 고객 매뉴얼 원문을 현장 담당자가 별도로 확인해야 합니다.
 
 ## 물리적 오프라인 검증 (수동)
 
@@ -51,7 +49,7 @@ field-validation.json에는 Windows 버전/총 RAM/CPU/그래픽 장치/물리 N
 
 | 검증 | 상태 |
 |---|---|
-| GitHub Windows 16GB 포터블 성능/메모리 | 통과 |
+| 과거 CI 하드웨어 성능 자료 | 참고 이력만 보존, 승인 기준에서 제외 |
 | GitHub 동일 llama.cpp CPU 모델 비교 5문항 | 통과 (제한된 탐색 실험) |
 | Windows 10/11 PowerShell 현장 스크립트 자체 | Windows Server 2025 CI 샘플 7/7 통과, 사용자 PC 미실행 |
 | 특정 RAM/CPU/GPU 성능 | 사용자 모델 선택 정책으로 **필수 검증 대상에서 제외** |
@@ -65,4 +63,4 @@ field-validation.json에는 Windows 버전/총 RAM/CPU/그래픽 장치/물리 N
 
 [GitHub Actions run 41953982849](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41953982849)에서 정식 T07 포터블 ZIP의 샘플 DB를 압축 해제해 실행한 결과 7/7 성공. 물리 RAM 15.99GiB, API 냉시작 0.553초, AI 답변 약 6.8~6.9초, 프로세스 합산 Working Set 표본 피크 약 2253MiB. 이 실행은 물리 오프라인 여부를 확인하거나 Windows 10/11 8GB 사양을 충족한 검증이 **아닙니다**.
 
-> 2026-11-05 변경: 사양별 계측은 더 이상 필수 작업이 아닙니다. 기존 현장 스크립트가 출력하는 RAM/메모리 정보는 과거 기능 확인용으로만 취급하며, **사양에 따른 배포 승인/거부를 자동 결정하지 않습니다.** 신규 모델 선택은 [T09 설정 문서](T09_MODEL_CONFIGURATION.md)를 참고합니다.
+> 2026-11-05 변경: 현재 현장 스크립트에서는 RAM·CPU·GPU·응답 시간·메모리 표본 수집 기능을 제거했습니다. 과거 CI 성능 자료는 참고 이력으로만 보존합니다. [선택 가능한 모델·추론 설정](T09_MODEL_CONFIGURATION.md)을 참고하세요. [기능 검증 스크립트 CI 7/7 성공](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41956675584).

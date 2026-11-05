@@ -1,6 +1,6 @@
 # DK Knowledge Engine — 개발 작업표
 
-상태: **T01 기준 문서 작성 완료, T02~T08 미착수**  
+상태: **T01 설계 완료, T02~T08 기능/자동 검증 결과는 스택 PR로 검토 중, T09 사용자 설정형 모델 기능 구현·검증 진행**  
 기준 문서: [docs/T01_CONTRACT.md](docs/T01_CONTRACT.md)  
 공통 목표: Windows 10/11 x64 · 완전 오프라인 · Docker 미사용 · localhost 허용 · GPU 불필요 목표 · 코드/모델/지식 DB 분리
 
@@ -210,7 +210,7 @@ T08 최종 검증
 
 ## T09 — 선택형 로컬 모델 및 추론 설정
 
-**상태: 구현 및 Windows 포터블 CI 검증 중, T08 기반 스택 PR #8**.
+**상태: 모델 선택 기능 구현 및 Windows 포터블 ZIP 실제 AI 답변·raw ChatML 검증 통과, T08 기반 스택 PR #8 검토 중**.
 
 범위:
 - Windows 포터블 `config/settings.json`의 `model.file`, `model.runtime`, `threads`, `context_size`, `max_tokens`, `timeout_seconds`, `gpu_layers`, `prompt_mode` 선택.
@@ -223,3 +223,7 @@ T08 최종 검증
 문서: [T09 모델 및 실행 설정](docs/T09_MODEL_CONFIGURATION.md).
 
 변경 금지: PR 직접 병합, Release/tag, 자동 모델 다운로드/추천, unrelated 제품 코드 수정.
+
+T09 Windows 검증: [Actions run 41955872865](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41955872865) 성공. 현재 코드로 포터블 EXE를 빌드하여 기본 Qwen3 답변, 동일 GGUF의 다른 파일명 선택과 다른 런타임 EXE 선택, 2스레드 설정, raw_chatml 답변, 누락 모델 거부를 확인. 별도 [Windows/Ubuntu 각각 69개 회귀 41955872746](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41955872746) 통과. GPU 런타임·다른 아키텍처 GGUF는 미검증이며 보장하지 않음.
+
+사양 측정 정책: T08 현장 도구에서 하드웨어/성능 측정 기능을 제거하고 [Windows 기능 확인 CI 41956675584](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41956675584) 7/7 통과. 고객 매뉴얼·브라우저·보안/오프라인 검증은 별개로 남김.
