@@ -1,6 +1,6 @@
 # DK Knowledge Engine — 개발 작업표
 
-상태: **T01 설계 완료, T02~T08 기능/자동 검증 결과는 스택 PR로 검토 중, T09 사용자 설정형 모델 기능 구현·검증 진행**  
+상태: **T01 설계 완료, T02~T10 구현 PR #1~#9 및 보완 PR #11·#13·#14·#15까지 `main` 병합 완료. 실제 고객 PC 및 문서 현장 검증은 미완료.**  
 기준 문서: [docs/T01_CONTRACT.md](docs/T01_CONTRACT.md)  
 공통 목표: Windows 10/11 x64 · 완전 오프라인 · Docker 미사용 · localhost 허용 · GPU 불필요 목표 · 코드/모델/지식 DB 분리
 
@@ -15,7 +15,7 @@
 
 ## T01 — 요구사항 / 데이터·API 계약
 
-**상태: 문서화 완료 (설계 승인), 코드 미구현**
+**상태: T01 설계 계약 문서 승인 완료. 해당 구현은 후속 T02~T10을 통해 `main`에 반영됨.**
 
 - 최초 범위: 문서 수집·색인, SQLite FTS5 검색, llama.cpp 연결, localhost API, 연동 예제, 오프라인 패키징.
 - 추가 합의: 문서 추가·수정·삭제, 전체 재색인, 원본과 인덱스 분리, 여러 제품 재사용, 백엔드 교체 가능한 경계.
@@ -24,7 +24,7 @@
 
 ## T02 — Knowledge Builder 및 지식 갱신
 
-**상태: 구현 완료, Ubuntu/Windows CI 검증 통과, PR 검토 중**
+**상태: 구현·Ubuntu/Windows CI 검증 완료, PR #1 `main` 병합.**
 
 범위:
 - PDF/DOCX/TXT/MD를 읽어 문서·청크·출처(페이지/절/상대 경로/해시)로 정규화.
@@ -49,7 +49,7 @@
 
 ## T03 — 검색 모듈
 
-**상태: 구현 완료, Windows·Ubuntu CI 통과, T02 기반 스택 PR 검토 중**
+**상태: 구현·Windows/Ubuntu CI 검증 완료, PR #2 `main` 병합.**
 
 범위:
 - `product_id`, 버전, `error_code`, `event_id`, `screen_id` 검색.
@@ -73,7 +73,7 @@
 
 ## T04 — 소형 LLM 연결
 
-**상태: 구현 및 자동·실모델 CPU smoke 검증 완료, T03 기반 스택 PR 검토 중**
+**상태: 구현·자동 및 실모델 CPU 검증 완료, PR #3 `main` 병합.**
 
 범위:
 - llama.cpp 기반 Qwen3 1.7B GGUF CPU 실행.
@@ -97,7 +97,7 @@
 
 ## T05 — localhost API
 
-**상태: 구현 완료, Windows·Ubuntu CI 통과, T04 기반 스택 PR 검토 중**
+**상태: 구현·Windows/Ubuntu CI 검증 완료, PR #4 `main` 병합.**
 
 범위:
 - `GET /health`, `POST /search`, `POST /chat`, `POST /event`.
@@ -120,7 +120,7 @@
 
 ## T06 — 웹·Windows 연동 예제
 
-**상태: 구현·Windows/Ubuntu 브라우저 및 Windows WPF·C# 통합 검증 완료, T05 기반 스택 PR 검토 중**
+**상태: 웹/Windows 연동 및 Windows/Ubuntu CI 검증 완료, PR #5와 HTTPS LNA 보완 PR #13까지 `main` 병합. 기업 브라우저 현장 검증은 별도.**
 
 범위:
 - JavaScript 기반 웹 프로그램에서 질문/오류·상태 이벤트 호출.
@@ -143,7 +143,7 @@
 
 ## T07 — 오프라인 배포 및 지식 갱신 패키징
 
-**상태: 구현 및 Windows ZIP·실모델·DB 교체/롤백 CI 검증 완료, T06 기반 PR #6 검토 중 (실기 검증 T08 별도)**
+**상태: Windows ZIP·실모델·DB 교체/롤백 자동 CI 검증 완료, PR #6 `main` 병합. DB 중단 복구 보완 PR #11도 `main` 병합(고객 실기 검증 별도).**
 
 범위:
 - 엔진 실행 파일·llama.cpp 런타임·GGUF·지식 DB·설정 묶음.
@@ -167,7 +167,7 @@
 
 ## T08 — 통합 검증 및 모델 비교
 
-**상태: 과거 CI 모델 비교·Windows 포터블 기능 및 PowerShell 현장 도구 검증 통과(PR #7). 하드웨어 실측은 사용자 요청으로 필수 게이트에서 제외. 현장 매뉴얼 정답·오프라인·보안 정책은 별도 미검증 — 부분 검증**
+**상태: 모델 비교·Windows 포터블/PowerShell 자동 기능 검증 완료, PR #7 및 PowerShell 5.1 판정 보완 PR #14 `main` 병합. 하드웨어 성능 실측은 필수 게이트에서 제외; 실제 고객 매뉴얼·오프라인·보안 정책은 현장 미검증.**
 
 범위:
 - 대표적인 사용 설명서/트러블슈팅 질문과 오류 이벤트 테스트.
@@ -206,11 +206,21 @@ T07 오프라인 패키지
 T08 최종 검증
 ```
 
-**다음 단계:** 실제 Windows 10/11 8GB RAM 무GPU PC·물리적 네트워크 차단·사내 HTTPS 브라우저 정책·SmartScreen/서명·실제 매뉴얼 정답률 실측 후 T08 최종 판정. T02~T07 PR #1~#6 미병합 유지, T08 PR #7은 검토 대기, 직접 병합/Release/tag 없음.
+**다음 단계:** 통합된 `main`으로 Windows 시험용 ZIP을 빌드·검증하고 Git으로 소스를 내려받은 시험 PC에서 기능·오프라인 작동을 검증한다. 실제 Windows 10/11 환경에서 사내 HTTPS 브라우저 정책/LNA 승인·거부, SmartScreen/서명, 고객 문서의 정답성과 재배포 라이선스를 확인하기 전에는 **정식 고객 배포 적합**으로 판정하지 않는다. 하드웨어별 속도·RAM 측정은 필수 조건이 아니다.
+
+## 추가 검증 PR (2026-11-05 기준, `main` 병합 완료)
+
+| PR | 자동 검증 완료 범위 | 현장 미완료 |
+|---|---|---|
+| [#13 HTTPS 웹→localhost LNA](https://github.com/danhk0612/DK-Knowledge-Engine/pull/13) | [Windows/Ubuntu Chromium, Windows C# 3/3](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41985270058), [T02 회귀 2/2](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41985270102) | 실제 사내 HTTPS·Chrome/Edge LNA 권한 및 기업 정책 |
+| [#14 Windows PowerShell 5.1 판정](https://github.com/danhk0612/DK-Knowledge-Engine/pull/14) | [T07 빌드·T08 기능 7/7](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41984774214), [T02 회귀 2/2](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41984774166) | 실사용 Windows PC·실제 고객 질문 |
+| [#15 T10 품질 기대값 검증](https://github.com/danhk0612/DK-Knowledge-Engine/pull/15) | [Windows/Ubuntu 단위 검증 및 실제 모델·인공 DB 14/14](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41981987505), [T02 회귀 2/2](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41981987468) | 고객 매뉴얼 정답성과 근거의 담당자 검토 |
+
+위 PR #13~#15는 `main`에 병합되었고 각 PR HEAD의 자동 CI가 통과했다. 이 수치는 **합성 테스트 자료**에만 해당하며, 실제 사내 PC 검증·법적 재배포 승인으로 간주하지 않는다. 시험용 ZIP을 실제 PC에서 확인할 때에는 사용한 Git 커밋과 ZIP 검증 결과를 함께 기록한다.
 
 ## T09 — 선택형 로컬 모델 및 추론 설정
 
-**상태: 모델 선택 기능 구현 및 Windows 포터블 ZIP 실제 AI 답변·raw ChatML 검증 통과, T08 기반 스택 PR #8 검토 중**.
+**상태: 모델·런타임 설정 기능 구현과 Windows 실모델/ChatML 검증 완료, PR #8 `main` 병합.**
 
 범위:
 - Windows 포터블 `config/settings.json`의 `model.file`, `model.runtime`, `threads`, `context_size`, `max_tokens`, `timeout_seconds`, `gpu_layers`, `prompt_mode` 선택.
@@ -230,7 +240,7 @@ T09 Windows 검증: [Actions run 41955872865](https://github.com/danhk0612/DK-Kn
 
 ## T10 — 근거 출처·정답성·오프라인/배포 보안 검증
 
-**상태: Windows/Ubuntu 각 5개 단위 테스트, 실제 Windows T09 ZIP의 인공 매뉴얼 14/14 통합 검증 통과. T09 기반 스택 PR #9 검토 중. 실제 고객 매뉴얼·현장 오프라인/보안 평가는 미완료.**
+**상태: Windows/Ubuntu 평가기 및 실제 Windows 모델·인공 매뉴얼 14/14 자동 검증 완료, PR #9와 공백 품질 기준 보완 PR #15 `main` 병합. 실제 고객 문서·현장 오프라인·보안 평가는 미검증.**
 
 범위:
 - 개발자 환경에서 실제 검색 결과와 /chat에 표시된 문서·청크·페이지 출처를 대조하고 정답·금지 키워드를 별도로 평가.
