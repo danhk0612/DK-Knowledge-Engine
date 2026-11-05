@@ -52,6 +52,75 @@ def verify_database(database: Path) -> dict:
         }
 
 
+def _selected_file(root: Path, value: str, folder: str, suffix: str) -> Path:
+    """Resolve a local model/runtime choice strictly inside its package folder."""
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"{folder} selection must be a non-empty path")
+    relative = Path(value)
+    if relative.is_absolute() or ".." in relative.parts or relative.parts[0] != folder:
+        raise ValueError(f"{folder} selection must be inside {folder}/")
+    target = (root / relative).resolve()
+    if not target.is_relative_to((root / folder).resolve()) or target.suffix.lower() != suffix:
+        raise ValueError(f"{folder} selection has invalid path or extension")
+    if not target.is_file():
+        raise FileNotFoundError(f"Selected {folder} file does not exist: {target}")
+    return target
+
+
+def portable_cli(root: Path, settings: dict) -> list[str]:
+    """T09: reusable T05 CLI args from user-selected local GGUF and runtime."""
+    if not isinstance(settings, dict) or set(settings) - {"port", "allowed_origins", "model"}:
+        raise ValueError("Unsupported keys in settings.json")
+    if not {"port", "allowed_origins"} <= set(settings):
+        raise ValueError("settings.json requires port and allowed_origins")
+    port = settings["port"]
+    origins = settings["allowed_origins"]
+    if type(port) is not int or not 1 <= port <= 65535:
+        raise ValueError("Invalid API port")
+    if not isinstance(origins, list) or not all(isinstance(v, str) for v in origins):
+        raise ValueError("allowed_origins must be a string array")
+    model_cfg = settings.get("model", {})
+    if not isinstance(model_cfg, dict):
+        raise ValueError("model must be an object")
+    defaults = {
+        "file": "models/Qwen3-1.7B-Q4_K_M.gguf",
+        "runtime": "runtime/llama-completion.exe",
+        "threads": 4,
+        "context_size": 4096,
+        "max_tokens": 192,
+        "timeout_seconds": 180,
+        "gpu_layers": 0,
+        "prompt_mode": "qwen3",
+    }
+    if set(model_cfg) - set(defaults):
+        raise ValueError("Unsupported model option")
+    options = {**defaults, **model_cfg}
+    for key in ("threads", "context_size", "max_tokens", "timeout_seconds"):
+        if type(options[key]) is not int or options[key] < 1:
+            raise ValueError(f"{key} must be a positive integer")
+    if type(options["gpu_layers"]) is not int or options["gpu_layers"] < 0:
+        raise ValueError("gpu_layers must be a non-negative integer")
+    if options["prompt_mode"] not in ("qwen3", "raw_chatml"):
+        raise ValueError("Unsupported prompt_mode")
+    executable = _selected_file(root, options["runtime"], "runtime", ".exe")
+    model = _selected_file(root, options["file"], "models", ".gguf")
+    cli = [
+        "--database", str(root / "knowledge" / "knowledge.db"),
+        "--port", str(port),
+        "--llama-cli", str(executable),
+        "--model", str(model),
+        "--threads", str(options["threads"]),
+        "--ctx-size", str(options["context_size"]),
+        "--max-tokens", str(options["max_tokens"]),
+        "--timeout-seconds", str(options["timeout_seconds"]),
+        "--gpu-layers", str(options["gpu_layers"]),
+        "--prompt-mode", options["prompt_mode"],
+    ]
+    for origin in origins:
+        cli.extend(("--allow-origin", origin))
+    return cli
+
+
 def run(argv: list[str] | None = None, *, root: Path | None = None) -> int:
     parser = argparse.ArgumentParser(description="DK Knowledge Engine portable Windows API")
     parser.add_argument("--verify-db", type=Path, help="Validate a knowledge DB without starting the server")
@@ -67,29 +136,9 @@ def run(argv: list[str] | None = None, *, root: Path | None = None) -> int:
     base = root if root is not None else package_root()
     try:
         settings = json.loads((base / "config" / "settings.json").read_text(encoding="utf-8"))
-        if not isinstance(settings, dict) or set(settings) != {"port", "allowed_origins"}:
-            raise ValueError("settings.json must contain only port and allowed_origins")
-        port = settings["port"]
-        origins = settings["allowed_origins"]
-        if type(port) is not int or not 1 <= port <= 65535:
-            raise ValueError("Invalid API port")
-        if not isinstance(origins, list) or not all(isinstance(v, str) for v in origins):
-            raise ValueError("allowed_origins must be a string array")
-
         db = base / "knowledge" / "knowledge.db"
         verify_database(db)
-        executable = base / "runtime" / "llama-completion.exe"
-        model = base / "models" / "Qwen3-1.7B-Q4_K_M.gguf"
-        if not executable.is_file() or not model.is_file():
-            raise FileNotFoundError("Required local CPU runtime/model is missing")
-        cli = [
-            "--database", str(db),
-            "--port", str(port),
-            "--llama-cli", str(executable),
-            "--model", str(model),
-        ]
-        for origin in origins:
-            cli.extend(("--allow-origin", origin))
+        cli = portable_cli(base, settings)
     except (OSError, json.JSONDecodeError, ValueError, sqlite3.Error) as exc:
         print(f"Portable package startup failed: {exc}", file=sys.stderr)
         return 1
