@@ -41,6 +41,10 @@ foreach ($entry in $manifest.immutable_files.PSObject.Properties) {
     }
 }
 
+$journal = Join-Path $Root 'knowledge\knowledge.pending.json'
+if (Test-Path -LiteralPath $journal -PathType Leaf) {
+    throw 'Interrupted knowledge DB update: stop the API and run Update-Knowledge.ps1 -Recover before verification'
+}
 $db = Join-Path $Root 'knowledge\knowledge.db'
 $expectedPath = Join-Path $Root 'knowledge\knowledge.sha256'
 if (-not (Test-Path -LiteralPath $db -PathType Leaf) -or -not (Test-Path -LiteralPath $expectedPath -PathType Leaf)) {
