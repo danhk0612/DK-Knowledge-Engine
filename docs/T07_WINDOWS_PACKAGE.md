@@ -88,6 +88,19 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Update-Knowledge.ps1 -
 
 업데이트 도구는 변경 전 원본 DB를 `knowledge.previous.db`에 보관하고, 새 DB를 **같은 볼륨 임시 파일**에서 해시·SQLite 무결성·스키마 확인 후 `File.Replace`로 교체합니다. 잘못된 해시·손상된 DB·스키마 불일치는 기존 DB에 영향을 주지 않으며, 서버가 실행 중일 때 교체하지 않도록 검사합니다. 이전 DB 복구 역시 무결성 검사를 거칩니다. **델타 업데이트·자동 온라인 갱신은 없습니다.**
 
+### 갱신 중 강제 종료·전원 차단 복구
+
+DB 교체와 별도 SHA-256 기록을 하나의 트랜잭션으로 처리할 수 없으므로, 파일 교체 전에 `knowledge/knowledge.pending.json` 저널을 원자적으로 생성합니다. 갱신 중단 후 저널이 남으면 일반 검증·새 업데이트·롤백을 차단하고, 운영자가 복구하도록 합니다.
+
+API를 종료한 상태에서 다음 명령을 실행합니다.
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Update-Knowledge.ps1 -Recover
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Verify-AIHelp.ps1
+```
+
+`-Recover`는 저널의 전후 SHA-256과 실제 DB·백업 DB의 해시 및 SQLite 무결성을 대조합니다. 교체 완료 상태면 SHA 기록 두 개를 원자적으로 정리하고, 교체 전 중단 상태면 기존 DB를 유지합니다. 파일이 어느 상태에도 일치하지 않거나 백업이 손상됐다면 **자동으로 해시를 다시 계산해 승인하지 않고 실패**합니다. 수동 확인이 필요합니다. 재검증 후에만 엔진을 재시작합니다. Windows CI는 교체 전·후와 해시 하나만 기록된 상태, 위조 저널을 검증합니다.
+
 `manifest.json`은 불변 엔진·모델 파일에만 적용되고, 교체 가능한 지식 DB는 `knowledge/knowledge.sha256`로 별도 관리합니다. 수정 가능한 `settings.json`은 서명하거나 강제 검증하지 않으므로 신뢰할 수 있는 관리자가 수정해야 합니다.
 
 ## 검증 기준과 한계

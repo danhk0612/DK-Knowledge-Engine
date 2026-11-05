@@ -241,6 +241,13 @@ def main() -> None:
         finally:
             stop_server(process)
 
+        # Recreate interrupted writes at three crash boundaries and reject a forged journal.
+        recovered = powershell(
+            Path(__file__).with_name("t07_recovery_smoke.ps1"),
+            "-PackageRoot", str(package), "-SourceDb", str(replacement),
+        )
+        assert "T07_INTERRUPTED_UPDATE_RECOVERY_OK" in recovered.stdout, recovered.stdout
+
         # Verification must detect binary/script tampering, not just DB damage.
         launcher = package / "Start-AIHelp.cmd"
         original = launcher.read_bytes()

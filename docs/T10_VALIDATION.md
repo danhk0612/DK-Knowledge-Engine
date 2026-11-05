@@ -77,7 +77,7 @@ python tests/t10_eval.py --database "D:\DK-Knowledge-Engine-Win-x64\knowledge\kn
 
 ## 4. 배포/오프라인 경계 및 잔여 점검
 
-CI는 기존 T09 Windows ZIP에서 사용된 `Verify-AIHelp.ps1`, 지식 DB 전체 교체, 모델 추론, 루프백 HTTP 경계를 확인합니다. 실행 환경의 PATH를 시스템 디렉터리로 제한하고 HTTP(S) 프록시를 무효 주소로 설정하지만, **물리적으로 인터넷 연결이 끊겼음을 증명하지는 못합니다.**
+CI는 동일한 GitHub Actions 실행에서 현재 소스로 새로 빌드한 T09 지원 Windows ZIP의 `Verify-AIHelp.ps1`, 지식 DB 전체 교체, 모델 추론, 루프백 HTTP 경계를 확인합니다. 실행 환경의 PATH를 시스템 디렉터리로 제한하고 HTTP(S) 프록시를 무효 주소로 설정하지만, **물리적으로 인터넷 연결이 끊겼음을 증명하지는 못합니다.**
 
 라이선스 텍스트 4종(기본 Qwen3, llama.cpp, CPython, PyInstaller)이 포함됐는지 검사하지만 재배포권·NOTICE·실행 파일 서명·제3자 DLL 전체를 법적으로 승인하지는 않습니다. 사용자가 T09에서 추가하는 모델/런타임 파일은 기본 패키지 불변 해시 목록에 자동 등록되지 않습니다.
 
@@ -85,7 +85,7 @@ CI는 기존 T09 Windows ZIP에서 사용된 `Verify-AIHelp.ps1`, 지식 DB 전�
 
 ## 5. CI 증거
 
-[T10 GitHub Actions](../.github/workflows/t10-validation.yml)는 기존 T09 CI 샘플 ZIP을 가져와 인공 DB로 교체한 뒤 실모델 질문 및 차단된 Origin/Host를 검증합니다. 실제 고객 데이터는 사용하지 않습니다. CI 리포트는 7일 보관되는 JSON 아티팩트이며, 통과 사례 ID와 실패 원인 코드만 포함합니다. 테스트 결과가 통과하기 전에는 검증 성공으로 표기하지 않습니다.
+[T10 GitHub Actions](../.github/workflows/t10-validation.yml)는 현재 코드의 T07 재사용 가능 빌드 작업에서 같은 실행 안에 생성한 T09 지원 샘플 ZIP을 가져와 인공 DB로 교체한 뒤 실모델 질문 및 차단된 Origin/Host를 검증합니다. 실제 고객 데이터는 사용하지 않습니다. CI 리포트는 7일 보관되는 JSON 아티팩트이며, 통과 사례 ID와 실패 원인 코드만 포함합니다. 테스트 결과가 통과하기 전에는 검증 성공으로 표기하지 않습니다.
 
 ## 6. 실제 T10 CI 확인 결과 (2026-11-05)
 
