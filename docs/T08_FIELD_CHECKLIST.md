@@ -1,6 +1,6 @@
 # T08 — Windows 10/11 8GB PC 실기 검증 지침
 
-**상태: 실행 도구 작성 / 실사용 고객 PC 검증 미실시.** CI 환경에서 이 도구가 성공하더라도 실제 8GB/무GPU 고객 PC 적합 판정이 아닙니다.
+**상태: 스크립트 Windows CI 검증 완료(샘플 7/7) / 실사용 고객 PC 검증 미실시.** CI 환경에서 이 도구가 성공하더라도 실제 8GB/무GPU 고객 PC 적합 판정이 아닙니다.
 
 ## 준비와 사용
 
@@ -53,10 +53,14 @@ field-validation.json에는 Windows 버전/총 RAM/CPU/그래픽 장치/물리 N
 |---|---|
 | GitHub Windows 16GB 포터블 성능/메모리 | 통과 |
 | GitHub 동일 llama.cpp CPU 모델 비교 5문항 | 통과 (제한된 탐색 실험) |
-| Windows 10/11 PowerShell 현장 스크립트 자체 | CI 검증 대상 |
+| Windows 10/11 PowerShell 현장 스크립트 자체 | Windows Server 2025 CI 샘플 7/7 통과, 사용자 PC 미실행 |
 | GPU 없는 실제 Windows 10/11 8GB PC | 미검증 |
 | 실제 물리적 네트워크 단절 | 미검증 |
 | 고객 문서 정답/검색 근거 담당자 검토 | 미검증 |
 | 사내 HTTPS 브라우저 권한·SmartScreen·재배포 | 미검증 |
 
 **이 조건을 실제 현장에서 검증하기 전에는 T08 최종 완료 및 고객 배포 적합 판정을 보류합니다.**
+
+### Windows PowerShell 스크립트 검증 근거
+
+[GitHub Actions run 41953982849](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41953982849)에서 정식 T07 포터블 ZIP의 샘플 DB를 압축 해제해 실행한 결과 7/7 성공. 물리 RAM 15.99GiB, API 냉시작 0.553초, AI 답변 약 6.8~6.9초, 프로세스 합산 Working Set 표본 피크 약 2253MiB. 이 실행은 물리 오프라인 여부를 확인하거나 Windows 10/11 8GB 사양을 충족한 검증이 **아닙니다**.

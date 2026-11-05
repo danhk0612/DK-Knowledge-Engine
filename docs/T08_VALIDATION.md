@@ -94,3 +94,14 @@ T07의 배포 런타임은 **llama.cpp v0.8.0 + Qwen3 1.7B**로 유지합니다.
 **자동화된 개발/CI 검증 범위 내에서는 통과했지만, 고객 PC 배포 적합 판정은 미완료입니다.** 실제 8GB RAM 무GPU Windows 10/11 기기, 물리적 네트워크 차단, 현장 제품별 매뉴얼·오류의 다수 사례, Chrome/Edge LNA 권한, 보안 정책/SmartScreen, 제3자 재배포 검증은 계속 필요합니다.
 
 원시 데이터는 두 실행의 `T08-windows-portable-metrics`, `T08-llm-comparison-evidence` Actions 아티팩트에 JSON으로 보관됩니다(7일 보존). 대용량 모델 자체는 저장소에 커밋하지 않았습니다.
+
+## 5. Windows PowerShell 5.1 현장 검증 도구 (2026-11-05)
+
+- [검증된 T07 ZIP을 이용한 Windows 현장 테스트 스크립트 CI 성공](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41953982849). 별도 패키징 수정 없이 GitHub Windows Server 2025 환경(물리 RAM 15.99GiB)에서 PowerShell 5.1로 실행했습니다.
+- 샘플 검색 1, 이벤트 1, 근거 있는 AI 답변 2회, 버전 격리 1, 제품 격리 1, 근거 없는 질문 1 — 총 **7/7 통과**.
+- API 시작 0.553초, 모델 답변 각각 6.947초와 6.765초, 100ms 내외의 Working Set 합산 표본 최대 2253MiB. 이 실행의 속도는 앞의 다른 Windows CI 10~12초와 다르므로 러너 부하/편차를 고려해야 합니다.
+- 원시 JSON 보고서의 오프라인 운영자 확인은 false이며, **물리적 네트워크 단절 독립 검증은 불가**로 기록했습니다. 실제 연결된 물리 NIC가 있는 Windows CI이며 8GB RAM 조건 역시 false로 기록했습니다.
+- [실사용 PC 실행 명령·고객 매뉴얼 사례 형식·보안/브라우저 수동 체크리스트](T08_FIELD_CHECKLIST.md). 도구는 기존 T07 포터블 바이너리와 DB, Windows 기본 PowerShell/.NET만 사용하고 네트워크 어댑터나 조직 정책을 바꾸지 않습니다. 사용자 PC에서 Python 설치를 요구하지 않습니다.
+- 샘플용 CI 리포트는 Actions 아티팩트 T08-Windows-field-script-smoke (7일 보존)로 제공됩니다. 실제 고객 매뉴얼과 현장 답변은 허가 없이 공개 GitHub에 업로드하지 않습니다.
+
+**T08의 실제 현장 검증은 여전히 미완료입니다.** GitHub CI가 실제 Windows 10/11 8GB 무GPU PC와 물리적 네트워크 차단, SmartScreen/사내 HTTPS 브라우저 정책을 대체하지 않습니다.

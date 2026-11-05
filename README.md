@@ -41,7 +41,8 @@ Windows 환경에서 **인터넷·Docker·GPU 없이 동작하는 범용 AI 도�
 - [T06 웹·Windows 프로그램 연동 예제](docs/T06_INTEGRATIONS.md)
 - [T07 Windows 포터블 ZIP 및 지식 DB 갱신](docs/T07_WINDOWS_PACKAGE.md)
 - [T08 CPU 계측·모델 비교 및 고객 PC 검증 조건](docs/T08_VALIDATION.md)
+- [T08 실제 Windows 8GB PC 검증 도구와 절차](docs/T08_FIELD_CHECKLIST.md)
 
 ## 현재 상태
 
-**T01~T07 구현 및 자동 검증 완료, 스택 PR #1~#6 검토 대기.** T02~T05 핵심 기능과 T06 웹/Windows 연동, T07 Windows x64 포터블 ZIP·실제 Qwen3 CPU 답변·지식 DB 갱신/롤백을 GitHub Actions에서 검증했습니다. 시험용 ZIP은 [Windows CI 실행 41786316047](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41786316047)의 아티팩트에 있으며 정식 Release가 아닙니다. Windows 10/11의 실제 GPU 없는 8GB PC·완전 네트워크 차단 실기 검증 및 모델 품질 비교는 T08 호스팅 Windows CPU 계측 및 Qwen3/Qwen3.5 비교 CI는 성공했고 [PR #7](https://github.com/danhk0612/DK-Knowledge-Engine/pull/7) 검토 중입니다. 실제 Windows 10/11 8GB PC, 물리적 오프라인·사내 브라우저 권한·SmartScreen 검증은 남아 있어 최종 배포 적합 판정은 보류합니다.
+**T01~T07 구현 및 자동 검증 완료, 스택 PR #1~#6 검토 대기.** T02~T05 핵심 기능과 T06 웹/Windows 연동, T07 Windows x64 포터블 ZIP·실제 Qwen3 CPU 답변·지식 DB 갱신/롤백을 GitHub Actions에서 검증했습니다. 시험용 ZIP은 [Windows CI 실행 41786316047](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41786316047)의 아티팩트에 있으며 정식 Release가 아닙니다. Windows 10/11의 실제 GPU 없는 8GB PC·완전 네트워크 차단 실기 검증 및 모델 품질 비교는 T08 호스팅 CPU 계측·모델 비교 및 PowerShell 5.1 현장 검증 도구(샘플 CI 7/7)는 성공했고 [PR #7](https://github.com/danhk0612/DK-Knowledge-Engine/pull/7) 검토 중입니다. 실제 Windows 10/11 8GB PC, 물리적 오프라인·사내 브라우저 권한·SmartScreen 검증은 남아 있어 최종 배포 적합 판정은 보류합니다.
