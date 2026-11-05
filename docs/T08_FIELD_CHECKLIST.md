@@ -25,6 +25,10 @@ powershell.exe -NoProfile -File .\tests\t08_field_check.ps1 `
 
 - 테스트 사례 kind: search (query, expect_results), event (event_id/error_code, expect_matched, expected_rule_id), chat (question, expected_any, forbidden_any), chat_no_evidence (question).
 - 공통으로 id, product_id가 필요하며 version, expected_source를 선택적으로 지정합니다.
+- **`chat.expected_any`는 공백이 아닌 문자열을 하나 이상 담은 JSON 배열**이어야 합니다. 빈 문자열·공백뿐 아니라 문자열이 아닌 숫자나 단일 문자열도 거부합니다. PowerShell의 암묵적 문자열 변환으로 품질 검증 기준이 바뀌지 않도록 실행 전에 검사합니다.
+- `/search` 응답의 `results`, `/chat`의 `sources` 및 `grounded`, `/event`의 `matched` 필드가 누락되었거나 처리할 수 없는 형식이면 해당 항목을 통과 처리하지 않습니다. **Windows PowerShell 5.1에서 단일 검색 결과 배열이 객체 한 건으로 풀릴 수 있어**, 해당 형태도 정상 검색 결과로 인정합니다. 검색 결과가 없어야 하는 사례 역시 응답에 `results` 필드가 있어야 통과합니다.
+- 필수 응답 형식 검사는 테스트 보고서의 정확성을 위한 것이며 **실제 고객 문서 정답성을 자동 보증하지 않습니다**.
+
 - 사례 ID별 통과 여부와 출처 상대 경로만 저장합니다. 답변 원문, 매뉴얼 본문, 질문 텍스트는 JSON 보고서에 저장하지 않습니다.
 - 결과 디렉터리는 존재하지 않아야 합니다. 실패 시에도 실행 로그가 남을 수 있습니다. 실제 고객 자료 상대 경로가 포함될 수 있으므로 공개 Actions나 이슈에 결과를 업로드하지 마십시오.
 
