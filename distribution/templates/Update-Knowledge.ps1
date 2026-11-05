@@ -31,11 +31,14 @@ function Read-Hash([string]$FilePath) {
 }
 
 function Write-HashAtomic([string]$FilePath, [string]$Value) {
-    $tempHash = Join-Path (Split-Path -Parent $FilePath) ('.knowledge-hash-' + [guid]::NewGuid().ToString('N'))
+    $directory = Split-Path -Parent $FilePath
+    $tempHash = Join-Path $directory ('.knowledge-hash-' + [guid]::NewGuid().ToString('N'))
+    $oldHashBackup = Join-Path $directory ('.knowledge-hash-backup-' + [guid]::NewGuid().ToString('N'))
     try {
         [System.IO.File]::WriteAllText($tempHash, $Value + [Environment]::NewLine, (New-Object System.Text.UTF8Encoding($false)))
         if (Test-Path -LiteralPath $FilePath -PathType Leaf) {
-            [System.IO.File]::Replace($tempHash, $FilePath, $null)
+            # Windows File.Replace requires an actual, non-null backup pathname.
+            [System.IO.File]::Replace($tempHash, $FilePath, $oldHashBackup, $true)
         } else {
             [System.IO.File]::Move($tempHash, $FilePath)
         }
@@ -43,6 +46,9 @@ function Write-HashAtomic([string]$FilePath, [string]$Value) {
     finally {
         if (Test-Path -LiteralPath $tempHash) {
             Remove-Item -LiteralPath $tempHash -Force
+        }
+        if (Test-Path -LiteralPath $oldHashBackup) {
+            Remove-Item -LiteralPath $oldHashBackup -Force
         }
     }
 }
