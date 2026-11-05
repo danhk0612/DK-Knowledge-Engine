@@ -62,6 +62,8 @@ Chrome 142 이후 웹사이트→로컬 PC 또는 인트라넷 사이트→루�
 
 ### 별도 수동 검증 시나리오
 
+실제 사내 HTTPS 사이트에서 GET `/health`, POST `/search`, `loopback-network` 권한 승인/거부를 최소 노출 방식으로 검사하려면 [T06 LNA 현장 검증 절차](T06_LNA_FIELD_VALIDATION.md)를 따릅니다. 이 도구는 운영자 클릭에만 요청하며 회사 PC/브라우저의 실제 검증을 대체하지 않습니다.
+
 실제 사용할 Windows Chrome/Edge 브라우저에서 HTTPS 사내 웹페이지를 열고, T05의 `--allow-origin`에 해당 사이트 Origin을 등록한 뒤 `fetch('http://127.0.0.1:8765/search', ...)`를 호출해야 합니다. 다음 항목을 확인합니다.
 
 1. 사이트의 보안 컨텍스트 여부와 브라우저의 로컬 네트워크/루프백 권한 표시 및 허용 가능 여부.
