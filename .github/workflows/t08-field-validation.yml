@@ -13,6 +13,50 @@ permissions:
   actions: read
 
 jobs:
+  reject-invalid-field-cases:
+    name: PowerShell 5.1 rejects empty chat expectations before starting an engine
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test blank chat keywords do not silently pass
+        shell: pwsh
+        run: |
+          $work = Join-Path $env:RUNNER_TEMP 't08-invalid-cases'
+          $package = Join-Path $work 'dummy-package'
+          New-Item -ItemType Directory -Force -Path (Join-Path $package 'engine'), (Join-Path $package 'config') | Out-Null
+          New-Item -ItemType File -Force -Path (Join-Path $package 'engine/DK-Knowledge-API.exe'), (Join-Path $package 'Verify-AIHelp.ps1') | Out-Null
+          $ps51 = Join-Path $env:SystemRoot 'System32/WindowsPowerShell/v1.0/powershell.exe'
+          $scriptPath = Join-Path $PWD 'tests/t08_field_check.ps1'
+          $utf8 = New-Object System.Text.UTF8Encoding($false)
+          foreach ($case in @(
+            @{ name = 'empty'; expected_any = @('') },
+            @{ name = 'whitespace'; expected_any = @('   ') }
+          )) {
+            $inputFile = Join-Path $work ($case.name + '.json')
+            $outputDir = Join-Path $work ($case.name + '-output')
+            $contents = @(@{
+              id = $case.name
+              kind = 'chat'
+              product_id = 'example-program'
+              question = 'sample'
+              expected_any = $case.expected_any
+            }) | ConvertTo-Json -Depth 8
+            [System.IO.File]::WriteAllText($inputFile, $contents, $utf8)
+            $stdout = Join-Path $work ($case.name + '-stdout.log')
+            $stderr = Join-Path $work ($case.name + '-stderr.log')
+            $process = Start-Process -FilePath $ps51 -ArgumentList @(
+              '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $scriptPath,
+              '-PackageRoot', $package, '-CasesPath', $inputFile, '-OutputDir', $outputDir
+            ) -NoNewWindow -Wait -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+            $errorLog = Get-Content -LiteralPath $stderr -Raw
+            if ($process.ExitCode -eq 0 -or (Test-Path -LiteralPath $outputDir) -or
+                $errorLog -notmatch 'non-empty expected_any keywords') {
+              throw ('Invalid chat expectations were not rejected before engine start: ' + $case.name)
+            }
+          }
+          Write-Output 'T08_BLANK_CHAT_EXPECTATIONS_REJECTED'
+
   build-t07-package:
     uses: ./.github/workflows/t07-portable-windows.yml
 
