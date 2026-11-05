@@ -275,11 +275,21 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--llama-cli", type=Path)
     parser.add_argument("--model", type=Path)
+    parser.add_argument("--threads", type=int, default=4)
+    parser.add_argument("--ctx-size", type=int, default=4096)
+    parser.add_argument("--max-tokens", type=int, default=192)
+    parser.add_argument("--timeout-seconds", type=int, default=180)
+    parser.add_argument("--gpu-layers", type=int, default=0)
+    parser.add_argument("--prompt-mode", choices=("qwen3", "raw_chatml"), default="qwen3")
     parser.add_argument("--allow-origin", action="append", default=[], help="Exact allowed browser origin")
     args = parser.parse_args(argv)
     if (args.llama_cli is None) != (args.model is None):
         parser.error("--llama-cli and --model must be supplied together")
-    generator = LlamaCli(args.llama_cli, args.model) if args.model is not None else None
+    generator = LlamaCli(
+        args.llama_cli, args.model, threads=args.threads, ctx_size=args.ctx_size,
+        max_tokens=args.max_tokens, timeout_seconds=args.timeout_seconds,
+        gpu_layers=args.gpu_layers, prompt_mode=args.prompt_mode,
+    ) if args.model is not None else None
     with KnowledgeHttpServer(
         args.database, port=args.port,
         generator=generator, allowed_origins=tuple(args.allow_origin),
