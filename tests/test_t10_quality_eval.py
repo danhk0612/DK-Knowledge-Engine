@@ -96,6 +96,32 @@ class T10EvaluatorTests(unittest.TestCase):
         self.assertIn("citation-not-in-requested-retrieval", result["failures"])
         self.assertIn("expected-source-missing", result["failures"])
 
+    def test_rejects_blank_quality_terms_and_assertions(self):
+        baseline = next(case for case in self.cases if case["id"] == "alpha-grounded-chat")
+        target = self.root / "blank-quality-cases.json"
+        for key in ("expected_any", "forbidden_any", "evidence_any", "forbidden_sources"):
+            for term in ("", "   ", "\\t"):
+                candidate = dict(baseline)
+                candidate[key] = [term]
+                target.write_text(json.dumps([candidate], ensure_ascii=False), encoding="utf-8")
+                with self.subTest(key=key, term=repr(term)):
+                    with self.assertRaisesRegex(ValueError, key):
+                        read_cases(target)
+
+        for key in ("expected_source", "expected_rule_id"):
+            candidate = dict(baseline)
+            candidate[key] = "  "
+            target.write_text(json.dumps([candidate], ensure_ascii=False), encoding="utf-8")
+            with self.subTest(key=key):
+                with self.assertRaisesRegex(ValueError, key):
+                    read_cases(target)
+
+    def test_nonblank_quality_terms_still_accepted(self):
+        target = self.root / "valid-quality-cases.json"
+        target.write_text(json.dumps(self.cases, ensure_ascii=False), encoding="utf-8")
+        parsed = read_cases(target)
+        self.assertEqual(len(parsed), len(self.cases))
+
     def test_invalid_or_duplicate_gold_cases_rejected(self):
         case = self.cases[0]
         target = self.root / "bad-cases.json"
