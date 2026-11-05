@@ -1,0 +1,58 @@
+[
+  {
+    "id": "sample-search",
+    "kind": "search",
+    "product_id": "example-program",
+    "version": "2.1.0",
+    "query": "연결 오류",
+    "expect_results": true,
+    "expected_source": "example-program/manuals/setup.md"
+  },
+  {
+    "id": "sample-event",
+    "kind": "event",
+    "product_id": "example-program",
+    "version": "2.1.0",
+    "event_id": "connection_failed",
+    "error_code": "DB-1001",
+    "expected_rule_id": "db-1001",
+    "expected_source": "example-program/manuals/setup.md"
+  },
+  {
+    "id": "sample-grounded-chat",
+    "kind": "chat",
+    "product_id": "example-program",
+    "version": "2.1.0",
+    "question": "연결 오류가 발생하면 확인할 포트 번호는?",
+    "expected_any": [
+      "3308"
+    ],
+    "forbidden_any": [
+      "9999"
+    ],
+    "expected_source": "example-program/manuals/setup.md"
+  },
+  {
+    "id": "sample-version-isolation",
+    "kind": "search",
+    "product_id": "example-program",
+    "version": "9.0.0",
+    "query": "연결 오류",
+    "expect_results": false
+  },
+  {
+    "id": "sample-product-isolation",
+    "kind": "search",
+    "product_id": "other-product",
+    "version": "2.1.0",
+    "query": "연결 오류",
+    "expect_results": false
+  },
+  {
+    "id": "sample-no-evidence",
+    "kind": "chat_no_evidence",
+    "product_id": "other-product",
+    "version": "2.1.0",
+    "question": "데이터베이스 연결 포트"
+  }
+]
