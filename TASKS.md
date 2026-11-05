@@ -167,11 +167,11 @@
 
 ## T08 — 통합 검증 및 모델 비교
 
-**상태: CI 모델 비교·Windows 성능·PowerShell 5.1 현장 검증 도구 7/7 통과(PR #7). 실제 8GB 고객 PC 현장 실측 및 보안 정책 검증 미완료 — 부분 검증**
+**상태: 과거 CI 모델 비교·Windows 포터블 기능 및 PowerShell 현장 도구 검증 통과(PR #7). 하드웨어 실측은 사용자 요청으로 필수 게이트에서 제외. 현장 매뉴얼 정답·오프라인·보안 정책은 별도 미검증 — 부분 검증**
 
 범위:
 - 대표적인 사용 설명서/트러블슈팅 질문과 오류 이벤트 테스트.
-- GPU 없는 8GB RAM 환경에서 메모리·시작·응답 속도 측정.
+- 모델/실행 옵션을 사용자가 선택할 수 있도록 구성. 고정 하드웨어 규격과 성능 실측은 승인 필수 조건에서 제외.
 - Qwen3 1.7B 대 Qwen3.5 2B 품질/속도 비교.
 - 오프라인·재배포·여러 제품 자료 격리·갱신 검증.
 
@@ -186,7 +186,7 @@
 
 현장 도구 검증: [Windows PowerShell 5.1 field kit CI run 41953982849](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41953982849), 포터블 T07 샘플 ZIP의 검색·오류·LLM 2회·제품/버전 격리·근거 없음 사례 총 7/7 통과. 냉시작 0.553초, 추론 6.947/6.765초, 메모리 표본 피크 2253MiB. **Windows Server 2025 약 16GB CI 기기이며 8GB 실기/물리 오프라인으로 표시하지 않음.** 스크립트는 원본 질문·답변 내용을 보고서에 보관하지 않으며 로컬 운영자가 현장에서 실행해야 함.
 
-검증 구분: GitHub 호스팅 Windows는 **실제 8GB 고객 PC가 아님**. 모델 비교는 동일 llama.cpp v0.9.0/CPU에서 Qwen3 1.7B와 Qwen3.5 2B를 5개의 정형 질문으로 비교하는 탐색 실험으로, T07 배포 런타임 v0.8.0을 변경하지 않음. 고객 PC 8GB·완전 네트워크 차단·사내 HTTPS LNA·SmartScreen/서명·실제 고객 문서 정답률은 별도 실기 검증 후에만 완료로 판정.
+검증 구분: GitHub 호스팅 Windows는 **실제 8GB 고객 PC가 아님**. 모델 비교는 동일 llama.cpp v0.9.0/CPU에서 Qwen3 1.7B와 Qwen3.5 2B를 5개의 정형 질문으로 비교하는 탐색 실험으로, T07 배포 런타임 v0.8.0을 변경하지 않음. 고객 PC의 고정 RAM/CPU 사양은 이제 완료 조건이 아님. 완전 네트워크 차단·사내 HTTPS LNA·SmartScreen/서명·실제 고객 문서 정답률은 별도 현장 검증 후에만 완료로 판정.
 
 ## 실행 순서
 
@@ -207,3 +207,19 @@ T08 최종 검증
 ```
 
 **다음 단계:** 실제 Windows 10/11 8GB RAM 무GPU PC·물리적 네트워크 차단·사내 HTTPS 브라우저 정책·SmartScreen/서명·실제 매뉴얼 정답률 실측 후 T08 최종 판정. T02~T07 PR #1~#6 미병합 유지, T08 PR #7은 검토 대기, 직접 병합/Release/tag 없음.
+
+## T09 — 선택형 로컬 모델 및 추론 설정
+
+**상태: 구현 및 Windows 포터블 CI 검증 중, T08 기반 스택 PR #8**.
+
+범위:
+- Windows 포터블 `config/settings.json`의 `model.file`, `model.runtime`, `threads`, `context_size`, `max_tokens`, `timeout_seconds`, `gpu_layers`, `prompt_mode` 선택.
+- 기본 Qwen3 1.7B CPU 설정 및 기존 T07 설정 파일 호환 유지.
+- 모델은 `models/`, llama.cpp 호환 실행 파일은 `runtime/` 하위에서 지정. 사용자가 직접 파일을 제공하며 인터넷·자동 다운로드·하드웨어 등급 자동 판정은 없음.
+- T05 API 엔드포인트·JSON 계약 및 T02/T03 지식 DB/갱신 방식 보존. 모델별 호환성은 사용자가 선택한 GGUF와 해당 llama.cpp 버전에 따라 달라짐.
+
+검증: `tests/test_model_selection.py`, `tests/t09_config_smoke.py`, `.github/workflows/t09-model-configuration.yml`. 기본 GGUF 및 이름이 다른 동일 GGUF의 파일 선택·CPU 추론 검증은 CI에서 수행; 모든 모델 종류·GPU 조합 지원은 주장하지 않음.
+
+문서: [T09 모델 및 실행 설정](docs/T09_MODEL_CONFIGURATION.md).
+
+변경 금지: PR 직접 병합, Release/tag, 자동 모델 다운로드/추천, unrelated 제품 코드 수정.
