@@ -33,7 +33,7 @@ Windows 환경에서 **인터넷·Docker·GPU 없이 동작하는 범용 AI 도�
 ## 문서
 
 - [T01 요구사항 및 데이터·API 계약](docs/T01_CONTRACT.md)
-- [T02~T09 작업 계획 및 완료 조건](TASKS.md)
+- [T02~T10 작업 계획 및 완료 조건](TASKS.md)
 - [T02 Knowledge Builder 사용법](docs/T02_KNOWLEDGE_BUILDER.md)
 - [T03 지식 검색 모듈 사용법](docs/T03_KNOWLEDGE_SEARCH.md)
 - [T04 CPU용 로컬 LLM 연결](docs/T04_LOCAL_LLM.md)
@@ -47,6 +47,8 @@ Windows 환경에서 **인터넷·Docker·GPU 없이 동작하는 범용 AI 도�
 
 ## 현재 상태
 
-**T01~T10의 PR #1~#9는 순차적으로 `main`에 병합되었습니다.** Windows 포터블 CPU 추론, API·웹/WPF 연동, 설정형 모델 선택 및 인공 매뉴얼 14/14 검증까지 기존 CI로 확인했습니다. 현재 후속 보완 작업은 CI의 과거 아티팩트 의존성을 없애고 DB 갱신 도중 중단된 경우 SHA 기록을 복구하도록 개선하는 범위입니다.
+**T01 설계 및 T02~T10 구현 PR #1~#9와 DB 갱신 복구·CI 재현성 보완 PR #11이 `main`에 병합되었습니다.** Windows 포터블 CPU 추론, localhost API·웹/WPF 연동, 사용자 설정형 모델 선택 및 인공 매뉴얼 품질·보안 14/14 검증이 자동 CI로 확인되었습니다. PR #11의 DB 교체 중단·SHA 기록 복구도 `main`에 반영된 상태입니다.
+
+**추가 보완 PR(별도 병합 대기):** [#13 사내 HTTPS→localhost LNA 및 Origin/CSP 브라우저 자동 검증](https://github.com/danhk0612/DK-Knowledge-Engine/pull/13), [#14 T08 PowerShell 현장 평가 판정 보정](https://github.com/danhk0612/DK-Knowledge-Engine/pull/14), [#15 T10 공백 키워드 평가 오류 차단](https://github.com/danhk0612/DK-Knowledge-Engine/pull/15). 각각 최신 자동 CI는 성공했지만 **아직 `main`에 병합되지 않았습니다**.
 
 **정식 고객 배포 적합성은 아직 미확정**입니다. 실제 사내 HTTPS 웹사이트 LNA 권한, 고객 문서 정답성, 완전 오프라인 현장 점검, 서명/SmartScreen 및 라이선스 적합성 검토가 필요합니다. CPU/RAM/GPU 성능 측정은 T09 결정에 따라 필수 승인 조건이 아닙니다.
