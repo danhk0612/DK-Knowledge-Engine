@@ -227,3 +227,18 @@ T08 최종 검증
 T09 Windows 검증: [Actions run 41955872865](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41955872865) 성공. 현재 코드로 포터블 EXE를 빌드하여 기본 Qwen3 답변, 동일 GGUF의 다른 파일명 선택과 다른 런타임 EXE 선택, 2스레드 설정, raw_chatml 답변, 누락 모델 거부를 확인. 별도 [Windows/Ubuntu 각각 69개 회귀 41955872746](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41955872746) 통과. GPU 런타임·다른 아키텍처 GGUF는 미검증이며 보장하지 않음.
 
 사양 측정 정책: T08 현장 도구에서 하드웨어/성능 측정 기능을 제거하고 [Windows 기능 확인 CI 41956675584](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41956675584) 7/7 통과. 고객 매뉴얼·브라우저·보안/오프라인 검증은 별개로 남김.
+
+## T10 — 근거 출처·정답성·오프라인/배포 보안 검증
+
+**상태: 자동 평가 도구·인공 다중 제품/버전 사례 및 Windows ZIP CI 작성, 검증 중. T09 기반 스택 PR #9.**
+
+범위:
+- 개발자 환경에서 실제 검색 결과와 /chat에 표시된 문서·청크·페이지 출처를 대조하고 정답·금지 키워드를 별도로 평가.
+- 다중 제품·이전 버전·무근거 질문과 오류 이벤트의 올바른 격리 점검.
+- HTTP Host/Origin/OPTIONS 경계 및 기존 T07/T09 패키지 SHA·라이선스 파일 존재 검증.
+- 실제 고객 매뉴얼은 사내 PC에만 저장하고, 자동 보고서는 질문·답변 원문과 출처 경로를 포함하지 않음.
+- 물리적 오프라인, 사내 브라우저 정책·SmartScreen/코드 서명, 실매뉴얼 정답성은 별도 현장 검토로 구분.
+
+산출물: `tests/t10_fixture.py`, `tests/t10_cases_sample.json`, `tests/t10_eval.py`, `tests/t10_run_portable.py`, `tests/test_t10_quality_eval.py`, `.github/workflows/t10-validation.yml`, `docs/T10_VALIDATION.md`.
+
+변경 금지: 기존 T07/T09 API/모델·설정/지식 DB 계약 변경, 시스템 사양/성능 벤치마크 재개, 고객 매뉴얼 공개, PR 직접 병합·Release/tag.
