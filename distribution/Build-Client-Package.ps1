@@ -45,9 +45,22 @@ try {
         Copy-Item -LiteralPath $src -Destination (Join-Path $package $file)
     }
 
+    # This is a NEW, offline package folder, not a live installed database.
+    # Update-Knowledge.ps1 correctly blocks changes while any API runs, but
+    # using it here would wrongly block assembling an independent package.
+    # Provision only this fresh copy, verifying the selected DB and its hash.
     $dbHash = (Get-FileHash -LiteralPath $db -Algorithm SHA256).Hash.ToLowerInvariant()
-    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $package 'Update-Knowledge.ps1') -SourceDb $db -ExpectedSha256 $dbHash
-    if ($LASTEXITCODE -ne 0) { throw 'User knowledge DB update failed' }
+    $packagedDb = Join-Path $package 'knowledge\knowledge.db'
+    Copy-Item -LiteralPath $db -Destination $packagedDb -Force
+    $packagedHash = (Get-FileHash -LiteralPath $packagedDb -Algorithm SHA256).Hash.ToLowerInvariant()
+    if ($packagedHash -ne $dbHash) { throw 'Copied knowledge DB SHA-256 mismatch' }
+    & (Join-Path $package 'engine\DK-Knowledge-API.exe') --verify-db $packagedDb
+    if ($LASTEXITCODE -ne 0) { throw 'Selected knowledge DB failed schema / integrity verification' }
+    [System.IO.File]::WriteAllText(
+        (Join-Path $package 'knowledge\knowledge.sha256'),
+        $packagedHash + [Environment]::NewLine,
+        (New-Object System.Text.UTF8Encoding($false))
+    )
     # The base package's sample/previous DB must never be delivered to users.
     # A rollback backup will be created by the first subsequent user update.
     foreach ($name in @('knowledge.previous.db', 'knowledge.previous.sha256')) {
