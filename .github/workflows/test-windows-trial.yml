@@ -7,6 +7,8 @@ on:
     paths:
       - '.github/workflows/test-windows-trial.yml'
       - 'docs/WINDOWS_TRIAL.md'
+      - 'search/knowledge_search.py'
+      - 'tests/test_knowledge_search.py'
 
 permissions:
   contents: read
