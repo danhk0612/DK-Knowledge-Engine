@@ -52,8 +52,7 @@ public partial class MainWindow : Window
     private async void HealthClick(object sender, RoutedEventArgs e) =>
         await ExecuteAsync(async () =>
         {
-            using var _ = new JsonDocumentHolder(await _api.HealthAsync());
-            var data = _.Value;
+            var data = await _api.HealthAsync();
             EngineStatusText.Text = "상태: " + data.GetProperty("status").GetString() +
                 " / LLM: " + (data.GetProperty("llm_ready").GetBoolean() ? "준비" : "사용 불가");
             StatusText.Text = "연결 확인 완료";
@@ -223,9 +222,4 @@ public partial class MainWindow : Window
         base.OnClosed(e);
     }
 
-    private sealed class JsonDocumentHolder(JsonElement value) : IDisposable
-    {
-        public JsonElement Value { get; } = value;
-        public void Dispose() { }
-    }
 }
