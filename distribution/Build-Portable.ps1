@@ -71,7 +71,7 @@ try {
             max_tokens = 192
             timeout_seconds = 180
             gpu_layers = 0
-            prompt_mode = 'qwen3'
+            prompt_mode = 'raw_chatml'
         }
     }
     [System.IO.File]::WriteAllText((Join-Path $package 'config\settings.json'), ($settings | ConvertTo-Json -Depth 4), (New-Object System.Text.UTF8Encoding($false)))
