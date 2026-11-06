@@ -20,8 +20,9 @@ _QUESTION_FILLER = frozenset({
     "방법", "무엇인가요", "무엇입니까", "어떻게", "알려주세요",
     "해주세요", "하나요", "할까요", "인가요", "경우",
 })
-# "프로그램" is useful by itself, but too broad to restrict a more
-# specific term such as "설치" in a multi-term support question.
+# "프로그램" is a useful subject qualifier in two-term questions
+# ("프로그램 설치" must not match unrelated driver installation).
+# Omit it only when at least two other meaningful terms remain.
 _GENERIC_CONTEXT_TERMS = frozenset({"프로그램"})
 _KOREAN_PARTICLES = (
     "에서는", "에게는", "으로는", "에서", "에게", "으로",
@@ -81,7 +82,7 @@ def _query_terms(question: str) -> list[tuple[str, bool]]:
             continue
         prefix = len(token) >= 2 and (bool(_HANGUL.search(token)) or token != raw)
         terms[token] = terms.get(token, False) or prefix
-    if len(terms) > 1:
+    if len(terms) > 2:
         for generic in _GENERIC_CONTEXT_TERMS:
             terms.pop(generic, None)
     return list(terms.items())
