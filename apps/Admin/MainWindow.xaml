@@ -1,0 +1,127 @@
+<Window x:Class="DKKnowledgeAdmin.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="DK Knowledge Engine — 관리자" Width="940" Height="760"
+        MinWidth="760" MinHeight="590">
+  <Grid Margin="20">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+    <Border BorderBrush="#D2D7DF" BorderThickness="0,0,0,1" Padding="0,0,0,14">
+      <StackPanel>
+        <TextBlock Text="DK Knowledge Engine Admin" FontWeight="SemiBold" FontSize="24"/>
+        <TextBlock Text="제작자 전용 · 원본 문서와 색인 도구는 사용자 패키지에 포함되지 않습니다."
+                   Foreground="#566273" Margin="0,5,0,0"/>
+      </StackPanel>
+    </Border>
+    <TabControl Grid.Row="1" Margin="0,16,0,0">
+      <TabItem Header="문서 · 지식 DB">
+        <Grid Margin="16">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="소스 저장소 경로" FontWeight="SemiBold"/>
+            <TextBox x:Name="RepoBox" Padding="8" Margin="0,5,0,0"/>
+          </StackPanel>
+          <StackPanel Grid.Row="1" Margin="0,0,0,12">
+            <TextBlock Text="관리자 PC의 Python 실행 명령"/>
+            <TextBox x:Name="PythonBox" Text="python" Padding="8" Margin="0,5,0,0"/>
+          </StackPanel>
+          <StackPanel Grid.Row="2" Margin="0,0,0,12">
+            <TextBlock Text="원본 문서 루트 (product_id/manuals/ 문서 구조)" FontWeight="SemiBold"/>
+            <DockPanel Margin="0,5,0,0">
+              <Button Content="폴더 선택" DockPanel.Dock="Right" Padding="12,7"
+                      Margin="10,0,0,0" Click="ChooseSourceClick"/>
+              <TextBox x:Name="SourceBox" Padding="8"/>
+            </DockPanel>
+          </StackPanel>
+          <StackPanel Grid.Row="3" Margin="0,0,0,16">
+            <TextBlock Text="출력할 knowledge.db 파일" FontWeight="SemiBold"/>
+            <DockPanel Margin="0,5,0,0">
+              <Button Content="저장 위치" DockPanel.Dock="Right" Padding="12,7"
+                      Margin="10,0,0,0" Click="ChooseDbClick"/>
+              <TextBox x:Name="DbBox" Padding="8"/>
+            </DockPanel>
+          </StackPanel>
+          <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,0,0,10">
+            <Button Content="지식 DB 재생성" Padding="20,9" Click="BuildDbClick"/>
+            <TextBlock Text="기존 Builder의 --rebuild 기능을 사용합니다."
+                       Foreground="#566273" VerticalAlignment="Center" Margin="12,0,0,0"/>
+          </StackPanel>
+          <TextBox x:Name="BuildLog" Grid.Row="5" IsReadOnly="True"
+                   TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
+                   Padding="12" Text="제작자 PC에서 문서를 등록하고 DB를 생성할 수 있습니다."/>
+        </Grid>
+      </TabItem>
+      <TabItem Header="AI 답변 시험">
+        <Grid Margin="16">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="2*"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Margin="0,0,10,12">
+              <TextBlock Text="제품 ID"/>
+              <TextBox x:Name="ProductBox" Padding="8" Text="manual-test"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="0,0,10,12">
+              <TextBlock Text="제품 버전 (선택)"/>
+              <TextBox x:Name="VersionBox" Padding="8"/>
+            </StackPanel>
+            <StackPanel Grid.Column="2" Margin="0,0,0,12">
+              <TextBlock Text="API 포트"/>
+              <TextBox x:Name="PortBox" Padding="8" Text="8765"/>
+            </StackPanel>
+          </Grid>
+          <TextBlock Grid.Row="1" Text="질문" FontWeight="SemiBold"/>
+          <TextBox x:Name="QuestionBox" Grid.Row="2" Margin="0,6,0,12"
+                   Text="수신기와 CRT의 IP 주소 대역은 어떻게 설정해야 하나요?"
+                   MinHeight="75" Padding="8" TextWrapping="Wrap" AcceptsReturn="True"/>
+          <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,12">
+            <Button Content="AI 답변 시험" Padding="18,8" Click="TestChatClick"/>
+            <Button Content="문서 검색 시험" Padding="18,8" Margin="10,0,0,0" Click="TestSearchClick"/>
+          </StackPanel>
+          <TextBox x:Name="TestLog" Grid.Row="4" IsReadOnly="True"
+                   TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Padding="12"/>
+        </Grid>
+      </TabItem>
+      <TabItem Header="사용자 패키지 제작">
+        <StackPanel Margin="16">
+          <TextBlock Text="사용자 전용 패키지 만들기" FontSize="18" FontWeight="SemiBold"/>
+          <TextBlock Text="기존 검증된 포터블 엔진과 현재 지식 DB를 결합합니다. 관리자 실행 파일·문서 변환 도구는 포함하지 않습니다."
+                     TextWrapping="Wrap" Margin="0,8,0,18" Foreground="#566273"/>
+          <TextBlock Text="기본 포터블 엔진 폴더 (DK-Knowledge-Engine-Win-x64)" FontWeight="SemiBold"/>
+          <DockPanel Margin="0,5,0,16">
+            <Button DockPanel.Dock="Right" Content="폴더 선택" Click="ChooseEngineClick"
+                    Padding="12,7" Margin="10,0,0,0"/>
+            <TextBox x:Name="EngineBox" Padding="8"/>
+          </DockPanel>
+          <TextBlock Text="새 출력 폴더 경로 (존재하지 않는 폴더)" FontWeight="SemiBold"/>
+          <TextBox x:Name="PackageOutputBox" Padding="8" Margin="0,5,0,16"/>
+          <Button Content="사용자 패키지 생성" HorizontalAlignment="Left" Padding="20,9"
+                  Click="PackageClick"/>
+          <TextBlock Text="패키지 생성 시 로컬 .NET 10 SDK가 필요합니다. 정식 서명·Release를 수행하지 않습니다."
+                     Margin="0,16,0,0" TextWrapping="Wrap" Foreground="#566273"/>
+        </StackPanel>
+      </TabItem>
+    </TabControl>
+    <TextBlock x:Name="StatusText" Grid.Row="2" Padding="6,12,0,0" Text="준비"
+               TextWrapping="Wrap"/>
+  </Grid>
+</Window>

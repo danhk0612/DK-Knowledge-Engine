@@ -43,6 +43,7 @@ Windows 환경에서 **인터넷·Docker·GPU 없이 동작하는 범용 AI 도�
 - [T08 CPU 계측·모델 비교 및 고객 PC 검증 조건](docs/T08_VALIDATION.md)
 - [T08 현장 기능·보안 확인 절차 (사양 측정 없음)](docs/T08_FIELD_CHECKLIST.md)
 - [T09 사용자별 모델·실행 환경 선택](docs/T09_MODEL_CONFIGURATION.md)
+- [T12 제작자/사용자 Windows GUI 분리 및 사용자 전용 ZIP 제작](docs/T12_WINDOWS_GUI.md)
 - [T10 근거 출처·답변 정확성·로컬 보안 검증](docs/T10_VALIDATION.md)
 - **[Windows 시험용 패키지 Git 다운로드·로컬 실행 절차](docs/WINDOWS_TRIAL.md)** (실모델 ZIP, GitHub Actions, PowerShell 5.1)
 
@@ -53,3 +54,9 @@ Windows 환경에서 **인터넷·Docker·GPU 없이 동작하는 범용 AI 도�
 **후속 검증 보완 PR #13~#15도 `main`에 병합되었습니다.** [#13 사내 HTTPS→localhost LNA 및 Origin/CSP 브라우저 검증](https://github.com/danhk0612/DK-Knowledge-Engine/pull/13), [#14 T08 Windows PowerShell 5.1 현장 평가 판정 수정](https://github.com/danhk0612/DK-Knowledge-Engine/pull/14), [#15 T10 품질 기대값 검증 보강](https://github.com/danhk0612/DK-Knowledge-Engine/pull/15). 각 PR의 최신 자동 CI 검증은 통과했으며, **실제 고객 PC/문서의 현장 검증은 아직 별도**입니다.
 
 **정식 고객 배포 적합성은 아직 미확정**입니다. 실제 사내 HTTPS 웹사이트 LNA 권한, 고객 문서 정답성, 완전 오프라인 현장 점검, 서명/SmartScreen 및 라이선스 적합성 검토가 필요합니다. CPU/RAM/GPU 성능 측정은 T09 결정에 따라 필수 승인 조건이 아닙니다.
+
+## GUI 프로그램 (T12 초기 버전)
+
+- **관리자 전용:** `apps/Admin/DKKnowledgeAdmin.csproj` — 원본 지식 파일 색인, QA 시험, Client 전용 패키지 생성. 제작자 PC에서만 실행하며 Python Builder와 .NET 개발 환경이 필요하다.
+- **일반 사용자 전용:** `apps/Client/DKKnowledgeClient.csproj` — AI 질의·검색, 엔진 제어, DB 갱신·복구. 통합된 사용자 ZIP에만 포함하며 관리자 실행 파일·Builder·원본 문서는 포함하지 않는다.
+- 설치 가능한 제품 릴리스가 아닌 테스트 단계이다. 빌드·패키지 검증은 [T12 Windows GUI Actions](.github/workflows/t12-windows-guis.yml)를 참조한다.

@@ -1,0 +1,123 @@
+name: T12 separated Admin and Client Windows GUIs
+
+on:
+  pull_request:
+    paths:
+      - 'apps/**'
+      - 'distribution/Build-Client-Package.ps1'
+      - '.github/workflows/t12-windows-guis.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/**'
+      - 'distribution/Build-Client-Package.ps1'
+      - '.github/workflows/t12-windows-guis.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  gui-build:
+    name: Compile independent Admin and Client WPF applications
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build administrator UI
+        run: dotnet build apps/Admin/DKKnowledgeAdmin.csproj -c Release --nologo
+      - name: Publish administrator UI for authoring PCs
+        shell: pwsh
+        run: |
+          dotnet publish apps/Admin/DKKnowledgeAdmin.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o .\\admin-gui
+          if ($LASTEXITCODE -ne 0) { throw 'Admin publishing failed' }
+          if (-not (Test-Path '.\\admin-gui\\DK-Knowledge-Admin.exe')) { throw 'Missing Admin EXE' }
+      - name: Build client UI
+        run: dotnet build apps/Client/DKKnowledgeClient.csproj -c Release --nologo
+      - name: Publish self-contained client GUI only
+        shell: pwsh
+        run: |
+          dotnet publish apps/Client/DKKnowledgeClient.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o .\client-gui
+          if ($LASTEXITCODE -ne 0) { throw 'Client publishing failed' }
+          if (-not (Test-Path '.\client-gui\DK-Knowledge-Client.exe')) { throw 'Missing Client EXE' }
+          if (Get-ChildItem '.\client-gui' -Recurse -File | Where-Object { $_.Name -match 'Admin|Builder' }) {
+            throw 'Admin or Builder content leaked into client GUI output'
+          }
+      - name: Parse client packaging PowerShell
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path '.\distribution\Build-Client-Package.ps1').Path,
+            [ref]$tokens, [ref]$errors
+          )
+          if ($errors.Count -gt 0) { throw ($errors -join '; ') }
+      - name: Upload administrator GUI for authoring PC (never included in Client ZIP)
+        uses: actions/upload-artifact@v4
+        with:
+          name: DK-Knowledge-Admin-GUI-test
+          path: admin-gui/DK-Knowledge-Admin.exe
+          if-no-files-found: error
+          retention-days: 7
+      - name: Upload standalone GUI test executable (not an integrated release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: DK-Knowledge-Client-GUI-test
+          path: client-gui/DK-Knowledge-Client.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  engine-base:
+    name: Build verified Windows engine base for Client package
+    uses: ./.github/workflows/t07-portable-windows.yml
+
+  client-package:
+    name: Assemble and verify Client-only integrated ZIP
+    needs: [gui-build, engine-base]
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/download-artifact@v4
+        with:
+          name: DK-Knowledge-Engine-Win-x64-demo-T07
+          path: ./base-zip
+      - name: Extract source engine ZIP
+        shell: pwsh
+        run: |
+          Expand-Archive -LiteralPath '.\base-zip\DK-Knowledge-Engine-Win-x64.zip' -DestinationPath '.\base-extracted'
+      - name: Assemble isolated Client package using validated sample DB
+        shell: pwsh
+        run: |
+          $base = (Resolve-Path '.\base-extracted\DK-Knowledge-Engine-Win-x64').Path
+          $db = Join-Path $base 'knowledge\knowledge.db'
+          # Inject unlisted authoring files to prove they are never shipped.
+          Set-Content -LiteralPath (Join-Path $base 'DK-Knowledge-Admin.exe') -Value 'test-only sentinel'
+          New-Item -ItemType Directory -Path (Join-Path $base 'builder') | Out-Null
+          Set-Content -LiteralPath (Join-Path $base 'builder/private-notes.txt') -Value 'must not ship'
+          & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $db -OutputDir '.\client-package-output'
+          if ($LASTEXITCODE -ne 0) { throw 'Client package assembly failed' }
+          $package = '.\client-package-output\DK-Knowledge-Engine-Client'
+          if (-not (Test-Path (Join-Path $package 'DK-Knowledge-Client.exe'))) { throw 'Client EXE missing' }
+          if (Test-Path (Join-Path $package 'DK-Knowledge-Admin.exe')) { throw 'Admin EXE shipped' }
+          if (Test-Path (Join-Path $package 'builder')) { throw 'Builder shipped' }
+          if (Test-Path (Join-Path $package 'knowledge/knowledge.previous.db')) { throw 'Previous source DB leaked into Client ZIP' }
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $package 'Verify-AIHelp.ps1') -Root $package
+          if ($LASTEXITCODE -ne 0) { throw 'Client package verification failed' }
+          Write-Output 'T12_CLIENT_ONLY_PACKAGE_OK'
+      - name: Upload client-only integrated trial ZIP (not a Release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: DK-Knowledge-Engine-Client-Win-x64-T12
+          path: client-package-output/DK-Knowledge-Engine-Client-Win-x64.zip
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
