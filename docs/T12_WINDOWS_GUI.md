@@ -34,7 +34,8 @@ Client GUI는 단독으로 엔진 바이너리를 제공하지 않는다. 아래
 
 - 출력 폴더는 기존에 없어야 한다. 기존 패키지와 지식 DB 원본을 덮어쓰지 않는다.
 - 서명된 프로그램·정식 Release가 아닌 **테스트 패키지**를 만든다. .NET SDK가 필요하지만 Client PC에는 Python/.NET SDK/인터넷이 필요하지 않도록 GUI를 자체 포함 EXE로 게시한다.
-- 기존 패키지의 `Verify-AIHelp.ps1`을 검사하고, 검증된 `Update-Knowledge.ps1`로 DB를 적용한 후 Client EXE의 SHA-256을 manifest에 추가한다. 최종 검증 후 ZIP을 생성한다.
+- 기존 엔진 패키지를 `Verify-AIHelp.ps1`로 검증하고, **새 출력 폴더에만** 관리자 지정 DB를 복사해 SHA-256 및 `--verify-db` 검증 후 Client EXE 해시를 manifest에 추가한다. 이 첫 배포용 DB 배치는 실행 중인 다른 엔진을 변경하지 않으며 영향을 받지 않는다. 최종 무결성 확인 후 ZIP을 생성한다.
+- 이미 설치된 사용자 패키지의 **사후 DB 업데이트·롤백**은 계속 `Update-Knowledge.ps1`을 사용하며 기존 실행 중 프로세스 차단 안전 검사를 유지한다.
 - 관리자 실행 파일과 Builder는 복사하지 않으며, Actions에서도 사용자 전용 ZIP의 존재·무결성과 관리자 파일 부재를 점검한다.
 
 ## 범위와 남은 실기 검증
