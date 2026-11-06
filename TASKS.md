@@ -254,3 +254,11 @@ T09 Windows 검증: [Actions run 41955872865](https://github.com/danhk0612/DK-Kn
 변경 금지: 기존 T07/T09 API/모델·설정/지식 DB 계약 변경, 시스템 사양/성능 벤치마크 재개, 고객 매뉴얼 공개, PR 직접 병합·Release/tag.
 
 검증 증거: [Windows·Ubuntu 5개 단위 테스트 및 Windows 실모델 14/14 통합 CI 41958831101](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/41958831101). 인공 DB 교체·무결성, 제품/버전 격리, 모델 정답 키워드, 실제 검색 청크 인용, Host/Origin 제한 통과. 고객 자료 미사용. 사양 측정은 재개하지 않음. 실고객 지식 DB의 실제 정답성, 물리적 오프라인, 사내 브라우저 정책/서명/법적 재배포 검증은 별도 남음.
+
+## T11 — 실기 Qwen3 추론 기본 설정 안정화
+
+**상태: PR #22 `main` 병합.** 실제 73-청크 PDF에서 기존 Qwen3 Jinja mode가 미완성 `<think>` 구간으로 실패한 반면 `raw_chatml`이 동작했으므로 Windows 포터블 기본 설정 및 구설정 대체값을 후자로 변경했다. 기존 모드 명시 선택은 유지한다. T07/T09 실모델 Windows CI와 Windows/Ubuntu 단위 회귀가 통과했다.
+
+## T12 — 관리자/사용자 Windows GUI 분리
+
+**상태: 초기 구현 및 CI 검증 진행 중.** C#/.NET 10 WPF 프로그램을 `apps/Admin`, `apps/Client`로 각각 분리한다. Admin은 원본 문서 폴더/지식 DB 재생성·AI QA·사용자 패키지 제작을, Client는 AI 질문·검색·엔진 제어·DB 갱신 및 롤백을 맡는다. 배포용 ZIP에는 Client GUI·런타임·모델·DB와 기존 검증 스크립트만 포함하고 관리자 EXE·Builder 소스·원본 문서를 포함하지 않는다. 관리자 PC의 Python/Builder 의존성 통합·실 GUI 클릭 검증·서명/SmartScreen 등은 후속 단계에서 완료한다.
