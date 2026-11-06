@@ -116,6 +116,21 @@ class SearchTests(unittest.TestCase):
         # "설치" does not occur; "프로그램" alone must not ground installation.
         self.assertEqual(self.docs("프로그램 설치 방법은 무엇인가요?"), [])
         self.assertEqual(self.docs("설치"), [])
+        # Once an installation section exists, a natural question must find
+        # it even if that section does not repeat the generic word 프로그램.
+        self.doc("install", text="설치하기 전에 관리자 권한을 확인합니다.", page=56)
+        self.assertEqual(
+            [hit["document_id"] for hit in self.docs("프로그램 설치 방법은 무엇인가요?")],
+            ["install"],
+        )
+        self.assertEqual(
+            [hit["document_id"] for hit in self.docs("설치")],
+            ["install"],
+        )
+        self.assertEqual(
+            {hit["document_id"] for hit in self.docs("프로그램")},
+            {"program", "receiver"},
+        )
         # Precise terminology still finds its actual source.
         hits = self.docs("수신기 프로그램 적용하기")
         self.assertEqual([hit["document_id"] for hit in hits], ["receiver"])
