@@ -35,7 +35,7 @@ class PortableSelectionTests(unittest.TestCase):
         self.assertEqual(self.at(cli, "--ctx-size"), "4096")
         self.assertEqual(self.at(cli, "--max-tokens"), "192")
         self.assertEqual(self.at(cli, "--gpu-layers"), "0")
-        self.assertEqual(self.at(cli, "--prompt-mode"), "qwen3")
+        self.assertEqual(self.at(cli, "--prompt-mode"), "raw_chatml")
         self.assertEqual(Path(self.at(cli, "--model")).name, "Qwen3-1.7B-Q4_K_M.gguf")
 
     def test_user_can_switch_model_runtime_and_resources(self):

@@ -24,7 +24,7 @@ Windows 포터블 ZIP을 압축 해제한 뒤 `config/settings.json`을 수정�
     "max_tokens": 192,
     "timeout_seconds": 180,
     "gpu_layers": 0,
-    "prompt_mode": "qwen3"
+    "prompt_mode": "raw_chatml"
   }
 }
 ~~~
@@ -38,7 +38,7 @@ Windows 포터블 ZIP을 압축 해제한 뒤 `config/settings.json`을 수정�
 | `max_tokens` | 답변 생성 토큰 수 상한(양의 정수) |
 | `timeout_seconds` | 각 로컬 모델 추론 대기 제한(양의 정수) |
 | `gpu_layers` | GPU에 올릴 레이어 수(0 이상). **기본 제공 CPU 전용 실행 파일에서는 0 유지** |
-| `prompt_mode` | `qwen3`(기존 T07 방식) 또는 `raw_chatml`(ChatML 토큰 사용 모델용) |
+| `prompt_mode` | `raw_chatml`(기본 Qwen3 배포 설정, 실제 PDF 현장 검증) 또는 `qwen3`(기존 T07/Jinja 호환 모드) |
 
 예를 들어 `models/other-model.gguf` 파일을 모델 제공처와 라이선스를 확인하고 직접 복사한 뒤 `file`을 해당 상대 경로로 변경할 수 있습니다. GPU 빌드나 다른 버전의 llama.cpp를 사용할 경우 `runtime/` 아래 별도 이름의 EXE 및 필요한 **실행 의존 DLL을 함께 제공**해야 합니다. 선택한 모델이 해당 런타임과 호환되지 않으면 답변 생성이 실패할 수 있습니다.
 

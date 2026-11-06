@@ -90,7 +90,7 @@ def portable_cli(root: Path, settings: dict) -> list[str]:
         "max_tokens": 192,
         "timeout_seconds": 180,
         "gpu_layers": 0,
-        "prompt_mode": "qwen3",
+        "prompt_mode": "raw_chatml",
     }
     if set(model_cfg) - set(defaults):
         raise ValueError("Unsupported model option")
