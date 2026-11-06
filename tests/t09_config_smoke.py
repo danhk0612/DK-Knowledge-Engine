@@ -73,7 +73,7 @@ def main() -> None:
         settings = json.loads(settings_file.read_text(encoding="utf-8"))
         assert settings["model"]["threads"] == 4
         assert settings["model"]["file"] == "models/Qwen3-1.7B-Q4_K_M.gguf"
-        assert settings["model"]["prompt_mode"] == "qwen3"
+        assert settings["model"]["prompt_mode"] == "raw_chatml"
         powershell(package / "Verify-AIHelp.ps1")
         port = pick_port()
         settings["port"] = port
