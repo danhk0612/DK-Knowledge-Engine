@@ -107,8 +107,39 @@ class SearchTests(unittest.TestCase):
     def test_korean_unicode61_token_limit(self):
         self.doc("a", text="데이터베이스 연결 실패를 확인합니다")
         self.assertEqual(len(self.docs("연결")), 1)
-        self.assertEqual(self.docs("실패"), [])
+        self.assertEqual(len(self.docs("실패")), 1)  # Korean prefix/particle match
         self.assertEqual(len(self.docs("실패를")), 1)
+
+    def test_question_filler_does_not_create_false_install_evidence(self):
+        self.doc("program", text="프로그램 정보와 실행 상태를 확인합니다.")
+        self.doc("receiver", text="수신기 프로그램 적용하기 절차를 안내합니다.")
+        # "설치" does not occur; "프로그램" alone must not ground installation.
+        self.assertEqual(self.docs("프로그램 설치 방법은 무엇인가요?"), [])
+        self.assertEqual(self.docs("설치"), [])
+        # Precise terminology still finds its actual source.
+        hits = self.docs("수신기 프로그램 적용하기")
+        self.assertEqual([hit["document_id"] for hit in hits], ["receiver"])
+
+    def test_korean_particles_and_prefix_without_substring_false_positives(self):
+        self.doc("setup", text="수신기와 CRT의 IP 주소 대역이 같습니다. 설치하기를 진행합니다.")
+        self.assertEqual(len(self.docs("수신기 CRT IP 주소")), 1)
+        self.assertEqual(len(self.docs("설치")), 1)
+        self.assertEqual(self.docs("치하"), [])  # no arbitrary infix match
+
+    def test_two_distinct_concepts_must_match_same_chunk(self):
+        self.doc("generic", text="연결에 대한 일반적인 정보를 보여줍니다.")
+        self.doc("specific", text="연결 오류가 발생하면 포트를 확인합니다.")
+        self.assertEqual(
+            [hit["document_id"] for hit in self.docs("연결 오류")],
+            ["specific"],
+        )
+
+    def test_question_filler_removed_for_meaningful_query(self):
+        self.doc("network", text="통신상태 확인: 수신기와 CRT를 점검합니다.")
+        self.assertEqual(
+            [hit["document_id"] for hit in self.docs("통신상태 확인 방법은 무엇인가요?")],
+            ["network"],
+        )
 
     def test_updated_and_removed_fts_data(self):
         self.doc("a", text="oldtoken")

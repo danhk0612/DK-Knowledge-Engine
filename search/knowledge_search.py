@@ -15,6 +15,17 @@ from typing import Iterator
 SCHEMA_VERSION = "1"
 _VERSION_PATTERN = re.compile(r"\d+(?:\.\d+)*\Z", re.ASCII)
 _SEARCH_TOKENS = re.compile(r"[^\W_]+", re.UNICODE)
+# Remove conversational filler before scoring; keep specific product terminology.
+_QUESTION_FILLER = frozenset({
+    "방법", "무엇인가요", "무엇입니까", "어떻게", "알려주세요",
+    "해주세요", "하나요", "할까요", "인가요", "경우",
+})
+_KOREAN_PARTICLES = (
+    "에서는", "에게는", "으로는", "에서", "에게", "으로",
+    "부터", "까지", "에는", "에도", "보다",
+    "은", "는", "을", "를", "이", "가", "의", "와", "과",
+)
+_HANGUL = re.compile(r"[가-힣]")
 
 
 def _version(value: str) -> tuple[int, ...]:
@@ -49,12 +60,45 @@ def _version_applies(
             and (high is None or _compare_versions(requested, high) <= 0))
 
 
+def _query_terms(question: str) -> list[tuple[str, bool]]:
+    """Return distinct normalized terms and whether FTS prefix matching is safe.
+
+    Only a small particle/filler list is removed. Prefixes cover Korean
+    inflections, not semantic synonyms or arbitrary substring matching.
+    """
+    terms: dict[str, bool] = {}
+    for raw in _SEARCH_TOKENS.findall(question.casefold()):
+        token = raw
+        for particle in _KOREAN_PARTICLES:
+            if (token.endswith(particle) and len(token) - len(particle) >= 2
+                    and _HANGUL.search(token)):
+                token = token[:-len(particle)]
+                break
+        if token in _QUESTION_FILLER:
+            continue
+        prefix = len(token) >= 2 and (bool(_HANGUL.search(token)) or token != raw)
+        terms[token] = terms.get(token, False) or prefix
+    return list(terms.items())
+
+
 def _fts_query(question: str) -> str | None:
-    """Translate free text to FTS5 quoted tokens joined by OR, not raw MATCH syntax."""
-    tokens = list(dict.fromkeys(_SEARCH_TOKENS.findall(question)))
-    if not tokens:
+    """Quote user terms to prevent FTS syntax injection; allow safe prefixes."""
+    terms = _query_terms(question)
+    if not terms:
         return None
-    return " OR ".join('"' + token.replace('"', '""') + '"' for token in tokens)
+    return " OR ".join(
+        '"' + term.replace('"', '""') + '"' + ("*" if prefix else "")
+        for term, prefix in terms
+    )
+
+
+def _matched_term_count(terms: list[tuple[str, bool]], content: str) -> int:
+    """Count distinct *indexed word* matches, not arbitrary substrings."""
+    words = set(_SEARCH_TOKENS.findall(content.casefold()))
+    return sum(
+        any(word == term or (prefix and word.startswith(term)) for word in words)
+        for term, prefix in terms
+    )
 
 
 @contextmanager
@@ -87,9 +131,12 @@ def search_documents(
     if not isinstance(limit, int) or not 1 <= limit <= 100:
         raise ValueError("limit must be between 1 and 100")
     requested = _version(version) if version is not None else None
+    terms = _query_terms(query)
     expression = _fts_query(query)
     if not expression:
         return []
+    # One vague shared term is not evidence for a multi-concept question.
+    minimum_matches = 1 if len(terms) == 1 else 2
     with _database(database) as db:
         # Filter product in SQL first. Apply dotted version constraints before limit.
         rows = db.execute("""
@@ -104,11 +151,16 @@ def search_documents(
             WHERE chunks_fts MATCH ? AND d.product_id = ?
             ORDER BY rank ASC, d.source_path ASC, c.sequence ASC
         """, (expression, product_id)).fetchall()
-    hits: list[dict] = []
+    ranked: list[tuple[int, float, dict]] = []
     for row in rows:
         if not _version_applies(requested, row["version_from"], row["version_to"]):
             continue
-        hits.append({
+        matched = _matched_term_count(
+            terms, (row["section_title"] or "") + " " + row["content"],
+        )
+        if matched < minimum_matches:
+            continue
+        ranked.append((matched, row["rank"], {
             "document_id": row["document_id"],
             "chunk_id": row["chunk_id"],
             "title": row["title"],
@@ -117,10 +169,11 @@ def search_documents(
             "source_path": row["source_path"],
             "page_from": row["page_from"],
             "page_to": row["page_to"],
-        })
-        if len(hits) >= limit:
-            break
-    return hits
+        }))
+    # Prefer coverage of distinct query terms before FTS5 BM25 score.
+    # SQL's stable path/sequence ordering remains the tiebreaker.
+    ranked.sort(key=lambda hit: (-hit[0], hit[1]))
+    return [hit for _, _, hit in ranked[:limit]]
 
 
 def match_event(
