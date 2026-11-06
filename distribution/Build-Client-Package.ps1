@@ -29,12 +29,33 @@ $publish = Join-Path $output '_client-publish'
 New-Item -ItemType Directory -Path $package | Out-Null
 
 try {
-    # Preserve the validated engine and all its existing maintenance scripts.
-    Copy-Item -Path (Join-Path $engineRoot '*') -Destination $package -Recurse -Force
+    # Explicit allowlist: never copy unexpected admin tools or authoring data.
+    foreach ($folder in @('engine', 'runtime', 'models', 'knowledge', 'config', 'licenses')) {
+        $src = Join-Path $engineRoot $folder
+        if (-not (Test-Path -LiteralPath $src -PathType Container)) {
+            throw "Missing engine package folder: $folder"
+        }
+        Copy-Item -LiteralPath $src -Destination (Join-Path $package $folder) -Recurse -Force
+    }
+    foreach ($file in @('Start-AIHelp.cmd', 'Update-Knowledge.ps1', 'Verify-AIHelp.ps1', 'manifest.json')) {
+        $src = Join-Path $engineRoot $file
+        if (-not (Test-Path -LiteralPath $src -PathType Leaf)) {
+            throw "Missing engine package file: $file"
+        }
+        Copy-Item -LiteralPath $src -Destination (Join-Path $package $file)
+    }
 
     $dbHash = (Get-FileHash -LiteralPath $db -Algorithm SHA256).Hash.ToLowerInvariant()
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $package 'Update-Knowledge.ps1') -SourceDb $db -ExpectedSha256 $dbHash
     if ($LASTEXITCODE -ne 0) { throw 'User knowledge DB update failed' }
+    # The base package's sample/previous DB must never be delivered to users.
+    # A rollback backup will be created by the first subsequent user update.
+    foreach ($name in @('knowledge.previous.db', 'knowledge.previous.sha256')) {
+        $stale = Join-Path $package ('knowledge\\' + $name)
+        if (Test-Path -LiteralPath $stale) {
+            Remove-Item -LiteralPath $stale -Force
+        }
+    }
 
     & dotnet publish $clientProject -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $publish
     if ($LASTEXITCODE -ne 0) { throw 'Client UI publish failed' }
