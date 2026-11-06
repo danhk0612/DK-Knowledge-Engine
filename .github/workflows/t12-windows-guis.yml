@@ -103,8 +103,23 @@ jobs:
           Set-Content -LiteralPath (Join-Path $base 'DK-Knowledge-Admin.exe') -Value 'test-only sentinel'
           New-Item -ItemType Directory -Path (Join-Path $base 'builder') | Out-Null
           Set-Content -LiteralPath (Join-Path $base 'builder/private-notes.txt') -Value 'must not ship'
-          & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $db -OutputDir '.\client-package-output'
-          if ($LASTEXITCODE -ne 0) { throw 'Client package assembly failed' }
+          # A separate source-package API is allowed to keep running during
+          # first-time assembly of a NEW Client package; it is never updated.
+          $unrelatedApi = Start-Process -FilePath (Join-Path $base 'engine\DK-Knowledge-API.exe') -WorkingDirectory $base -PassThru
+          try {
+            Start-Sleep -Seconds 2
+            if ($unrelatedApi.HasExited) { throw 'Unrelated test API exited before Client assembly' }
+            & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $db -OutputDir '.\client-package-output'
+            if ($LASTEXITCODE -ne 0) { throw 'Client package assembly failed' }
+            if ($unrelatedApi.HasExited) { throw 'Client package creation interrupted the unrelated API' }
+          }
+          finally {
+            if (-not $unrelatedApi.HasExited) {
+              Stop-Process -Id $unrelatedApi.Id -ErrorAction Stop
+              $unrelatedApi.WaitForExit()
+            }
+            $unrelatedApi.Dispose()
+          }
           $package = '.\client-package-output\DK-Knowledge-Engine-Client'
           if (-not (Test-Path (Join-Path $package 'DK-Knowledge-Client.exe'))) { throw 'Client EXE missing' }
           if (Test-Path (Join-Path $package 'DK-Knowledge-Admin.exe')) { throw 'Admin EXE shipped' }
