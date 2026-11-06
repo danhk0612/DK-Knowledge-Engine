@@ -99,12 +99,17 @@ jobs:
         run: |
           $base = (Resolve-Path '.\base-extracted\DK-Knowledge-Engine-Win-x64').Path
           $db = Join-Path $base 'knowledge\knowledge.db'
+          # Inject unlisted authoring files to prove they are never shipped.
+          Set-Content -LiteralPath (Join-Path $base 'DK-Knowledge-Admin.exe') -Value 'test-only sentinel'
+          New-Item -ItemType Directory -Path (Join-Path $base 'builder') | Out-Null
+          Set-Content -LiteralPath (Join-Path $base 'builder/private-notes.txt') -Value 'must not ship'
           & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $db -OutputDir '.\client-package-output'
           if ($LASTEXITCODE -ne 0) { throw 'Client package assembly failed' }
           $package = '.\client-package-output\DK-Knowledge-Engine-Client'
           if (-not (Test-Path (Join-Path $package 'DK-Knowledge-Client.exe'))) { throw 'Client EXE missing' }
           if (Test-Path (Join-Path $package 'DK-Knowledge-Admin.exe')) { throw 'Admin EXE shipped' }
           if (Test-Path (Join-Path $package 'builder')) { throw 'Builder shipped' }
+          if (Test-Path (Join-Path $package 'knowledge/knowledge.previous.db')) { throw 'Previous source DB leaked into Client ZIP' }
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $package 'Verify-AIHelp.ps1') -Root $package
           if ($LASTEXITCODE -ne 0) { throw 'Client package verification failed' }
           Write-Output 'T12_CLIENT_ONLY_PACKAGE_OK'
