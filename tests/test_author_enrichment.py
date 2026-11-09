@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import sqlite3
 import tempfile
+from contextlib import closing
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -76,7 +77,7 @@ class EnrichmentTests(unittest.TestCase):
         self.assertEqual(result["updated"], 1)
         self.assertEqual(search_documents(self.db, product_id="product-a",
                                            query="설정 복구"), [])
-        with sqlite3.connect(self.db) as db:
+        with closing(sqlite3.connect(self.db)) as db:
             self.assertEqual(db.execute(
                 "SELECT count(*) FROM chunk_search_hints"
             ).fetchone()[0], 1)
