@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import http.client
 import json
+import sqlite3
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -107,6 +108,15 @@ def check_terms(text: str, case: dict, failures: list[str]) -> None:
         failures.append("forbidden-text-present")
 
 
+def source_belongs_to_product(db: Path, source_path: str, product_id: str) -> bool:
+    """Check real DB ownership; T14 accepts root-level documents without a product folder."""
+    with sqlite3.connect(f"{db.resolve().as_uri()}?mode=ro", uri=True) as connection:
+        return connection.execute(
+            "SELECT 1 FROM documents WHERE source_path = ? AND product_id = ? LIMIT 1",
+            (source_path, product_id),
+        ).fetchone() is not None
+
+
 def evaluate_case(db: Path, port: int, case: dict) -> dict:
     failures: list[str] = []
     kind = case["kind"]
@@ -144,7 +154,8 @@ def evaluate_case(db: Path, port: int, case: dict) -> dict:
             failures.append("expected-source-missing")
         if blocked.intersection(sources):
             failures.append("cross-product-or-version-source")
-        if any(not isinstance(p, str) or not p.startswith(case["product_id"] + "/")
+        if any(not isinstance(p, str) or
+               not source_belongs_to_product(db, p, case["product_id"])
                for p in sources):
             failures.append("wrong-product-source")
 
@@ -157,8 +168,8 @@ def evaluate_case(db: Path, port: int, case: dict) -> dict:
             source = response.get("source") or {}
             if expected_source and source.get("source_path") != expected_source:
                 failures.append("wrong-event-provenance")
-            if not isinstance(source, dict) or not str(source.get("source_path", "")).startswith(
-                case["product_id"] + "/"
+            if not isinstance(source, dict) or not source_belongs_to_product(
+                db, str(source.get("source_path", "")), case["product_id"]
             ):
                 failures.append("wrong-product-source")
             check_terms(str(response.get("content", "")), case, failures)
