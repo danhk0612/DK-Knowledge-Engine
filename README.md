@@ -21,7 +21,7 @@
 
 1. Admin ZIP을 별도 폴더에 압축 해제하고 `DK-Knowledge-Admin.exe`를 실행합니다.
 2. 원본 문서 폴더에 PDF/DOCX/TXT/MD를 복사하거나 프로그램에서 **문서 추가**를 클릭합니다.
-3. **지식 DB 재생성**을 실행합니다. 지식 DB 제작에는 AI 모델을 사용하지 않습니다.
+3. **지식 DB 재생성**을 실행합니다. 지식 DB 제작에는 Qwen 같은 생성형 AI 모델을 사용하지 않습니다. 스캔 PDF는 제작자 PC의 Tesseract·Poppler가 준비되어 있을 때 선택적 OCR로 처리할 수 있고, 추출 보고서를 생성합니다.
 4. 사용자 패키지에서 사용할 GGUF 모델을 선택할 수 있습니다. 선택하지 않으면 기본 Qwen3 모델이 포함됩니다.
 5. **사용자 패키지 제작** 탭에서 별도 Client ZIP을 생성합니다.
 
@@ -57,6 +57,7 @@
 - [localhost API](docs/T05_LOCALHOST_API.md) / [웹·Windows 연동](docs/T06_INTEGRATIONS.md)
 - [Windows 포터블 및 DB 갱신](docs/T07_WINDOWS_PACKAGE.md)
 - [모델 선택](docs/T09_MODEL_CONFIGURATION.md) / [사용자 ZIP에 원하는 GGUF 포함하기](docs/T16_MODEL_PACKAGING.md)
+- [PDF 추출·OCR·한국어 검색·AI 답변 품질 개선](docs/T17_QUALITY_PIPELINE.md)
 - [관리자 통합 문서 관리](docs/T13_ADMIN_GUI.md)
 - [Windows 시험용 패키지 확인](docs/WINDOWS_TRIAL.md)
 - [사전 배포판 기록](docs/RELEASE_NOTES_v0.1.0-preview.1.md) / [Release 제작](docs/RELEASE_PROCESS.md)

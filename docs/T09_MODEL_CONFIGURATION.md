@@ -35,7 +35,7 @@ Windows 포터블 ZIP을 압축 해제한 뒤 `config/settings.json`을 수정�
 | `runtime` | 선택할 llama.cpp 실행 파일. `runtime/` 하위의 .exe만 허용 |
 | `threads` | CPU 추론 스레드 수(양의 정수) |
 | `context_size` | 모델에 전달할 컨텍스트 크기(양의 정수) |
-| `max_tokens` | 답변 생성 토큰 수 상한(양의 정수) |
+| `max_tokens` | 답변 생성 토큰 수 상한(양의 정수). T17에서 새로 만드는 기본 CPU 패키지는 384로 증가. 기존 설치판 설정은 그대로 유지됨 |
 | `timeout_seconds` | 각 로컬 모델 추론 대기 제한(양의 정수) |
 | `gpu_layers` | GPU에 올릴 레이어 수(0 이상). **기본 제공 CPU 전용 실행 파일에서는 0 유지** |
 | `prompt_mode` | `raw_chatml`(기본 Qwen3 배포 설정), `qwen3`(Qwen3 Jinja / reasoning off) 또는 `jinja`(다른 모델의 내장 채팅 템플릿 사용, 모델·런타임 호환 필요) |

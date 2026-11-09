@@ -16,7 +16,9 @@ Windows가 출처가 불분명한 파일에 대한 경고를 표시하면 배포
 2. PDF, DOCX, TXT, MD 파일을 **문서 추가**로 선택하면 원본 폴더에 복사됩니다. 처음부터 원본 폴더에 둔 문서와 하위 폴더의 문서도 함께 목록에 표시됩니다.
 3. **선택 문서 교체 / 삭제**는 목록의 기존 문서와 추가한 문서 모두에 적용됩니다.
 4. **일반 폴더 문서 제품 ID**를 확인합니다. 예: `manual-test`. 제품별 `product-id/manuals/` 구조는 기존 제품 구분을 유지합니다.
-5. **지식 DB 재생성**을 눌러 `knowledge.db`를 생성합니다. 원본 파일만 바꾸어서는 DB가 자동 반영되지 않습니다.
+5. 필요한 경우 **PDF 레이아웃 보존 추출** 또는 **스캔 PDF OCR**을 선택합니다. OCR은 제작자 PC에 Tesseract와 Poppler(pdftoppm), 한국어 언어 데이터가 미리 있어야 합니다.
+6. **지식 DB 재생성**을 눌러 `knowledge.db`를 생성합니다. 원본 파일만 바꾸어서는 DB가 자동 반영되지 않습니다.
+7. **품질 보고서 열기**로 `knowledge.quality.json`의 문서별 텍스트 추출량·청크 수·경고를 확인합니다. [진단 안내](T17_QUALITY_PIPELINE.md)
 
 기본 위치:
 - 문서: `%LOCALAPPDATA%\DK-Knowledge-Engine\sources`

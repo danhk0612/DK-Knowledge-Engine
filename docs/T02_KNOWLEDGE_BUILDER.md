@@ -98,7 +98,7 @@ sources/
 ## 알려진 한계
 
 - SQLite 기본 `unicode61`은 한국어 형태소 분석을 하지 않습니다. 조사·띄어쓰기·동의어 차이에 취약하며, 한국어 검색 개선은 T03에서 검증합니다. [공식 SQLite FTS5 문서](https://www.sqlite.org/fts5.html)
-- `pypdf`는 OCR을 제공하지 않습니다. 전체 페이지가 스캔 이미지라 텍스트가 없으면 작업 실패, 일부 페이지만 텍스트가 없으면 경고합니다. [pypdf 추출 안내](https://pypdf.readthedocs.io/en/stable/user/extract-text.html)
+- 기본 `pypdf`는 OCR을 제공하지 않습니다. 전체 페이지가 스캔 이미지라 텍스트가 없으면 작업 실패, 일부 페이지만 텍스트가 없으면 경고합니다. T17의 선택적 `--ocr-scanned-pages`는 제작자 PC에 Tesseract·Poppler가 미리 설치된 경우 텍스트 없는 페이지에 한해 오프라인 OCR을 시도합니다. [T17 품질 진단과 PDF 옵션](T17_QUALITY_PIPELINE.md)
 - 복잡한 PDF 표·이미지·DOCX의 머리글·바닥글·부동 개체는 추출 누락 또는 순서 왜곡이 있을 수 있습니다.
 - 청크는 최대 **1,200문자**로 나눕니다. 최적의 검색 청크 크기는 T03에서 검증할 사항입니다.
 - T02는 DB **생성 도구**이지 검색 API나 LLM 생성 기능이 아닙니다.
