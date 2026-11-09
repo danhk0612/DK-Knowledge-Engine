@@ -57,8 +57,8 @@ class CompareTests(unittest.TestCase):
     def test_requires_unique_ids_and_question_text(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "cases.json"
-            path.write_text('[{"id":"a","product_id":"device","query":"x"},'
-                            '{"id":"a","product_id":"device","query":"x"}]', encoding="utf-8")
+            path.write_text('[{"id":"a","product_id":"device","query":"x","expected_source":null},'
+                            '{"id":"a","product_id":"device","query":"x","expected_source":null}]', encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "Duplicate"):
                 read_cases(path)
 
