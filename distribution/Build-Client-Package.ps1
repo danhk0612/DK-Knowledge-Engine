@@ -248,35 +248,7 @@ try {
         $oldManifest = Get-Content -LiteralPath $previousManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
         $newManifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
         foreach ($entry in @($oldManifest.immutable_files.PSObject.Properties)) {
-            $isManagedModel = $entry.Name -match '^models/[^/\\]+\.gguf
-                continue
-            }
-            $obsolete = Join-Path $finalPackage ($entry.Name.Replace('/', [IO.Path]::DirectorySeparatorChar))
-            if (Test-Path -LiteralPath $obsolete -PathType Leaf) {
-                $oldHash = (Get-FileHash -LiteralPath $obsolete -Algorithm SHA256).Hash.ToLowerInvariant()
-                if ($oldHash -eq [string]$entry.Value) {
-                    Remove-Item -LiteralPath $obsolete -Force
-                }
-            }
-        }
-    }
-    New-Item -ItemType Directory -Path $finalPackage -Force | Out-Null
-    foreach ($file in (Get-ChildItem -LiteralPath $package -File -Recurse)) {
-        $relative = $file.FullName.Substring($package.Length).TrimStart('\', '/')
-        $destination = Join-Path $finalPackage $relative
-        New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
-        Copy-Item -LiteralPath $file.FullName -Destination $destination -Force
-    }
-    # The ZIP is assembled from clean staging, never from the reused output folder.
-    Copy-Item -LiteralPath $stageZip -Destination $finalZip -Force
-    Write-Output ('CLIENT_ONLY_PACKAGE_READY ' + $finalZip)
-}
-finally {
-    if (Test-Path -LiteralPath $stage) {
-        Remove-Item -LiteralPath $stage -Recurse -Force
-    }
-}
-
+            $isManagedModel = $entry.Name -match '^models/[^/\\]+\.gguf$'
             $isManagedEmbeddingRuntime = $entry.Name -eq 'runtime/llama-embedding.exe'
             if ((-not $isManagedModel -and -not $isManagedEmbeddingRuntime) -or
                 $newManifest.immutable_files.PSObject.Properties[$entry.Name]) {
