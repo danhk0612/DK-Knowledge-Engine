@@ -75,6 +75,34 @@ def verify_database(database: Path) -> dict:
         return result
 
 
+def compact_without_embeddings(database: Path) -> dict:
+    """Drop only optional T19 vector tables from a *packaging copy* of the DB.
+
+    Never call on the author's source DB. The command-line entrypoint below
+    confines this operation to its own portable package knowledge directory.
+    """
+    verified = verify_database(database)
+    before = database.stat().st_size
+    with closing(sqlite3.connect(database)) as connection:
+        connection.execute("PRAGMA foreign_keys=ON")
+        tables = {
+            row[0] for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' "
+                "AND name IN ('chunk_embeddings','embedding_metadata')"
+            ).fetchall()
+        }
+        if tables:
+            with connection:
+                connection.execute("DROP TABLE IF EXISTS chunk_embeddings")
+                connection.execute("DROP TABLE IF EXISTS embedding_metadata")
+            connection.execute("VACUUM")
+    after = verify_database(database)
+    if any(after[key] != verified[key] for key in ("schema_version", "documents", "chunks", "rules")):
+        raise ValueError("Compacting removed primary knowledge content")
+    return {"before_bytes": before, "after_bytes": database.stat().st_size,
+            "removed_vectors": verified.get("embedding", {}).get("vectors", 0)}
+
+
 def _selected_file(root: Path, value: str, folder: str, suffix: str) -> Path:
     """Resolve a local model/runtime choice strictly inside its package folder."""
     if not isinstance(value, str) or not value:
@@ -162,7 +190,22 @@ def portable_cli(root: Path, settings: dict) -> list[str]:
 def run(argv: list[str] | None = None, *, root: Path | None = None) -> int:
     parser = argparse.ArgumentParser(description="DK Knowledge Engine portable Windows API")
     parser.add_argument("--verify-db", type=Path, help="Validate a knowledge DB without starting the server")
+    parser.add_argument("--compact-no-embeddings", action="store_true",
+                        help="Remove optional vector index from this package's DB copy")
     args = parser.parse_args(argv)
+    if args.verify_db is not None and args.compact_no_embeddings:
+        parser.error("Use only one database maintenance action")
+    if args.compact_no_embeddings:
+        # Do not accept a caller-provided file path: this command may only
+        # alter the already copied DB inside the engine's own package root.
+        base = root if root is not None else package_root()
+        try:
+            report = compact_without_embeddings(base / "knowledge" / "knowledge.db")
+            print(json.dumps(report))
+            return 0
+        except (OSError, sqlite3.Error, ValueError) as exc:
+            print(f"Packaged DB compaction failed: {exc}", file=sys.stderr)
+            return 1
     if args.verify_db is not None:
         try:
             print(json.dumps(verify_database(args.verify_db), ensure_ascii=False))

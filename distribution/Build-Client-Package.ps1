@@ -107,6 +107,13 @@ try {
     Copy-Item -LiteralPath $db -Destination $packagedDb -Force
     $packagedHash = (Get-FileHash -LiteralPath $packagedDb -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($packagedHash -ne $dbHash) { throw 'Copied knowledge DB SHA-256 mismatch' }
+    if ([string]::IsNullOrWhiteSpace($EmbeddingModelFile)) {
+        # T19 vectors are unnecessary in the default FTS5 Client. Compact only
+        # this isolated package copy; the selected source DB is never modified.
+        & (Join-Path $package 'engine\DK-Knowledge-API.exe') --compact-no-embeddings
+        if ($LASTEXITCODE -ne 0) { throw 'Client DB vector compaction failed' }
+        $packagedHash = (Get-FileHash -LiteralPath $packagedDb -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
     $dbInfoText = & (Join-Path $package 'engine\DK-Knowledge-API.exe') --verify-db $packagedDb
     if ($LASTEXITCODE -ne 0) { throw 'Selected knowledge DB failed schema / integrity verification' }
     $dbInfo = $dbInfoText | ConvertFrom-Json
