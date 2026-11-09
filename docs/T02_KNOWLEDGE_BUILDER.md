@@ -9,7 +9,7 @@
 ```powershell
 python -m pip install -r requirements-builder.txt
 python -m builder.knowledge_builder --source ./sources --database ./output/knowledge.db
-python -m builder.knowledge_builder --source ./sources --database ./output/knowledge.db --rebuild
+python -m builder.knowledge_builder --source ./sources --database ./output/knowledge.db --default-product-id manual-test --rebuild
 ```
 
 회귀 테스트(테스트 PDF 생성 라이브러리 포함):
@@ -25,6 +25,9 @@ Builder 실행 중 네트워크 호출은 수행하지 않습니다. 의존성 �
 
 ```text
 sources/
+  사용설명서.pdf             # 제품별 폴더가 없어도 가능
+  참고자료/
+    FAQ.txt                 # 임의의 하위 폴더도 가능
   example-program/
     manuals/
       setup.pdf
@@ -39,7 +42,8 @@ sources/
       setup.md
 ```
 
-- 첫 번째 하위 폴더가 `product_id`이며, 제품 ID를 파일 내용에서 추측하지 않습니다.
+- **T14:** 최상위·일반 하위 폴더의 문서는 `--default-product-id` 값(생략 시 `default`)으로 색인합니다. Windows Admin GUI에서는 `일반 폴더 문서 제품 ID` 입력란을 사용합니다.
+- 기존 제품별 `<product_id>/manuals/` 또는 `<product_id>/rules/` 구조가 존재하면 해당 제품 폴더 내 문서는 종전과 동일한 `product_id`로 색인합니다. 원본문서 위치를 강제로 이동할 필요는 없습니다.
 - PDF/DOCX/TXT/MD를 그대로 넣습니다. 전체 매뉴얼을 JSON으로 변환할 필요는 없습니다.
 - `*.meta.json`의 선택 필드: `document_id`, `title`, `version_from`, `version_to`, `language`. 생략 시 제목은 파일명, 언어는 `ko`입니다.
 - PDF 텍스트 페이지는 1부터 번호를 기록합니다. DOCX 페이지 번호는 추출하지 않으며 문단·표·절 제목을 저장합니다.
