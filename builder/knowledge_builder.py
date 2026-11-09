@@ -506,10 +506,15 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.quality_report:
             report = args.quality_report.resolve()
-            if report == args.database.resolve() or (
-                    report.is_relative_to(args.source.resolve())
-                    and report.suffix.lower() in SUPPORTED_EXTENSIONS):
-                raise ValueError("Quality report cannot replace the database or a source document")
+            if report == args.database.resolve():
+                raise ValueError("Quality report cannot replace the database")
+            source_root = args.source.resolve()
+            if report.is_relative_to(source_root):
+                relative = report.relative_to(source_root)
+                if (report.suffix.lower() in SUPPORTED_EXTENSIONS or
+                        report.name.endswith(".meta.json") or
+                        (report.suffix.lower() == ".json" and "rules" in relative.parts[:-1])):
+                    raise ValueError("Quality report cannot overwrite a source document, metadata or rules")
         if args.ocr_scanned_pages:
             for program, command in (("Tesseract", args.tesseract), ("Poppler pdftoppm", args.pdftoppm)):
                 if shutil.which(command) is None:

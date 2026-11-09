@@ -172,6 +172,21 @@ class BuilderTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "require --rebuild"):
             build(self.root, self.out, pdf_layout=True)
 
+    def test_quality_report_cannot_overwrite_sidecars_or_rules(self):
+        doc = self.put("product-one/manuals/guide.md", "# Guide\n\nSetup instructions")
+        sidecar = doc.with_name(doc.name + ".meta.json")
+        sidecar.write_text('{"document_id":"guide-id"}', encoding="utf-8")
+        rule = self.put("product-one/rules/guide.json", '{}')
+        for protected in (sidecar, rule):
+            before = protected.read_bytes()
+            with self.subTest(path=str(protected)):
+                self.assertEqual(main([
+                    "--source", str(self.root), "--database", str(self.out),
+                    "--rebuild", "--quality-report", str(protected),
+                ]), 1)
+                self.assertEqual(protected.read_bytes(), before)
+                self.assertFalse(self.out.exists())
+
     def test_metadata_and_rules_references(self):
         doc = self.put("product-one/manuals/guide.md", "# Connection\n\nServer not available")
         sidecar = doc.with_name(doc.name + ".meta.json")

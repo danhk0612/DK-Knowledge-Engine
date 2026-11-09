@@ -166,6 +166,9 @@ class SearchTests(unittest.TestCase):
         self.assertEqual([x["document_id"] for x in self.docs("데이터 베이스")], ["combined"])
         self.assertEqual([x["document_id"] for x in self.docs("사용자로그인")], ["split"])
         self.assertEqual(self.docs("터베"), [])  # arbitrary infix is not sufficient evidence
+        self.doc("noise", text="빅데이터 베이스라인 성능 측정 결과를 확인합니다.")
+        self.assertEqual([x["document_id"] for x in self.docs("데이터 베이스")], ["combined"])
+        self.assertEqual([x["document_id"] for x in self.docs("사용자로그인")], ["split"])
 
     def test_compound_fallback_honors_document_version(self):
         self.doc("v2", start="2.0", text="데이터베이스 고급 구성")

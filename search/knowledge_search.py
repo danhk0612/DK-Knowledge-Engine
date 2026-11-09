@@ -123,6 +123,29 @@ def _database(path: str | Path) -> Iterator[sqlite3.Connection]:
         yield db
 
 
+def _compound_at_word_start(text: str, compound: str) -> bool:
+    """Only join adjacent whole words; never start inside another word.
+
+    A Hangul query like 데이터 베이스 can match 데이터베이스, but cannot
+    match the substring inside 빅데이터 베이스라인.
+    """
+    for line in text.casefold().splitlines():
+        for phrase in re.split(r"[.,;:!?。]", line):
+            words = _SEARCH_TOKENS.findall(phrase)
+            for start in range(len(words)):
+                joined = ""
+                for word in words[start:start + 6]:
+                    joined += word
+                    if joined.startswith(compound):
+                        suffix = joined[len(compound):]
+                        if not suffix or suffix in _KOREAN_PARTICLES:
+                            return True
+                        break
+                    if not compound.startswith(joined):
+                        break
+    return False
+
+
 def search_documents(
     database: str | Path, *, product_id: str, query: str,
     version: str | None = None, limit: int = 10,
@@ -212,8 +235,7 @@ def search_documents(
             if not _version_applies(requested, row["version_from"], row["version_to"]):
                 continue
             original = (row["section_title"] or "") + "\n" + row["content"]
-            compact = "".join(_SEARCH_TOKENS.findall(original.casefold()))
-            if compound not in compact:
+            if not _compound_at_word_start(original, compound):
                 continue
             fallback.append({
                 "document_id": row["document_id"],
