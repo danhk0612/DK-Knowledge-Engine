@@ -5,7 +5,7 @@ param(
     [Parameter(Mandatory=$true)] [string]$OutputDir,
     [string]$ClientExe,
     [string]$ModelFile,
-    [ValidateSet('raw_chatml','qwen3')] [string]$PromptMode = 'raw_chatml'
+    [ValidateSet('raw_chatml','qwen3','jinja')] [string]$PromptMode = 'raw_chatml'
 )
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path

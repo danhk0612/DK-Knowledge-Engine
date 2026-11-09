@@ -152,6 +152,7 @@
             <ComboBox x:Name="PackagePromptModeBox" Width="160" SelectedIndex="0">
               <ComboBoxItem Content="raw_chatml"/>
               <ComboBoxItem Content="qwen3"/>
+              <ComboBoxItem Content="jinja"/>
             </ComboBox>
           </StackPanel>
           <TextBlock Text="선택 모델은 사용자 ZIP의 models 폴더에 포함합니다. 현재 llama.cpp 런타임과 프롬프트 형식에 호환되는 GGUF를 선택하세요."

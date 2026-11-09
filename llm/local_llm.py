@@ -55,8 +55,8 @@ class LlamaCli:
         self.max_tokens = max_tokens
         if type(gpu_layers) is not int or gpu_layers < 0:
             raise ValueError("gpu_layers must be a non-negative integer")
-        if prompt_mode not in ("qwen3", "raw_chatml"):
-            raise ValueError("prompt_mode must be qwen3 or raw_chatml")
+        if prompt_mode not in ("qwen3", "raw_chatml", "jinja"):
+            raise ValueError("prompt_mode must be qwen3, raw_chatml or jinja")
         self.timeout_seconds = timeout_seconds
         self.gpu_layers = gpu_layers
         self.prompt_mode = prompt_mode
@@ -71,14 +71,15 @@ class LlamaCli:
             "-ngl", str(self.gpu_layers),
             "--temp", "0",
         ]
-        if self.prompt_mode == "qwen3":
+        if self.prompt_mode in ("qwen3", "jinja"):
             command += [
                 "-sys", system,
                 "-p", user,
-                "--reasoning", "off",
                 "--jinja",
                 "--single-turn",
             ]
+            if self.prompt_mode == "qwen3":
+                command += ["--reasoning", "off"]
         else:
             # Compatibility mode for llama.cpp versions/models whose Jinja
             # conversation mode rejects the synthetic -sys/-p single turn.

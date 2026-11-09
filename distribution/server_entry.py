@@ -100,7 +100,7 @@ def portable_cli(root: Path, settings: dict) -> list[str]:
             raise ValueError(f"{key} must be a positive integer")
     if type(options["gpu_layers"]) is not int or options["gpu_layers"] < 0:
         raise ValueError("gpu_layers must be a non-negative integer")
-    if options["prompt_mode"] not in ("qwen3", "raw_chatml"):
+    if options["prompt_mode"] not in ("qwen3", "raw_chatml", "jinja"):
         raise ValueError("Unsupported prompt_mode")
     executable = _selected_file(root, options["runtime"], "runtime", ".exe")
     model = _selected_file(root, options["file"], "models", ".gguf")
