@@ -29,6 +29,21 @@ PDF → OCR/구조 추출 → 원문청크 ────────────�
 
 기본 사용자 ZIP은 이 옵션을 켜지 않으면 임베딩 GGUF와 `llama-embedding.exe`를 포함하지 않고, **배포용 DB 복사본에서 사용하지 않는 문서 벡터 테이블도 제거·압축**합니다. 따라서 FTS5 + 소형 답변 모델만으로 실행하며, 관리자가 만든 원본 DB에는 벡터가 그대로 남습니다. 의미 검색을 선택하면 원본 벡터를 보존하고 동일 임베딩 GGUF를 함께 포장합니다.
 
+## 검증된 한국어 경량 모델 (T21)
+
+Windows CPU 통합 시험에서 다음 **실제 GGUF 모델과 llama.cpp v0.8.0**의 실행 호환성을 확인했습니다.
+
+- 모델: [TwinSunsLLC/multilingual-e5-small-gguf](https://huggingface.co/TwinSunsLLC/multilingual-e5-small-gguf), 파일 `multilingual-e5-small-q8_0.gguf` (약 132 MB, MIT)
+- 검증된 Git 리비전: `b6cac96`
+- 모델 SHA-256: `e011debc1208e31bf7b6aebee2d9fc8bd2ca11694a77ed66ac9d0c9d0a877c93`
+- 설정: 임베딩 프로필 **`e5`** (문서 `passage: `, 질문 `query: `), mean pooling, 384차원
+- 실제 CI 측정: 합성 문서 청크 3개에 대한 제작용 벡터 생성까지 6.44초, 질문의 임베딩 검색 2.00초, 원문 출처 검색 성공
+- 테스트: [T21 Windows CPU 실모델 테스트](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/42586024500)
+
+이 결과는 **모델 로딩, DB 구축, 한국어 질문 인코딩 및 원문 검색 동작**의 검증입니다. 고객 PDF의 검색 정답률이나 대량 문서에서의 성능을 입증하지 않습니다.
+
+`cstr/multilingual-e5-small-GGUF`의 특정 변환본은 현재 v0.8.0 환경에서 BERT 토큰 유형 메타데이터 부족으로 로딩에 실패했습니다. 모델 이름만 같아도 GGUF 변환본끼리 호환성을 가정하지 말고, **배포할 정확한 파일을 관리자와 사용자에서 동일하게** 사용해야 합니다.
+
 ## 개발자 CLI
 
 ```powershell
