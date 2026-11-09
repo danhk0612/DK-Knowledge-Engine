@@ -38,7 +38,7 @@
             <TextBox x:Name="PythonBox" Padding="8" Margin="0,5,0,0"/>
           </StackPanel>
           <StackPanel Grid.Row="2" Margin="0,0,0,12">
-            <TextBlock Text="원본 문서 폴더 (최상위·하위 폴더의 PDF/DOCX/TXT/MD 통합 관리)" FontWeight="SemiBold"/>
+            <TextBlock Text="원본 문서 폴더 (기본 자동 설정 · 문서 추가 시 이 폴더로 복사)" FontWeight="SemiBold"/>
             <DockPanel Margin="0,5,0,0">
               <Button Content="폴더 선택" DockPanel.Dock="Right" Padding="12,7"
                       Margin="10,0,0,0" Click="ChooseSourceClick"/>
@@ -61,7 +61,7 @@
             </StackPanel>
           </StackPanel>
           <StackPanel Grid.Row="4" Margin="0,0,0,16">
-            <TextBlock Text="출력할 knowledge.db 파일" FontWeight="SemiBold"/>
+            <TextBlock Text="지식 DB 저장 위치 (기본값 자동 설정)" FontWeight="SemiBold"/>
             <DockPanel Margin="0,5,0,0">
               <Button Content="저장 위치" DockPanel.Dock="Right" Padding="12,7"
                       Margin="10,0,0,0" Click="ChooseDbClick"/>
@@ -124,17 +124,17 @@
           <TextBlock Text="사용자 전용 패키지 만들기" FontSize="18" FontWeight="SemiBold"/>
           <TextBlock Text="기존 검증된 포터블 엔진과 현재 지식 DB를 결합합니다. 관리자 실행 파일·문서 변환 도구는 포함하지 않습니다."
                      TextWrapping="Wrap" Margin="0,8,0,18" Foreground="#566273"/>
-          <TextBlock Text="기본 포터블 엔진 폴더 (DK-Knowledge-Engine-Win-x64)" FontWeight="SemiBold"/>
+          <TextBlock Text="포터블 엔진 폴더 (독립형 관리자에서 자동 지정)" FontWeight="SemiBold"/>
           <DockPanel Margin="0,5,0,16">
             <Button DockPanel.Dock="Right" Content="폴더 선택" Click="ChooseEngineClick"
                     Padding="12,7" Margin="10,0,0,0"/>
             <TextBox x:Name="EngineBox" Padding="8"/>
           </DockPanel>
-          <TextBlock Text="새 출력 폴더 경로 (존재하지 않는 폴더)" FontWeight="SemiBold"/>
+          <TextBlock Text="사용자 패키지 출력 폴더 (기본 자동 설정 · 기존 폴더 사용 가능)" FontWeight="SemiBold"/>
           <TextBox x:Name="PackageOutputBox" Padding="8" Margin="0,5,0,16"/>
           <Button Content="사용자 패키지 생성" HorizontalAlignment="Left" Padding="20,9"
                   Click="PackageClick"/>
-          <TextBlock x:Name="PackageRequirementsText" Text="개발용 실행 시 .NET SDK가 필요합니다. 독립형 관리자 패키지는 내부 도구를 사용합니다. 정식 서명·Release는 수행하지 않습니다."
+          <TextBlock x:Name="PackageRequirementsText" Text="동일한 출력 파일은 덮어씁니다. 기존 폴더의 무관한 파일은 유지합니다. 독립형 관리자에는 Python·.NET SDK가 필요하지 않습니다."
                      Margin="0,16,0,0" TextWrapping="Wrap" Foreground="#566273"/>
         </StackPanel>
       </TabItem>

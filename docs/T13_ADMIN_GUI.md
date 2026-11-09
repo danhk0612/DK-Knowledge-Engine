@@ -18,6 +18,14 @@
 
 개발 소스에서 직접 실행하는 GUI는 Python 후보(`<repo>/.venv/Scripts/python.exe`, `<repo>/venv/Scripts/python.exe`, PATH의 `python`, Windows `py -3`)를 순서대로 확인합니다. `pypdf`와 `python-docx`가 포함된 인터프리터를 찾으면 실제 실행 파일 경로를 자동 입력하며, 없으면 안내만 표시합니다. 패키지는 자동 설치하지 않습니다. **독립형 Admin ZIP에서는 Python·Git·.NET SDK 입력란 자체가 숨겨지고 내장 Builder를 사용**합니다.
 
+## 관리자 자동 경로 및 기존 출력 재사용 (T14 보완)
+
+- 독립형 관리자 GUI는 작업 경로를 자동으로 채웁니다: 원본 문서 폴더 `%LOCALAPPDATA%\DK-Knowledge-Engine\sources`, 지식 DB `%LOCALAPPDATA%\DK-Knowledge-Engine\knowledge.db`, 사용자 출력 폴더 `%LOCALAPPDATA%\DK-Knowledge-Engine\client-packages`입니다. 원본 폴더가 없으면 생성하며, 생성한 문서와 DB는 관리자 ZIP을 임시 위치에 압축 해제한 후에도 그 폴더에 남습니다. 기존 수동 경로 지정도 가능합니다.
+- 엔진 폴더는 독립형 관리자 번들의 `engine-template`를 자동 지정합니다. 개발용 GUI에서는 이전에 압축 해제한 검증 엔진 폴더가 확인되면 자동 선택하며, 실제 엔진이 없는 경우에만 직접 지정합니다.
+- **문서 추가**는 선택 파일을 현재 원본 문서 폴더 최상위로 자동 복사합니다. 기존 문서는 문서 목록에서 교체·삭제합니다. 지식 DB는 재생성 버튼에서만 갱신됩니다.
+- Client 패키지 제작에서 출력 폴더가 이미 있어도 실패하지 않습니다. 기존 `DK-Knowledge-Engine-Client` 안의 생성 파일과 출력 ZIP은 새 파일로 덮어씁니다. 기존 출력 위치의 **무관한 파일은 삭제하지 않습니다.**
+- ZIP은 별도의 새 작업 폴더에서 조합하고 무결성 확인 후 생성하므로, 기존 출력 폴더에 남아 있는 사용자 파일이 ZIP에 포함되지 않습니다. 기존 출력 폴더를 다른 프로그램이 사용하는 동안의 실행 파일 덮어쓰기는 별개로 제한될 수 있으므로 해당 Client를 종료한 후 패키징합니다.
+
 ## 독립형 관리자 패키지
 
 Windows x64 관리자용 ZIP 생성 명령(빌드 PC에서만 Python 3.11, PyInstaller, .NET 10 SDK 필요):

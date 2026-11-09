@@ -133,6 +133,16 @@ jobs:
           if (Test-Path (Join-Path $package 'knowledge/knowledge.previous.db')) { throw 'Previous source DB leaked into Client ZIP' }
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $package 'Verify-AIHelp.ps1') -Root $package
           if ($LASTEXITCODE -ne 0) { throw 'Client package verification failed' }
+          # Reusing an existing output must overwrite generated files but keep
+          # unrelated authoring files and must not include them in the ZIP.
+          $note = Join-Path '.\client-package-output' 'keep-local.txt'
+          Set-Content -LiteralPath $note -Value 'author-notes'
+          & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $db -OutputDir '.\client-package-output'
+          if ($LASTEXITCODE -ne 0) { throw 'Repeated build with existing output failed' }
+          if ((Get-Content -LiteralPath $note -Raw).Trim() -ne 'author-notes') { throw 'Unrelated output file was lost' }
+          $zip = '.\client-package-output\DK-Knowledge-Engine-Client-Win-x64.zip'
+          $zipContents = & tar.exe -tf $zip
+          if ($zipContents -match 'keep-local.txt') { throw 'Unrelated local file leaked into Client ZIP' }
           Write-Output 'T12_CLIENT_ONLY_PACKAGE_OK'
       - name: Upload client-only integrated trial ZIP (not a Release)
         uses: actions/upload-artifact@v4

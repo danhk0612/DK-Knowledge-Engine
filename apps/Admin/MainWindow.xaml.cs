@@ -16,12 +16,18 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _bundled = File.Exists(Path.Combine(_appRoot, "tools", "builder", "DK-Knowledge-Builder.exe"));
+        // Keep editable documents and generated packages outside temporary ZIP extraction folders.
+        var dataRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "DK-Knowledge-Engine");
+        SourceBox.Text = Path.Combine(dataRoot, "sources");
+        DbBox.Text = Path.Combine(dataRoot, "knowledge.db");
+        PackageOutputBox.Text = Path.Combine(dataRoot, "client-packages");
+        Directory.CreateDirectory(SourceBox.Text);
         if (_bundled)
         {
             DeveloperRepoPanel.Visibility = Visibility.Collapsed;
             DeveloperPythonPanel.Visibility = Visibility.Collapsed;
-            SourceBox.Text = Path.Combine(_appRoot, "workspace", "sources");
-            DbBox.Text = Path.Combine(_appRoot, "workspace", "knowledge.db");
             EngineBox.Text = Path.Combine(_appRoot, "engine-template");
             PackageRequirementsText.Text = "관리자 패키지에 포함된 도구를 사용합니다. Git·Python·.NET SDK가 필요하지 않습니다.";
         }
@@ -32,6 +38,17 @@ public partial class MainWindow : Window
                 _appRoot, "..", "..", "..", "..", ".."));
             if (File.Exists(Path.Combine(candidate, "builder", "knowledge_builder.py")))
                 RepoBox.Text = candidate;
+            // Developer launches can reuse a previously extracted verified engine.
+            foreach (var engineFolder in new[]
+            {
+                Path.Combine(_appRoot, "engine-template"),
+                Path.Combine(candidate, "trial-extracted", "DK-Knowledge-Engine-Win-x64")
+            })
+            {
+                if (!File.Exists(Path.Combine(engineFolder, "Verify-AIHelp.ps1"))) continue;
+                EngineBox.Text = engineFolder;
+                break;
+            }
         }
         RefreshDocuments();
         Loaded += DetectPythonOnLoaded;
@@ -293,7 +310,9 @@ public partial class MainWindow : Window
             if (!File.Exists(DbBox.Text.Trim()))
                 throw new FileNotFoundException("생성한 knowledge.db 파일을 선택하세요.");
             if (string.IsNullOrWhiteSpace(PackageOutputBox.Text))
-                throw new ArgumentException("새 사용자 패키지 출력 폴더를 지정하세요.");
+                PackageOutputBox.Text = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "DK-Knowledge-Engine", "client-packages");
             var script = _bundled
                 ? Path.Combine(_appRoot, "tools", "Build-Client-Package.ps1")
                 : Path.Combine(RepoBox.Text.Trim(), "distribution", "Build-Client-Package.ps1");
