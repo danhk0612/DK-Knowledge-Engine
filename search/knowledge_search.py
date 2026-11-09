@@ -188,11 +188,14 @@ def search_documents(
     # words are adjacent in the source. Use a narrow, opt-in fallback that
     # requires *all* meaningful Hangul terms in the same order and adjacency.
     # It is not an arbitrary infix search, synonym expansion or semantic match.
-    if (len(terms) < 2 or len(terms) > 6 or
+    if (len(terms) > 6 or not terms or
             not all(re.fullmatch(r"[가-힣]{2,}", term) for term, _ in terms)):
         return []
     compound = "".join(term for term, _ in terms)
-    first = terms[0][0]
+    # A single short term is too broad for whitespace-insensitive matching.
+    if len(terms) == 1 and len(compound) < 4:
+        return []
+    first = terms[0][0][:2]
     with _database(database) as db:
         candidates = db.execute("""
             SELECT d.document_id, d.title, d.source_path,
