@@ -192,23 +192,7 @@ try {
         $oldManifest = Get-Content -LiteralPath $previousManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
         $newManifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
         foreach ($entry in @($oldManifest.immutable_files.PSObject.Properties)) {
-            if ($entry.Name -notmatch '^models/[^/\\]+\.gguf
-    foreach ($file in (Get-ChildItem -LiteralPath $package -File -Recurse)) {
-        $relative = $file.FullName.Substring($package.Length).TrimStart('\', '/')
-        $destination = Join-Path $finalPackage $relative
-        New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
-        Copy-Item -LiteralPath $file.FullName -Destination $destination -Force
-    }
-    # The ZIP is assembled from clean staging, never from the reused output folder.
-    Copy-Item -LiteralPath $stageZip -Destination $finalZip -Force
-    Write-Output ('CLIENT_ONLY_PACKAGE_READY ' + $finalZip)
-}
-finally {
-    if (Test-Path -LiteralPath $stage) {
-        Remove-Item -LiteralPath $stage -Recurse -Force
-    }
-}
- -or
+            if ($entry.Name -notmatch '^models/[^/\\]+\.gguf$' -or
                 $newManifest.immutable_files.PSObject.Properties[$entry.Name]) {
                 continue
             }
