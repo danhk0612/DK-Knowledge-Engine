@@ -25,4 +25,4 @@ Windows x64에서 실행하는 **오프라인 AI 도움말 엔진의 첫 사전 
 - ZIP은 **설치 프로그램이 아니며 자동 업데이트가 없습니다.**
 - 모델·Python 라이브러리 등 제3자 소프트웨어는 각 라이선스를 따릅니다. 외부 공개 전 포함된 모든 라이선스/NOTICE 확인이 필요합니다.
 
-사용법: [관리자 안내](docs/ADMIN_QUICKSTART.md) · [사용자 안내](docs/CLIENT_QUICKSTART.md) · [배포 검증/제한](docs/RELEASE_PROCESS.md)
+사용법: [관리자 안내](https://github.com/danhk0612/DK-Knowledge-Engine/blob/main/docs/ADMIN_QUICKSTART.md) · [사용자 안내](https://github.com/danhk0612/DK-Knowledge-Engine/blob/main/docs/CLIENT_QUICKSTART.md) · [배포 검증/제한](https://github.com/danhk0612/DK-Knowledge-Engine/blob/main/docs/RELEASE_PROCESS.md)

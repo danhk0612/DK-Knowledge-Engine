@@ -4,7 +4,7 @@
 
 ## 시작하기
 
-1. 제작자에게 받은 `DK-Knowledge-Engine-Client-Win-x64.zip`을 다운로드해 원하는 폴더에 압축 해제합니다.
+1. 제작자에게 받은 `DK-Knowledge-Engine-Client-Win-x64*.zip`을 다운로드해 원하는 폴더에 압축 해제합니다.
 2. `DK-Knowledge-Engine-Client/DK-Knowledge-Client.exe`를 실행합니다.
 3. 프로그램에서 로컬 엔진을 시작한 뒤 **문서 검색** 또는 **AI 질문**을 사용합니다.
 4. 답변에 표시되는 출처를 함께 확인하세요. 답변은 제공된 지식 DB에 포함된 자료 범위에 제한됩니다.
