@@ -34,9 +34,14 @@ def read_cases(path: Path) -> list[dict[str, Any]]:
         if case["id"] in seen:
             raise ValueError("Duplicate benchmark ID")
         seen.add(case["id"])
-        for name in ("version", "expected_source"):
-            if name in case and case[name] is not None and not isinstance(case[name], str):
-                raise ValueError(f"Case {name} must be a string or null")
+        if "expected_source" not in case:
+            raise ValueError("Every benchmark case requires expected_source (null for no evidence)")
+        if (case["expected_source"] is not None and (
+                not isinstance(case["expected_source"], str)
+                or not case["expected_source"].strip())):
+            raise ValueError("Case expected_source must be a nonblank path or null")
+        if case.get("version") is not None and not isinstance(case["version"], str):
+            raise ValueError("Case version must be a string or null")
     return value
 
 

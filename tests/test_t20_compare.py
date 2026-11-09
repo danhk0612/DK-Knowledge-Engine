@@ -47,6 +47,13 @@ class CompareTests(unittest.TestCase):
             self.assertNotIn("설정 복구", payload)
             self.assertNotIn("manual.md", payload)
 
+    def test_unlabeled_case_cannot_inflate_negative_recall(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bad.json"
+            path.write_text('[{"id":"x","product_id":"device","query":"unknown"}]', encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "requires expected_source"):
+                read_cases(path)
+
     def test_requires_unique_ids_and_question_text(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "cases.json"
