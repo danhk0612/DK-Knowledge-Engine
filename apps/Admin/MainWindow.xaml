@@ -42,7 +42,7 @@
             <DockPanel Margin="0,5,0,0">
               <Button Content="폴더 선택" DockPanel.Dock="Right" Padding="12,7"
                       Margin="10,0,0,0" Click="ChooseSourceClick"/>
-              <TextBox x:Name="SourceBox" Padding="8"/>
+              <TextBox x:Name="SourceBox" Padding="8" TextChanged="SourceBoxTextChanged"/>
             </DockPanel>
           </StackPanel>
           <StackPanel Grid.Row="3" Margin="0,0,0,14">
