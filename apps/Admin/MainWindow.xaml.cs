@@ -9,13 +9,31 @@ namespace DKKnowledgeAdmin;
 
 public partial class MainWindow : Window
 {
+    private readonly string _appRoot = AppContext.BaseDirectory;
+    private readonly bool _bundled;
+
     public MainWindow()
     {
         InitializeComponent();
-        // Developer launch path: apps/Admin/bin/{configuration}/net10.0-windows/.
-        var candidate = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
-        if (File.Exists(Path.Combine(candidate, "builder", "knowledge_builder.py")))
-            RepoBox.Text = candidate;
+        _bundled = File.Exists(Path.Combine(_appRoot, "tools", "builder", "DK-Knowledge-Builder.exe"));
+        if (_bundled)
+        {
+            DeveloperRepoPanel.Visibility = Visibility.Collapsed;
+            DeveloperPythonPanel.Visibility = Visibility.Collapsed;
+            SourceBox.Text = Path.Combine(_appRoot, "workspace", "sources");
+            DbBox.Text = Path.Combine(_appRoot, "workspace", "knowledge.db");
+            EngineBox.Text = Path.Combine(_appRoot, "engine-template");
+            PackageRequirementsText.Text = "관리자 패키지에 포함된 도구를 사용합니다. Git·Python·.NET SDK가 필요하지 않습니다.";
+        }
+        else
+        {
+            // Developer launch path: apps/Admin/bin/{configuration}/net10.0-windows/.
+            var candidate = Path.GetFullPath(Path.Combine(
+                _appRoot, "..", "..", "..", "..", ".."));
+            if (File.Exists(Path.Combine(candidate, "builder", "knowledge_builder.py")))
+                RepoBox.Text = candidate;
+        }
+        RefreshDocuments();
     }
 
     private static string? Version(string value) =>
@@ -27,10 +45,95 @@ public partial class MainWindow : Window
         catch (Exception error) { StatusText.Text = "작업 실패: " + error.Message; }
     }
 
+    // A document selection is valid only for its original source root.
+    private void SourceBoxTextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (DocumentsList is not null)
+        {
+            DocumentsList.SelectedItem = null;
+            DocumentsList.ItemsSource = Array.Empty<string>();
+        }
+    }
+
+    private void RefreshDocuments()
+    {
+        DocumentsList.ItemsSource = string.IsNullOrWhiteSpace(SourceBox.Text)
+            ? Array.Empty<string>()
+            : DocumentLibrary.List(SourceBox.Text.Trim());
+    }
+
+    private void RunDocumentAction(Action action)
+    {
+        try { action(); }
+        catch (Exception error) { StatusText.Text = "문서 작업 실패: " + error.Message; }
+    }
+
+    private void RefreshDocumentsClick(object sender, RoutedEventArgs e) =>
+        RunDocumentAction(() =>
+        {
+            RefreshDocuments();
+            StatusText.Text = "문서 목록 새로고침 완료";
+        });
+
+    private void AddDocumentClick(object sender, RoutedEventArgs e) =>
+        RunDocumentAction(() =>
+        {
+            if (string.IsNullOrWhiteSpace(SourceBox.Text))
+                throw new ArgumentException("원본 문서 루트 경로를 입력하세요.");
+            var picker = new OpenFileDialog
+            {
+                Title = "등록할 원본 문서 선택",
+                Filter = "지원 문서 (*.pdf;*.docx;*.txt;*.md)|*.pdf;*.docx;*.txt;*.md",
+                CheckFileExists = true
+            };
+            if (picker.ShowDialog(this) != true) return;
+            var relative = DocumentLibrary.Add(
+                SourceBox.Text.Trim(), ManageProductBox.Text.Trim(), picker.FileName);
+            RefreshDocuments();
+            DocumentsList.SelectedItem = relative;
+            StatusText.Text = "문서 등록: " + relative + " — DB 재생성 전";
+        });
+
+    private void ReplaceDocumentClick(object sender, RoutedEventArgs e) =>
+        RunDocumentAction(() =>
+        {
+            var selected = DocumentsList.SelectedItem as string
+                ?? throw new ArgumentException("교체할 문서를 목록에서 선택하세요.");
+            var picker = new OpenFileDialog
+            {
+                Title = "선택 문서를 교체할 원본 파일 선택",
+                Filter = "지원 문서 (*.pdf;*.docx;*.txt;*.md)|*.pdf;*.docx;*.txt;*.md",
+                CheckFileExists = true
+            };
+            if (picker.ShowDialog(this) != true) return;
+            DocumentLibrary.Replace(SourceBox.Text.Trim(), selected, picker.FileName);
+            RefreshDocuments();
+            DocumentsList.SelectedItem = selected;
+            StatusText.Text = "문서 교체: " + selected + " — DB 재생성 전";
+        });
+
+    private void DeleteDocumentClick(object sender, RoutedEventArgs e) =>
+        RunDocumentAction(() =>
+        {
+            var selected = DocumentsList.SelectedItem as string
+                ?? throw new ArgumentException("삭제할 문서를 목록에서 선택하세요.");
+            if (MessageBox.Show(this,
+                selected + "\n\n원본 문서와 연결된 메타데이터를 삭제하시겠습니까?",
+                "문서 삭제 확인", MessageBoxButton.YesNo, MessageBoxImage.Warning)
+                != MessageBoxResult.Yes) return;
+            DocumentLibrary.Delete(SourceBox.Text.Trim(), selected);
+            RefreshDocuments();
+            StatusText.Text = "문서 삭제: " + selected + " — DB 재생성 전";
+        });
+
     private void ChooseSourceClick(object sender, RoutedEventArgs e)
     {
         var picker = new OpenFolderDialog { Title = "원본 문서 루트 선택" };
-        if (picker.ShowDialog(this) == true) SourceBox.Text = picker.FolderName;
+        if (picker.ShowDialog(this) == true)
+        {
+            SourceBox.Text = picker.FolderName;
+            RunDocumentAction(RefreshDocuments);
+        }
     }
 
     private void ChooseEngineClick(object sender, RoutedEventArgs e)
@@ -81,15 +184,25 @@ public partial class MainWindow : Window
     private async void BuildDbClick(object sender, RoutedEventArgs e) =>
         await ExecuteAsync(async () =>
         {
-            ValidateRepository();
+            if (!_bundled) ValidateRepository();
             if (!Directory.Exists(SourceBox.Text.Trim()))
                 throw new DirectoryNotFoundException("원본 문서 폴더를 찾을 수 없습니다.");
-            if (string.IsNullOrWhiteSpace(DbBox.Text) || string.IsNullOrWhiteSpace(PythonBox.Text))
-                throw new ArgumentException("DB 경로와 Python 실행 명령을 입력하세요.");
+            if (string.IsNullOrWhiteSpace(DbBox.Text))
+                throw new ArgumentException("DB 경로를 입력하세요.");
             StatusText.Text = "지식 DB 재생성 중...";
-            BuildLog.Text = await RunToolAsync(
-                PythonBox.Text.Trim(), RepoBox.Text.Trim(), "-m", "builder.knowledge_builder",
-                "--source", SourceBox.Text.Trim(), "--database", DbBox.Text.Trim(), "--rebuild");
+            if (_bundled)
+                BuildLog.Text = await RunToolAsync(
+                    Path.Combine(_appRoot, "tools", "builder", "DK-Knowledge-Builder.exe"),
+                    _appRoot, "--source", SourceBox.Text.Trim(),
+                    "--database", DbBox.Text.Trim(), "--rebuild");
+            else
+            {
+                if (string.IsNullOrWhiteSpace(PythonBox.Text))
+                    throw new ArgumentException("Python 실행 명령을 입력하세요.");
+                BuildLog.Text = await RunToolAsync(
+                    PythonBox.Text.Trim(), RepoBox.Text.Trim(), "-m", "builder.knowledge_builder",
+                    "--source", SourceBox.Text.Trim(), "--database", DbBox.Text.Trim(), "--rebuild");
+            }
             StatusText.Text = "DB 생성 완료";
         });
 
@@ -137,21 +250,30 @@ public partial class MainWindow : Window
     private async void PackageClick(object sender, RoutedEventArgs e) =>
         await ExecuteAsync(async () =>
         {
-            ValidateRepository();
+            if (!_bundled) ValidateRepository();
             if (!Directory.Exists(EngineBox.Text.Trim()))
                 throw new DirectoryNotFoundException("기본 엔진 패키지 폴더를 찾을 수 없습니다.");
             if (!File.Exists(DbBox.Text.Trim()))
                 throw new FileNotFoundException("생성한 knowledge.db 파일을 선택하세요.");
             if (string.IsNullOrWhiteSpace(PackageOutputBox.Text))
                 throw new ArgumentException("새 사용자 패키지 출력 폴더를 지정하세요.");
-            var script = Path.Combine(RepoBox.Text.Trim(), "distribution", "Build-Client-Package.ps1");
+            var script = _bundled
+                ? Path.Combine(_appRoot, "tools", "Build-Client-Package.ps1")
+                : Path.Combine(RepoBox.Text.Trim(), "distribution", "Build-Client-Package.ps1");
             StatusText.Text = "사용자 전용 패키지 제작 중...";
-            BuildLog.Text = await RunToolAsync(
-                "powershell.exe", RepoBox.Text.Trim(),
+            var args = new List<string> {
                 "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script,
                 "-EnginePackage", EngineBox.Text.Trim(),
                 "-KnowledgeDb", DbBox.Text.Trim(),
-                "-OutputDir", PackageOutputBox.Text.Trim());
+                "-OutputDir", PackageOutputBox.Text.Trim()
+            };
+            if (_bundled)
+            {
+                args.Add("-ClientExe");
+                args.Add(Path.Combine(_appRoot, "client", "DK-Knowledge-Client.exe"));
+            }
+            BuildLog.Text = await RunToolAsync(
+                "powershell.exe", _bundled ? _appRoot : RepoBox.Text.Trim(), args.ToArray());
             StatusText.Text = "사용자 패키지 제작 완료";
         });
 }

@@ -262,3 +262,7 @@ T09 Windows 검증: [Actions run 41955872865](https://github.com/danhk0612/DK-Kn
 ## T12 — 관리자/사용자 Windows GUI 분리
 
 **상태: 초기 구현 및 CI 검증 진행 중.** C#/.NET 10 WPF 프로그램을 `apps/Admin`, `apps/Client`로 각각 분리한다. Admin은 원본 문서 폴더/지식 DB 재생성·AI QA·사용자 패키지 제작을, Client는 AI 질문·검색·엔진 제어·DB 갱신 및 롤백을 맡는다. 배포용 ZIP에는 Client GUI·런타임·모델·DB와 기존 검증 스크립트만 포함하고 관리자 EXE·Builder 소스·원본 문서를 포함하지 않는다. 관리자 PC의 Python/Builder 의존성 통합·실 GUI 클릭 검증·서명/SmartScreen 등은 후속 단계에서 완료한다.
+
+## T13 — 관리자 GUI 문서 CRUD 및 독립 배포 ZIP
+
+**상태: PR #25 구현 및 Windows 독립형 Admin/Client CI 검증 완료. 실제 제작자 PC GUI 클릭 시험은 미완료.** 원본 PDF/DOCX/TXT/MD 파일을 제품별로 추가·교체·삭제하고, 사용자가 명시적으로 DB 재생성 버튼을 눌러 변경을 반영한다. 개별 문서/제품 범위와 메타데이터 규칙은 유지한다. 독립형 Admin ZIP에는 PyInstaller로 묶은 Builder, 자체 포함 Admin/Client WPF EXE와 검증된 엔진·모델 템플릿을 포함한다. 제작자 PC에는 Python/Git/.NET SDK를 요구하지 않으며 Client ZIP에는 Admin·Builder를 포함하지 않는다. 정식 Release·코드 서명·자동 업데이트·현장 버튼 클릭은 후속 검증이다.

@@ -2,7 +2,8 @@
 param(
     [Parameter(Mandatory=$true)] [string]$EnginePackage,
     [Parameter(Mandatory=$true)] [string]$KnowledgeDb,
-    [Parameter(Mandatory=$true)] [string]$OutputDir
+    [Parameter(Mandatory=$true)] [string]$OutputDir,
+    [string]$ClientExe
 )
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
@@ -11,8 +12,9 @@ $db = (Resolve-Path -LiteralPath $KnowledgeDb).Path
 $output = [System.IO.Path]::GetFullPath($OutputDir)
 $clientProject = Join-Path $repo 'apps\Client\DKKnowledgeClient.csproj'
 
-if (-not (Test-Path -LiteralPath $clientProject -PathType Leaf)) {
-    throw 'Client UI project not found'
+if ([string]::IsNullOrWhiteSpace($ClientExe) -and
+    -not (Test-Path -LiteralPath $clientProject -PathType Leaf)) {
+    throw 'Client UI project not found; specify -ClientExe for standalone Admin packaging'
 }
 if ((Test-Path -LiteralPath $output) -or
     $output.StartsWith($engineRoot + [IO.Path]::DirectorySeparatorChar,
@@ -70,12 +72,19 @@ try {
         }
     }
 
-    & dotnet publish $clientProject -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $publish
-    if ($LASTEXITCODE -ne 0) { throw 'Client UI publish failed' }
-
-    $gui = Join-Path $publish 'DK-Knowledge-Client.exe'
-    if (-not (Test-Path -LiteralPath $gui -PathType Leaf)) {
-        throw 'Published Client EXE not found'
+    if (-not [string]::IsNullOrWhiteSpace($ClientExe)) {
+        # Standalone administrator package includes the already built Client GUI.
+        # No .NET SDK or repository is needed on the authoring workstation.
+        $gui = (Resolve-Path -LiteralPath $ClientExe).Path
+    }
+    else {
+        & dotnet publish $clientProject -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $publish
+        if ($LASTEXITCODE -ne 0) { throw 'Client UI publish failed' }
+        $gui = Join-Path $publish 'DK-Knowledge-Client.exe'
+    }
+    if (-not (Test-Path -LiteralPath $gui -PathType Leaf) -or
+        [IO.Path]::GetExtension($gui) -ne '.exe') {
+        throw 'Client GUI executable not found'
     }
     Copy-Item -LiteralPath $gui -Destination (Join-Path $package 'DK-Knowledge-Client.exe')
 

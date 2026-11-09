@@ -44,6 +44,7 @@ Windows 환경에서 **인터넷·Docker·GPU 없이 동작하는 범용 AI 도�
 - [T08 현장 기능·보안 확인 절차 (사양 측정 없음)](docs/T08_FIELD_CHECKLIST.md)
 - [T09 사용자별 모델·실행 환경 선택](docs/T09_MODEL_CONFIGURATION.md)
 - [T12 제작자/사용자 Windows GUI 분리 및 사용자 전용 ZIP 제작](docs/T12_WINDOWS_GUI.md)
+- [T13 관리자 문서 관리 및 독립형 Admin ZIP](docs/T13_ADMIN_GUI.md)
 - [T10 근거 출처·답변 정확성·로컬 보안 검증](docs/T10_VALIDATION.md)
 - **[Windows 시험용 패키지 Git 다운로드·로컬 실행 절차](docs/WINDOWS_TRIAL.md)** (실모델 ZIP, GitHub Actions, PowerShell 5.1)
 
