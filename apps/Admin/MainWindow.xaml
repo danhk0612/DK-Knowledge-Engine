@@ -34,11 +34,11 @@
             <TextBox x:Name="RepoBox" Padding="8" Margin="0,5,0,0"/>
           </StackPanel>
           <StackPanel x:Name="DeveloperPythonPanel" Grid.Row="1" Margin="0,0,0,12">
-            <TextBlock Text="관리자 PC의 Python 실행 명령"/>
-            <TextBox x:Name="PythonBox" Text="python" Padding="8" Margin="0,5,0,0"/>
+            <TextBlock Text="개발용 Python 경로 (실행 시 자동 확인, 필요하면 수정 가능)"/>
+            <TextBox x:Name="PythonBox" Padding="8" Margin="0,5,0,0"/>
           </StackPanel>
           <StackPanel Grid.Row="2" Margin="0,0,0,12">
-            <TextBlock Text="원본 문서 루트 (product_id/manuals/ 문서 구조)" FontWeight="SemiBold"/>
+            <TextBlock Text="원본 문서 폴더 (최상위·하위 폴더의 PDF/DOCX/TXT/MD 통합 관리)" FontWeight="SemiBold"/>
             <DockPanel Margin="0,5,0,0">
               <Button Content="폴더 선택" DockPanel.Dock="Right" Padding="12,7"
                       Margin="10,0,0,0" Click="ChooseSourceClick"/>
@@ -46,11 +46,11 @@
             </DockPanel>
           </StackPanel>
           <StackPanel Grid.Row="3" Margin="0,0,0,14">
-            <TextBlock Text="문서 등록·교체·삭제 (DB 반영은 아래 재생성 버튼)" FontWeight="SemiBold"/>
+            <TextBlock Text="원본 폴더의 모든 문서 등록·교체·삭제 (DB 반영은 재생성 버튼)" FontWeight="SemiBold"/>
             <DockPanel Margin="0,6,0,8">
-              <TextBlock Text="제품 ID" VerticalAlignment="Center" Margin="0,0,10,0"/>
+              <TextBlock Text="일반 폴더 문서 제품 ID" VerticalAlignment="Center" Margin="0,0,10,0"/>
               <TextBox x:Name="ManageProductBox" Text="manual-test" Width="220" Padding="6"/>
-              <Button Content="문서 추가" Padding="12,6" Margin="10,0,0,0" Click="AddDocumentClick"/>
+              <Button Content="문서 추가" ToolTip="선택 파일을 원본 문서 폴더 최상위에 복사" Padding="12,6" Margin="10,0,0,0" Click="AddDocumentClick"/>
               <Button Content="목록 새로고침" Padding="12,6" Margin="10,0,0,0" Click="RefreshDocumentsClick"/>
             </DockPanel>
             <ListBox x:Name="DocumentsList" Height="105" Margin="0,0,0,8"/>
