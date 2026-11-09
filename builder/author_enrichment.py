@@ -9,6 +9,9 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+from urllib.parse import urlsplit
+from urllib.request import Request, build_opener, HTTPRedirectHandler
+from urllib.error import URLError
 from contextlib import closing
 from pathlib import Path
 
@@ -75,9 +78,54 @@ def _questions(raw: str) -> str:
     return "\n".join(phrases)
 
 
+class _NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, request, fp, code, msg, headers, newurl):
+        return None
+
+
+class LocalServerGenerator:
+    """Use an already running high-performance *loopback-only* author model.
+
+    Compatible with local OpenAI chat-completion APIs; never accesses cloud URLs.
+    """
+    def __init__(self, endpoint: str, model: str = "local"):
+        url = urlsplit(endpoint)
+        if (url.scheme != "http" or url.hostname not in ("127.0.0.1", "localhost", "::1")
+                or url.username or url.password or url.query or url.fragment
+                or url.path != "/v1/chat/completions" or url.port is None):
+            raise ValueError("Author endpoint must be http://127.0.0.1:PORT/v1/chat/completions")
+        self.endpoint = endpoint
+        self.model = model
+        self.client = build_opener(_NoRedirect())
+
+    def generate(self, system: str, user: str) -> str:
+        body = json.dumps({
+            "model": self.model, "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ], "temperature": 0, "max_tokens": 400,
+        }, ensure_ascii=False).encode("utf-8")
+        request = Request(self.endpoint, body, {"Content-Type": "application/json"}, method="POST")
+        try:
+            with self.client.open(request, timeout=300) as response:
+                if response.status != 200:
+                    raise RuntimeError("Author local model rejected the request")
+                data = response.read(262144 + 1)
+        except (OSError, URLError) as exc:
+            raise RuntimeError("Unable to reach the author-only loopback model") from exc
+        if len(data) > 262144:
+            raise RuntimeError("Author local model response exceeded the size limit")
+        try:
+            result = json.loads(data)
+            return result["choices"][0]["message"]["content"]
+        except (ValueError, TypeError, KeyError, IndexError) as exc:
+            raise RuntimeError("Author local model returned an invalid response") from exc
+
+
 def enrich(
-    database: Path, *, llama_cli: Path, model: Path, prompt_mode: str,
-    gpu_layers: int = 0, max_chunks: int = 0,
+    database: Path, *, llama_cli: Path | None = None, model: Path | None = None,
+    prompt_mode: str = "raw_chatml", gpu_layers: int = 0, max_chunks: int = 0,
+    endpoint: str | None = None, endpoint_model: str = "local",
 ) -> dict:
     """Create hints for original chunk IDs, atomically, on the author PC.
 
@@ -86,10 +134,17 @@ def enrich(
     """
     if max_chunks < 0:
         raise ValueError("max_chunks must be non-negative")
-    generator = LlamaCli(
-        llama_cli, model, ctx_size=8192, max_tokens=400, timeout_seconds=300,
-        gpu_layers=gpu_layers, prompt_mode=prompt_mode,
-    )
+    if endpoint:
+        if model is not None or llama_cli is not None:
+            raise ValueError("Use either an author endpoint or a local GGUF/executable pair")
+        generator = LocalServerGenerator(endpoint, endpoint_model)
+    else:
+        if model is None or llama_cli is None:
+            raise ValueError("Authoring GGUF and executable are both required")
+        generator = LlamaCli(
+            llama_cli, model, ctx_size=8192, max_tokens=400, timeout_seconds=300,
+            gpu_layers=gpu_layers, prompt_mode=prompt_mode,
+        )
     with closing(sqlite3.connect(database)) as db:
         db.execute("PRAGMA foreign_keys=ON")
         db.executescript(SCHEMA)
