@@ -283,3 +283,9 @@ T09 Windows 검증: [Actions run 41955872865](https://github.com/danhk0612/DK-Kn
 **범위:** 관리자 실행 시 원본 문서·지식 DB·사용자 출력 폴더 기본값을 사용자별 영구 위치로 설정하고, 동봉 엔진 경로를 자동 지정한다. 기존 문서 추가는 현재 원본 폴더로 자동 복사한다. 사용자 Client 패키징은 출력 폴더가 존재해도 새로 생성한 파일만 덮어쓰며 무관한 파일은 보존한다. ZIP은 격리 작업 폴더에서 검증 후 내보낸다.
 
 기존 PR #26의 T14 문서 인식·AI 검색 구현은 유지하며 새로운 파일 갱신 방식에 대한 CI 및 실기 확인 결과를 별도 기록한다. 고객용 정식 Release·서명 및 `main` 병합은 별도 결정이다.
+
+## T15 — 공개 사전 배포 준비
+
+**상태: v0.1.0-preview.1 배포 준비 브랜치에서 작업.** 사용자용 README, Admin/Client 빠른 시작, MIT 프로젝트 LICENSE, 제3자 의존성 고지, 버전별 릴리스 노트 및 Release 초안 생성 절차를 마련한다. 관리자/사용자 ZIP 안에 안내·라이선스 파일을 포함하고 Client의 불변 매니페스트에 해당 파일의 해시를 기록한다. 공개 릴리스는 성공한 같은 main 커밋의 통합 CI Run ID와 두 ZIP을 확인한 후 **Draft prerelease**로 생성하며 자동 공개하지 않는다.
+
+**공개 전 제한:** unsigned ZIP/SmartScreen, 실제 고객 문서 권리·데이터, Python/PyInstaller 및 transitive dependency의 완전한 라이선스 고지, Windows 현장 적합성은 별도 승인 대상. 첫 preview의 사용자 ZIP은 합성 샘플 DB만 포함한다.
