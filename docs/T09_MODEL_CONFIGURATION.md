@@ -38,7 +38,7 @@ Windows 포터블 ZIP을 압축 해제한 뒤 `config/settings.json`을 수정�
 | `max_tokens` | 답변 생성 토큰 수 상한(양의 정수) |
 | `timeout_seconds` | 각 로컬 모델 추론 대기 제한(양의 정수) |
 | `gpu_layers` | GPU에 올릴 레이어 수(0 이상). **기본 제공 CPU 전용 실행 파일에서는 0 유지** |
-| `prompt_mode` | `raw_chatml`(기본 Qwen3 배포 설정, 실제 PDF 현장 검증) 또는 `qwen3`(기존 T07/Jinja 호환 모드) |
+| `prompt_mode` | `raw_chatml`(기본 Qwen3 배포 설정), `qwen3`(Qwen3 Jinja / reasoning off) 또는 `jinja`(다른 모델의 내장 채팅 템플릿 사용, 모델·런타임 호환 필요) |
 
 예를 들어 `models/other-model.gguf` 파일을 모델 제공처와 라이선스를 확인하고 직접 복사한 뒤 `file`을 해당 상대 경로로 변경할 수 있습니다. GPU 빌드나 다른 버전의 llama.cpp를 사용할 경우 `runtime/` 아래 별도 이름의 EXE 및 필요한 **실행 의존 DLL을 함께 제공**해야 합니다. 선택한 모델이 해당 런타임과 호환되지 않으면 답변 생성이 실패할 수 있습니다.
 
@@ -53,6 +53,12 @@ Windows 포터블 ZIP을 압축 해제한 뒤 `config/settings.json`을 수정�
 - **기본 배포 모델·런타임은 기존 manifest.json SHA-256으로 검증합니다.** 사용자가 추가한 임의의 모델·실행 파일은 원래 패키지 manifest에 자동 등록되거나 서명·신뢰성 검증되지 않습니다. 관리자 또는 모델 제공처의 SHA-256, 라이선스·출처를 직접 확인해야 합니다.
 - 웹 JavaScript/C# 호출 방법과 `/health`, `/search`, `/chat`, `/event` 응답 계약은 변경하지 않습니다.
 - 기존 DB와 지식 갱신·롤백 스크립트는 변경하지 않습니다. 모델 선택과 문서 데이터는 서로 독립적입니다.
+
+## T16 제작자용 모델 패키징
+
+관리자 GUI에서 외부 GGUF 파일을 선택하면 `Build-Client-Package.ps1 -ModelFile ... -PromptMode jinja`를 사용해 선택 GGUF를 Client ZIP 안에 복사합니다. 선택 모델이 존재할 경우 기본 Qwen3 파일은 Client ZIP에서 제외되며, 설정과 `manifest.json`의 SHA-256 검사 항목을 새 모델에 맞춥니다. `ModelFile`을 지정하지 않으면 기존 기본 모델을 그대로 사용합니다.
+
+PDF·DOCX 추출과 지식 DB 생성에는 AI 모델을 사용하지 않습니다. 제작용 대형 모델을 따로 돌리는 기능은 아직 없으며, PDF 텍스트 추출·한국어 검색과 답변 생성의 실패 원인은 구분해야 합니다. [T16 모델 패키징과 문제 진단](T16_MODEL_PACKAGING.md)을 참고하세요.
 
 ## 하드웨어 정책 변경
 
