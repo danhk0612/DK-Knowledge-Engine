@@ -55,15 +55,23 @@ class LlamaEmbedder:
         cmd = [
             str(self.executable), "-m", str(self.model),
             "--pooling", "mean", "--embd-normalize", "2",
-            "--embd-output-format", "array", "--log-disable",
-            "-ngl", str(self.gpu_layers), "-p", text.strip(),
+            "--embd-output-format", "array",
+            "-p", text.strip(),
         ]
+        # Avoid pointless GPU warnings on a CPU-only runtime. Model load
+        # errors remain visible in stderr, even on failed local inference.
+        if self.gpu_layers > 0:
+            cmd.extend(("-ngl", str(self.gpu_layers)))
         process = subprocess.run(
             cmd, input="", capture_output=True, text=True, encoding="utf-8",
             errors="replace", timeout=self.timeout_seconds, check=False,
         )
         if process.returncode != 0:
-            raise RuntimeError("Local embedding inference failed: " + process.stderr[-350:])
+            raise RuntimeError(
+                f"Local embedding inference failed (exit={process.returncode}): "
+                + process.stderr[-1200:]
+                + (("; stdout: " + process.stdout[-350:]) if process.stdout.strip() else "")
+            )
         data = process.stdout.strip()
         try:
             decoded = json.loads(data)
