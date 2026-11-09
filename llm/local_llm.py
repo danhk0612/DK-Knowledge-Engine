@@ -12,7 +12,7 @@ from pathlib import Path
 from time import perf_counter
 from typing import Protocol
 
-from search.knowledge_search import search_documents
+from search.knowledge_search import QueryEmbedder, search_documents
 
 NO_EVIDENCE = "등록된 문서에서 이 질문을 뒷받침하는 정보를 찾지 못했습니다."
 NO_DOCUMENT_ANSWER = "제공된 근거 문서만으로는 답변을 확인할 수 없습니다."
@@ -130,6 +130,7 @@ def answer_from_knowledge(
     generator: TextGenerator,
     version: str | None = None,
     max_sources: int = 5,
+    embedder: QueryEmbedder | None = None, min_similarity: float = 0.72,
 ) -> dict:
     """Search T03 first; never invoke the model when sources are missing."""
     if not question or not question.strip():
@@ -139,7 +140,8 @@ def answer_from_knowledge(
 
     hits = search_documents(
         database, product_id=product_id, query=question,
-        version=version, limit=max_sources,
+        version=version, limit=max_sources, embedder=embedder,
+        min_similarity=min_similarity,
     )
     if not hits:
         return {"answer": NO_EVIDENCE, "grounded": False, "sources": []}

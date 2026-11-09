@@ -17,6 +17,8 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from llm.local_llm import LlamaCli, TextGenerator, answer_from_knowledge
+from embedding.llama_embedder import LlamaEmbedder, sha256_file
+from search.knowledge_search import QueryEmbedder
 from search.knowledge_search import match_event, search_documents
 
 ENGINE_VERSION = "0.1.0"
@@ -75,6 +77,8 @@ class KnowledgeHttpServer(ThreadingHTTPServer):
     def __init__(
         self, database: str | Path, *, port: int = 8765,
         generator: TextGenerator | None = None,
+        embedder: QueryEmbedder | None = None,
+        embedding_min_similarity: float = 0.72,
         allowed_origins: tuple[str, ...] = (),
     ) -> None:
         if not isinstance(port, int) or port < 0 or port > 65535:
@@ -82,7 +86,10 @@ class KnowledgeHttpServer(ThreadingHTTPServer):
         self.database = Path(database).resolve()
         self.knowledge_version = _schema_version(self.database)
         self.generator = generator
+        self.embedder = embedder
+        self.embedding_min_similarity = embedding_min_similarity
         self.chat_lock = threading.Lock()
+        self.embedding_lock = threading.Lock()
         self.allowed_origins = frozenset(_origin_value(origin) for origin in allowed_origins)
         # Binding ONLY to the IPv4 loopback address is an explicit security boundary.
         super().__init__(("127.0.0.1", port), KnowledgeHandler)
@@ -226,11 +233,21 @@ class KnowledgeHandler(BaseHTTPRequestHandler):
             version = _optional(data, "version")
 
             if self.path == "/search":
-                results = search_documents(
-                    self.server.database, product_id=product_id,
-                    query=_required(data, "query"), version=version,
-                )
-                self._reply(200, {"results": results})
+                query = _required(data, "query")
+                if self.server.embedder is not None and not self.server.embedding_lock.acquire(blocking=False):
+                    self._reply(429, {"error": "embedding_busy"})
+                else:
+                    try:
+                        results = search_documents(
+                            self.server.database, product_id=product_id,
+                            query=query, version=version,
+                            embedder=self.server.embedder,
+                            min_similarity=self.server.embedding_min_similarity,
+                        )
+                    finally:
+                        if self.server.embedder is not None:
+                            self.server.embedding_lock.release()
+                    self._reply(200, {"results": results})
             elif self.path == "/event":
                 result = match_event(
                     self.server.database, product_id=product_id, version=version,
@@ -247,14 +264,23 @@ class KnowledgeHandler(BaseHTTPRequestHandler):
                     self._reply(429, {"error": "llm_busy"})
                 else:
                     try:
-                        result = answer_from_knowledge(
-                            self.server.database, product_id=product_id,
-                            question=question, version=version,
-                            generator=self.server.generator,
-                        )
+                        if self.server.embedder is not None and not self.server.embedding_lock.acquire(blocking=False):
+                            self._reply(429, {"error": "embedding_busy"})
+                        else:
+                            try:
+                                result = answer_from_knowledge(
+                                    self.server.database, product_id=product_id,
+                                    question=question, version=version,
+                                    generator=self.server.generator,
+                                    embedder=self.server.embedder,
+                                    min_similarity=self.server.embedding_min_similarity,
+                                )
+                            finally:
+                                if self.server.embedder is not None:
+                                    self.server.embedding_lock.release()
+                            self._reply(200, result)
                     finally:
                         self.server.chat_lock.release()
-                    self._reply(200, result)
         except OverflowError:
             self._reject(413, "request_too_large")
         except TypeError:
@@ -281,6 +307,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--timeout-seconds", type=int, default=180)
     parser.add_argument("--gpu-layers", type=int, default=0)
     parser.add_argument("--prompt-mode", choices=("qwen3", "raw_chatml", "jinja"), default="qwen3")
+    parser.add_argument("--embedding-runtime", type=Path)
+    parser.add_argument("--embedding-model", type=Path)
+    parser.add_argument("--embedding-min-similarity", type=float, default=0.72)
     parser.add_argument("--allow-origin", action="append", default=[], help="Exact allowed browser origin")
     args = parser.parse_args(argv)
     if (args.llama_cli is None) != (args.model is None):
@@ -290,9 +319,28 @@ def main(argv: list[str] | None = None) -> int:
         max_tokens=args.max_tokens, timeout_seconds=args.timeout_seconds,
         gpu_layers=args.gpu_layers, prompt_mode=args.prompt_mode,
     ) if args.model is not None else None
+    if (args.embedding_runtime is None) != (args.embedding_model is None):
+        parser.error("Embedding runtime and model must be supplied together")
+    if not 0.0 < args.embedding_min_similarity <= 1.0:
+        parser.error("Embedding minimum similarity must be in (0, 1]")
+    embedder = None
+    if args.embedding_runtime is not None and args.embedding_model is not None:
+        # Refuse mismatched / partially built vectors rather than silently
+        # mixing encoders or accepting an unrelated embedding GGUF.
+        with closing(sqlite3.connect(args.database.resolve().as_uri() + "?mode=ro", uri=True)) as db:
+            meta = dict(db.execute("SELECT key,value FROM embedding_metadata"))
+            indexed = db.execute("SELECT count(*) FROM chunk_embeddings").fetchone()[0]
+            total = db.execute("SELECT count(*) FROM chunks").fetchone()[0]
+        if not meta.get("model_sha256") or indexed != total:
+            raise ValueError("Knowledge DB has no complete embedding index")
+        if sha256_file(args.embedding_model) != meta["model_sha256"]:
+            raise ValueError("Client embedding model differs from authoring model")
+        embedder = LlamaEmbedder(args.embedding_runtime, args.embedding_model)
     with KnowledgeHttpServer(
         args.database, port=args.port,
-        generator=generator, allowed_origins=tuple(args.allow_origin),
+        generator=generator, embedder=embedder,
+        embedding_min_similarity=args.embedding_min_similarity,
+        allowed_origins=tuple(args.allow_origin),
     ) as server:
         print(f"Knowledge API listening on http://127.0.0.1:{server.server_port}", flush=True)
         try:
