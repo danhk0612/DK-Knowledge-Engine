@@ -159,6 +159,19 @@ class SearchTests(unittest.TestCase):
             ["network"],
         )
 
+    def test_korean_compound_spacing_fallback_without_cross_product_leakage(self):
+        self.doc("combined", text="데이터베이스 연결은 포트 3308을 사용합니다.")
+        self.doc("split", text="사용자 로그인 정보를 확인합니다.")
+        self.doc("other", product="app-b", text="데이터베이스 기록을 저장합니다.")
+        self.assertEqual([x["document_id"] for x in self.docs("데이터 베이스")], ["combined"])
+        self.assertEqual([x["document_id"] for x in self.docs("사용자로그인")], ["split"])
+        self.assertEqual(self.docs("터베"), [])  # arbitrary infix is not sufficient evidence
+
+    def test_compound_fallback_honors_document_version(self):
+        self.doc("v2", start="2.0", text="데이터베이스 고급 구성")
+        self.assertEqual(self.docs("데이터 베이스", version="1.0"), [])
+        self.assertEqual([x["document_id"] for x in self.docs("데이터 베이스", version="2.0")], ["v2"])
+
     def test_updated_and_removed_fts_data(self):
         self.doc("a", text="oldtoken")
         self.assertEqual(len(self.docs("oldtoken")), 1)

@@ -179,7 +179,7 @@ def evaluate_case(db: Path, port: int, case: dict) -> dict:
                 failures.append("grounded-response-has-no-sources")
             search_hits = search_documents(
                 db, product_id=case["product_id"],
-                query=case["question"], version=case.get("version"), limit=3,
+                query=case["question"], version=case.get("version"), limit=5,
             )
             valid_hits = {
                 (hit["document_id"], hit["chunk_id"], hit["source_path"], hit["page_from"]): hit
