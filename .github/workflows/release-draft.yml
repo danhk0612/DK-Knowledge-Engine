@@ -45,9 +45,13 @@ jobs:
               $run.conclusion -ne 'success' -or $run.head_sha -ne $env:GITHUB_SHA) {
             throw 'Source run must be a successful main T12 integration build of this exact commit'
           }
-          # A tag or release of the same version must never be silently overwritten.
-          gh release view $env:RELEASE_VERSION --repo $env:GITHUB_REPOSITORY --json tagName *> $null
-          if ($LASTEXITCODE -eq 0) { throw 'Release already exists: choose another version' }
+          # Fail safely if a tag or Release already exists.
+          $existingTags = git ls-remote --tags origin "refs/tags/$env:RELEASE_VERSION"
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect remote tags' }
+          if ($existingTags) { throw 'Version tag already exists: choose another version' }
+          $published = @(gh release list --repo $env:GITHUB_REPOSITORY --limit 100 --json tagName --jq '.[].tagName')
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect existing Releases' }
+          if ($published -contains $env:RELEASE_VERSION) { throw 'Release already exists' }
           Write-Output ('VERIFIED_SOURCE_SHA ' + $run.head_sha)
       - name: Download both integrated release candidates
         shell: pwsh
@@ -70,7 +74,7 @@ jobs:
           $client = "./release/DK-Knowledge-Engine-Client-Win-x64-$env:RELEASE_VERSION.zip"
           Copy-Item -LiteralPath $adminSource -Destination $admin
           Copy-Item -LiteralPath $clientSource -Destination $client
-          Add-Type -AssemblyName System.IO.Compression
+          Add-Type -AssemblyName System.IO.Compression.ZipFile
           function Get-ZipEntries([string]$archivePath) {
             $zip = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path -LiteralPath $archivePath).Path)
             try { return @($zip.Entries | ForEach-Object { $_.FullName.Replace('\', '/') }) }
@@ -96,7 +100,7 @@ jobs:
               '  ' + (Split-Path -Leaf $_)
           }
           [IO.File]::WriteAllLines((Join-Path (Resolve-Path './release').Path 'SHA256SUMS.txt'),
-            $checksums, (New-Object System.Text.UTF8Encoding($false)))
+            [string[]]$checksums, (New-Object System.Text.UTF8Encoding($false)))
       - name: Create unpublished draft prerelease
         shell: pwsh
         run: |
