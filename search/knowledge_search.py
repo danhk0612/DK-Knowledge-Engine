@@ -323,24 +323,6 @@ def search_documents(
             database, product_id=product_id, terms=terms,
             requested=requested, limit=limit,
         )
-    if embedder is not None:
-        dense = _semantic_hits(
-            database, product_id=product_id, query=query, requested=requested,
-            embedder=embedder, min_similarity=min_similarity, limit=min(limit, 5),
-        )
-        # Give dense retrieval enough room to rescue synonymous queries,
-        # but preserve the most precise source-matched lexical hits first.
-        selected = primary[:min(2, len(primary))]
-        seen_dense = {hit["chunk_id"] for hit in selected}
-        for candidate in dense:
-            if candidate["chunk_id"] not in seen_dense and len(selected) < limit:
-                selected.append(candidate)
-                seen_dense.add(candidate["chunk_id"])
-        for candidate in primary[2:]:
-            if candidate["chunk_id"] not in seen_dense and len(selected) < limit:
-                selected.append(candidate)
-                seen_dense.add(candidate["chunk_id"])
-        primary = selected
     if len(primary) >= limit:
         return primary
 
@@ -387,7 +369,14 @@ def search_documents(
                 seen.add(hint["chunk_id"])
                 if len(primary) >= limit:
                     return primary
-    return primary
+    if primary or embedder is None:
+        # Common case: exact original/author-assisted retrieval needs no
+        # additional model loading or embedding CPU work on Client PCs.
+        return primary
+    return _semantic_hits(
+        database, product_id=product_id, query=query, requested=requested,
+        embedder=embedder, min_similarity=min_similarity, limit=limit,
+    )
 
 
 def match_event(
