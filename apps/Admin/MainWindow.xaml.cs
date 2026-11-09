@@ -292,19 +292,26 @@ public partial class MainWindow : Window
             if (string.IsNullOrWhiteSpace(defaultProductId))
                 throw new ArgumentException("최상위·일반 폴더 문서에 적용할 제품 ID를 입력하세요.");
             StatusText.Text = "지식 DB 재생성 중...";
+            var qualityReport = Path.ChangeExtension(Path.GetFullPath(DbBox.Text.Trim()), ".quality.json");
+            var builderArgs = new List<string> {
+                "--source", SourceBox.Text.Trim(),
+                "--database", DbBox.Text.Trim(),
+                "--default-product-id", defaultProductId, "--rebuild",
+                "--quality-report", qualityReport
+            };
+            if (PdfLayoutBox.IsChecked == true) builderArgs.Add("--pdf-layout");
+            if (PdfOcrBox.IsChecked == true) builderArgs.Add("--ocr-scanned-pages");
             if (_bundled)
                 BuildLog.Text = await RunToolAsync(
                     Path.Combine(_appRoot, "tools", "builder", "DK-Knowledge-Builder.exe"),
-                    _appRoot, "--source", SourceBox.Text.Trim(),
-                    "--database", DbBox.Text.Trim(), "--default-product-id", defaultProductId, "--rebuild");
+                    _appRoot, builderArgs.ToArray());
             else
             {
                 if (string.IsNullOrWhiteSpace(PythonBox.Text))
                     throw new ArgumentException("Python 실행 명령을 입력하세요.");
                 BuildLog.Text = await RunToolAsync(
-                    PythonBox.Text.Trim(), RepoBox.Text.Trim(), "-m", "builder.knowledge_builder",
-                    "--source", SourceBox.Text.Trim(), "--database", DbBox.Text.Trim(),
-                    "--default-product-id", defaultProductId, "--rebuild");
+                    PythonBox.Text.Trim(), RepoBox.Text.Trim(),
+                    (new[] { "-m", "builder.knowledge_builder" }).Concat(builderArgs).ToArray());
             }
             StatusText.Text = "DB 생성 완료";
         });

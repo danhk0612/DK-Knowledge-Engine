@@ -76,10 +76,18 @@
               <TextBox x:Name="DbBox" Padding="8"/>
             </DockPanel>
           </StackPanel>
-          <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,0,0,10">
-            <Button Content="지식 DB 재생성" Padding="20,9" Click="BuildDbClick"/>
-            <TextBlock Text="기존 Builder의 --rebuild 기능을 사용합니다."
-                       Foreground="#566273" VerticalAlignment="Center" Margin="12,0,0,0"/>
+          <StackPanel Grid.Row="5" Margin="0,0,0,10">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+              <CheckBox x:Name="PdfLayoutBox" Content="PDF 레이아웃 보존 추출" VerticalAlignment="Center"
+                        ToolTip="텍스트 기반 표·다단 문서에서 pypdf의 레이아웃 모드를 시도합니다."/>
+              <CheckBox x:Name="PdfOcrBox" Content="스캔 PDF OCR" Margin="18,0,0,0" VerticalAlignment="Center"
+                        ToolTip="텍스트 없는 PDF 페이지를 제작자 PC의 Tesseract(kor+eng)와 Poppler(pdftoppm)로 처리합니다. 두 도구가 PATH에 필요합니다."/>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal">
+              <Button Content="지식 DB 재생성" Padding="20,9" Click="BuildDbClick"/>
+              <TextBlock Text="추출 품질 보고서는 DB 옆에 .quality.json으로 저장됩니다."
+                         Foreground="#566273" VerticalAlignment="Center" Margin="12,0,0,0"/>
+            </StackPanel>
           </StackPanel>
           <TextBox x:Name="BuildLog" Grid.Row="6" IsReadOnly="True"
                    TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
