@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import shutil
 import sqlite3
 import tempfile
 import unittest
@@ -11,7 +12,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from builder.knowledge_builder import build
-from distribution.server_entry import portable_cli, verify_database
+from distribution.server_entry import portable_cli, verify_database, compact_without_embeddings, run
 from embedding.llama_embedder import LlamaEmbedder
 from search.knowledge_search import search_documents
 
@@ -95,6 +96,23 @@ class HybridTests(unittest.TestCase):
                            embedding_max_chunks=1)
         self.assertFalse(result["embedding_index"]["complete"])
         self.assertFalse(verify_database(self.db)["embedding"]["complete"])
+
+    def test_default_client_db_compaction_keeps_original_knowledge(self):
+        self.build_embeddings(profile="e5")
+        author_bytes = self.db.read_bytes()
+        packaged_root = self.root / "client"
+        (packaged_root / "knowledge").mkdir(parents=True)
+        packaged_db = packaged_root / "knowledge" / "knowledge.db"
+        shutil.copyfile(self.db, packaged_db)
+        self.assertEqual(run(["--compact-no-embeddings"], root=packaged_root), 0)
+        self.assertEqual(self.db.read_bytes(), author_bytes)
+        self.assertNotIn("embedding", verify_database(packaged_db))
+        self.assertIn("embedding", verify_database(self.db))
+        self.assertLess(packaged_db.stat().st_size, self.db.stat().st_size)
+        results = search_documents(packaged_db, product_id="device", query="전원")
+        self.assertEqual(len(results), 1)
+        report = compact_without_embeddings(packaged_db)
+        self.assertEqual(report["removed_vectors"], 0)
 
     def test_portable_settings_embed_selection_is_strictly_local(self):
         (self.root / "runtime").mkdir()

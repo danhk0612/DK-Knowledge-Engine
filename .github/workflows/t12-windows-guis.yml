@@ -193,6 +193,27 @@ jobs:
           $syntheticDb = Join-Path $env:RUNNER_TEMP 't19-fixture.db'
           python tests/t19_prepare_vector_fixture.py --database (Join-Path $base 'knowledge\knowledge.db') --output $syntheticDb --model $fakeModel
           if ($LASTEXITCODE -ne 0) { throw 'T19 synthetic DB fixture creation failed' }
+          $authorHash = (Get-FileHash -LiteralPath $syntheticDb -Algorithm SHA256).Hash
+          # Building a default Client from an author DB containing vectors must
+          # strip only its packaged DB copy, not the author DB or original chunks.
+          & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $syntheticDb -OutputDir '.\lightweight-vector-output'
+          if ($LASTEXITCODE -ne 0) { throw 'Vector-free default package build failed' }
+          $light = '.\lightweight-vector-output\DK-Knowledge-Engine-Client'
+          $compactDb = Join-Path $light 'knowledge\knowledge.db'
+          $compactInfo = & (Join-Path $light 'engine\DK-Knowledge-API.exe') --verify-db $compactDb | ConvertFrom-Json
+          $originalInfo = & (Join-Path $base 'engine\DK-Knowledge-API.exe') --verify-db $syntheticDb | ConvertFrom-Json
+          if ($compactInfo.embedding -or -not $originalInfo.embedding.complete) {
+            throw 'Default Client did not strip only the copied vectors'
+          }
+          if ((Get-Item $compactDb).Length -ge (Get-Item $syntheticDb).Length) {
+            throw 'Default Client knowledge DB was not compacted'
+          }
+          if ((Get-FileHash -LiteralPath $syntheticDb -Algorithm SHA256).Hash -ne $authorHash) {
+            throw 'Original author knowledge DB changed while packaging'
+          }
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $light 'Verify-AIHelp.ps1') -Root $light
+          if ($LASTEXITCODE -ne 0) { throw 'Compacted Client integrity check failed' }
+          Write-Output 'T22_VECTOR_FREE_CLIENT_COPY_OK'
           & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $syntheticDb -OutputDir '.\semantic-test-output' -EmbeddingModelFile $fakeModel
           if ($LASTEXITCODE -ne 0) { throw 'Optional semantic package creation failed' }
           $semantic = '.\semantic-test-output\DK-Knowledge-Engine-Client'
