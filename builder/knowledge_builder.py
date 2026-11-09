@@ -455,9 +455,15 @@ def build(source_root: Path, database_path: Path, *, rebuild: bool = False,
           pdftoppm: str = "pdftoppm", ocr_language: str = "kor+eng",
           author_llama_cli: Path | None = None, author_model: Path | None = None,
           author_prompt_mode: str = "raw_chatml", author_gpu_layers: int = 0,
-          author_max_chunks: int = 0) -> dict[str, Any]:
+          author_max_chunks: int = 0, author_endpoint: str | None = None,
+          author_endpoint_model: str = "local") -> dict[str, Any]:
+    if author_endpoint and (author_model is not None or author_llama_cli is not None):
+        raise ValueError("Author endpoint cannot be combined with a local GGUF")
     if (author_llama_cli is None) != (author_model is None):
         raise ValueError("Authoring model and llama.cpp executable must be provided together")
+    if author_endpoint:
+        from builder.author_enrichment import LocalServerGenerator
+        LocalServerGenerator(author_endpoint, author_endpoint_model)
     if (pdf_layout or ocr_scanned_pages) and not rebuild:
         raise ValueError("PDF extraction options require --rebuild to refresh existing documents")
     root = source_root.resolve()
@@ -487,12 +493,13 @@ def build(source_root: Path, database_path: Path, *, rebuild: bool = False,
                            ocr_scanned_pages=ocr_scanned_pages,
                            tesseract=tesseract, pdftoppm=pdftoppm,
                            ocr_language=ocr_language)
-        if author_model is not None and author_llama_cli is not None:
+        if (author_model is not None and author_llama_cli is not None) or author_endpoint:
             from builder.author_enrichment import enrich
             result["author_enrichment"] = enrich(
                 working, llama_cli=author_llama_cli, model=author_model,
                 prompt_mode=author_prompt_mode, gpu_layers=author_gpu_layers,
-                max_chunks=author_max_chunks,
+                max_chunks=author_max_chunks, endpoint=author_endpoint,
+                endpoint_model=author_endpoint_model,
             )
         if temp:
             os.replace(temp, out)
@@ -519,6 +526,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--author-prompt-mode", choices=("raw_chatml", "qwen3", "jinja"), default="raw_chatml")
     parser.add_argument("--author-gpu-layers", type=int, default=0, help="GPU layers if author runtime supports GPU")
     parser.add_argument("--author-max-chunks", type=int, default=0, help="0=all chunks; positive = limit new calls")
+    parser.add_argument("--author-endpoint", help="Existing author-only localhost /v1/chat/completions endpoint")
+    parser.add_argument("--author-endpoint-model", default="local", help="Local server model name")
     args = parser.parse_args(argv)
     try:
         if args.quality_report:
@@ -544,7 +553,9 @@ def main(argv: list[str] | None = None) -> int:
                         author_llama_cli=args.author_llama_cli, author_model=args.author_model,
                         author_prompt_mode=args.author_prompt_mode,
                         author_gpu_layers=args.author_gpu_layers,
-                        author_max_chunks=args.author_max_chunks)
+                        author_max_chunks=args.author_max_chunks,
+                        author_endpoint=args.author_endpoint,
+                        author_endpoint_model=args.author_endpoint_model)
         visible_summary = dict(summary)
         if args.quality_report:
             report = args.quality_report.resolve()
