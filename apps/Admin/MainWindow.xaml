@@ -114,6 +114,29 @@
               <TextBlock Text="GPU layers" VerticalAlignment="Center" Margin="15,0,7,0"/>
               <TextBox x:Name="AuthorGpuLayersBox" Width="52" Text="0" Padding="5"/>
             </StackPanel>
+            <CheckBox x:Name="EmbeddingIndexBox"
+                      Content="의미 검색용 문서 벡터 생성 (제작 PC 전용, 사용자 모델은 별도 선택)"
+                      FontWeight="SemiBold" Margin="0,2,0,7"/>
+            <DockPanel Margin="0,0,0,6">
+              <Button DockPanel.Dock="Right" Content="임베딩 GGUF 선택" Padding="12,6"
+                      Margin="10,0,0,0" Click="ChooseEmbeddingModelClick"/>
+              <TextBox x:Name="EmbeddingModelBox" Padding="6"/>
+            </DockPanel>
+            <DockPanel Margin="0,0,0,6">
+              <Button DockPanel.Dock="Right" Content="임베딩 실행 파일 선택" Padding="12,6"
+                      Margin="10,0,0,0" Click="ChooseEmbeddingRuntimeClick"/>
+              <TextBox x:Name="EmbeddingRuntimeBox" Padding="6"
+                       ToolTip="비워두면 포터블 엔진의 runtime/llama-embedding.exe를 사용합니다."/>
+            </DockPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+              <TextBlock Text="임베딩 프로필" VerticalAlignment="Center" Margin="0,0,8,0"/>
+              <ComboBox x:Name="EmbeddingProfileBox" Width="144" SelectedIndex="0">
+                <ComboBoxItem Content="generic"/>
+                <ComboBoxItem Content="e5"/>
+              </ComboBox>
+              <TextBlock Text="GPU layers" VerticalAlignment="Center" Margin="14,0,7,0"/>
+              <TextBox x:Name="EmbeddingGpuLayersBox" Width="52" Padding="5" Text="0"/>
+            </StackPanel>
             <StackPanel Orientation="Horizontal">
               <Button Content="지식 DB 재생성" Padding="20,9" Click="BuildDbClick"/>
               <Button Content="품질 보고서 열기" Padding="14,9" Margin="10,0,0,0" Click="OpenQualityReportClick"/>
@@ -197,6 +220,14 @@
           </StackPanel>
           <TextBlock Text="선택 모델은 사용자 ZIP의 models 폴더에 포함합니다. 현재 llama.cpp 런타임과 프롬프트 형식에 호환되는 GGUF를 선택하세요."
                      Foreground="#566273" TextWrapping="Wrap" Margin="0,0,0,14"/>
+          <CheckBox x:Name="PackageEmbeddingBox" Content="경량 의미 검색 모델 포함 (추가 모델 파일 용량 필요)"
+                    FontWeight="SemiBold" Margin="0,4,0,7"/>
+          <DockPanel Margin="0,0,0,8">
+            <Button DockPanel.Dock="Right" Content="임베딩 GGUF 선택" Padding="12,7"
+                    Margin="10,0,0,0" Click="ChoosePackageEmbeddingModelClick"/>
+            <TextBox x:Name="PackageEmbeddingModelBox" Padding="8"
+                     ToolTip="비워두면 지식 DB 제작 화면의 임베딩 GGUF를 사용합니다. DB 생성 시 사용한 동일 파일이어야 합니다."/>
+          </DockPanel>
           <TextBlock Text="사용자 패키지 출력 폴더 (기본 자동 설정 · 기존 폴더 사용 가능)" FontWeight="SemiBold"/>
           <DockPanel Margin="0,5,0,16">
             <Button DockPanel.Dock="Right" Content="탐색기 열기" Click="OpenPackageOutputFolderClick"
