@@ -95,10 +95,28 @@ try {
     }
     Copy-Item -LiteralPath $gui -Destination (Join-Path $package 'DK-Knowledge-Client.exe')
 
+    # In developer mode $repo is the source tree. In standalone Admin mode
+    # it resolves to the authoring bundle, which carries the same notices.
+    foreach ($entry in @(
+        @('LICENSE', 'LICENSE'),
+        @('THIRD_PARTY_NOTICES.md', 'THIRD_PARTY_NOTICES.md'),
+        @('docs\CLIENT_QUICKSTART.md', 'README.md')
+    )) {
+        $src = Join-Path $repo $entry[0]
+        if (-not (Test-Path -LiteralPath $src -PathType Leaf)) {
+            throw "Missing Client distribution notice: $src"
+        }
+        Copy-Item -LiteralPath $src -Destination (Join-Path $package $entry[1]) -Force
+    }
+
     $manifestPath = Join-Path $package 'manifest.json'
     $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $guiHash = (Get-FileHash -LiteralPath (Join-Path $package 'DK-Knowledge-Client.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
     $manifest.immutable_files | Add-Member -NotePropertyName 'DK-Knowledge-Client.exe' -NotePropertyValue $guiHash -Force
+    foreach ($name in @('LICENSE', 'README.md', 'THIRD_PARTY_NOTICES.md')) {
+        $noticeHash = (Get-FileHash -LiteralPath (Join-Path $package $name) -Algorithm SHA256).Hash.ToLowerInvariant()
+        $manifest.immutable_files | Add-Member -NotePropertyName $name -NotePropertyValue $noticeHash -Force
+    }
     [System.IO.File]::WriteAllText(
         $manifestPath,
         ($manifest | ConvertTo-Json -Depth 20),

@@ -1,0 +1,118 @@
+name: Prepare draft prerelease from verified Windows CI
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Successful T12 Windows GUI integration run ID from main (same SHA)"
+        required: true
+        type: string
+      version:
+        description: "Preview version tag (matching docs/RELEASE_NOTES_<tag>.md)"
+        required: true
+        type: string
+        default: "v0.1.0-preview.1"
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  draft-release:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SOURCE_RUN_ID: ${{ inputs.source_run_id }}
+      RELEASE_VERSION: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify source run and release identity
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ($env:GITHUB_REF -ne 'refs/heads/main') { throw 'Draft releases must run from main' }
+          if ($env:RELEASE_VERSION -notmatch '^v[0-9]+\.[0-9]+\.[0-9]+-(preview|rc)\.[0-9]+$') {
+            throw 'Only versioned prereleases are allowed'
+          }
+          if ($env:SOURCE_RUN_ID -notmatch '^[0-9]+$') { throw 'Invalid source workflow run ID' }
+          $notes = Join-Path 'docs' ("RELEASE_NOTES_" + $env:RELEASE_VERSION + ".md")
+          if (-not (Test-Path -LiteralPath $notes -PathType Leaf)) { throw "Missing release notes: $notes" }
+          $run = gh api "repos/$env:GITHUB_REPOSITORY/actions/runs/$env:SOURCE_RUN_ID" | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to load source run metadata' }
+          if ($run.name -ne 'T12 separated Admin and Client Windows GUIs' -or
+              $run.head_branch -ne 'main' -or $run.status -ne 'completed' -or
+              $run.conclusion -ne 'success' -or $run.head_sha -ne $env:GITHUB_SHA) {
+            throw 'Source run must be a successful main T12 integration build of this exact commit'
+          }
+          # Fail safely if a tag or Release already exists.
+          $existingTags = git ls-remote --tags origin "refs/tags/$env:RELEASE_VERSION"
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect remote tags' }
+          if ($existingTags) { throw 'Version tag already exists: choose another version' }
+          $published = @(gh release list --repo $env:GITHUB_REPOSITORY --limit 100 --json tagName --jq '.[].tagName')
+          if ($LASTEXITCODE -ne 0) { throw 'Unable to inspect existing Releases' }
+          if ($published -contains $env:RELEASE_VERSION) { throw 'Release already exists' }
+          Write-Output ('VERIFIED_SOURCE_SHA ' + $run.head_sha)
+      - name: Download both integrated release candidates
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Path './download/admin', './download/client', './release' -Force | Out-Null
+          gh run download $env:SOURCE_RUN_ID --repo $env:GITHUB_REPOSITORY -n 'DK-Knowledge-Engine-Admin-Win-x64-T13' -D './download/admin'
+          if ($LASTEXITCODE -ne 0) { throw 'Admin artifact download failed' }
+          gh run download $env:SOURCE_RUN_ID --repo $env:GITHUB_REPOSITORY -n 'DK-Knowledge-Engine-Client-Win-x64-T12' -D './download/client'
+          if ($LASTEXITCODE -ne 0) { throw 'Client artifact download failed' }
+          $adminSource = './download/admin/DK-Knowledge-Engine-Admin-Win-x64.zip'
+          $clientSource = './download/client/DK-Knowledge-Engine-Client-Win-x64.zip'
+          foreach ($source in @($adminSource, $clientSource)) {
+            if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { throw "Missing release candidate: $source" }
+            if ((Get-Item -LiteralPath $source).Length -ge 2GB) {
+              throw "Release asset exceeds GitHub's per-file limit: $source"
+            }
+          }
+          $admin = "./release/DK-Knowledge-Engine-Admin-Win-x64-$env:RELEASE_VERSION.zip"
+          $client = "./release/DK-Knowledge-Engine-Client-Win-x64-$env:RELEASE_VERSION.zip"
+          Copy-Item -LiteralPath $adminSource -Destination $admin
+          Copy-Item -LiteralPath $clientSource -Destination $client
+          Add-Type -AssemblyName System.IO.Compression.ZipFile
+          function Get-ZipEntries([string]$archivePath) {
+            $zip = [System.IO.Compression.ZipFile]::OpenRead((Resolve-Path -LiteralPath $archivePath).Path)
+            try { return @($zip.Entries | ForEach-Object { $_.FullName.Replace('\', '/') }) }
+            finally { $zip.Dispose() }
+          }
+          $adminEntries = Get-ZipEntries $admin
+          $clientEntries = Get-ZipEntries $client
+          foreach ($required in @('DK-Knowledge-Admin.exe','README.md','LICENSE','THIRD_PARTY_NOTICES.md')) {
+            if (-not ($adminEntries | Where-Object { $_ -match ('/' + [regex]::Escape($required) + '$') })) {
+              throw "Admin ZIP missing expected file: $required"
+            }
+          }
+          foreach ($required in @('DK-Knowledge-Client.exe','README.md','LICENSE','THIRD_PARTY_NOTICES.md','manifest.json')) {
+            if (-not ($clientEntries | Where-Object { $_ -match ('/' + [regex]::Escape($required) + '$') })) {
+              throw "Client ZIP missing expected file: $required"
+            }
+          }
+          if ($clientEntries | Where-Object { $_ -match '(^|/)(DK-Knowledge-Admin\.exe|DK-Knowledge-Builder\.exe)$|(^|/)builder/' }) {
+            throw 'Client ZIP includes administrator or Builder payload'
+          }
+          $checksums = @($admin, $client) | ForEach-Object {
+            (Get-FileHash -LiteralPath $_ -Algorithm SHA256).Hash.ToLowerInvariant() +
+              '  ' + (Split-Path -Leaf $_)
+          }
+          [IO.File]::WriteAllLines((Join-Path (Resolve-Path './release').Path 'SHA256SUMS.txt'),
+            [string[]]$checksums, (New-Object System.Text.UTF8Encoding($false)))
+      - name: Create unpublished draft prerelease
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $notes = Join-Path 'docs' ("RELEASE_NOTES_" + $env:RELEASE_VERSION + '.md')
+          $admin = "./release/DK-Knowledge-Engine-Admin-Win-x64-$env:RELEASE_VERSION.zip"
+          $client = "./release/DK-Knowledge-Engine-Client-Win-x64-$env:RELEASE_VERSION.zip"
+          gh release create $env:RELEASE_VERSION $admin $client './release/SHA256SUMS.txt' `
+            --repo $env:GITHUB_REPOSITORY `
+            --target $env:GITHUB_SHA `
+            --title "DK Knowledge Engine $env:RELEASE_VERSION" `
+            --notes-file $notes `
+            --draft --prerelease --latest=false
+          if ($LASTEXITCODE -ne 0) { throw 'Draft release creation failed' }
+          Write-Output ('DRAFT_PREVIEW_RELEASE_READY ' + $env:RELEASE_VERSION)

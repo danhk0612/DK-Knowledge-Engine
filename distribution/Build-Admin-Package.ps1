@@ -51,6 +51,13 @@ try {
     Copy-Item -LiteralPath $builderFolder -Destination (Join-Path $package 'tools\builder') -Recurse
     Copy-Item -LiteralPath (Join-Path $repo 'distribution\Build-Client-Package.ps1') -Destination (Join-Path $package 'tools\Build-Client-Package.ps1')
 
+    # Bundle publisher instructions and project notices for the author PC.
+    Copy-Item -LiteralPath (Join-Path $repo 'LICENSE') -Destination (Join-Path $package 'LICENSE')
+    Copy-Item -LiteralPath (Join-Path $repo 'THIRD_PARTY_NOTICES.md') -Destination (Join-Path $package 'THIRD_PARTY_NOTICES.md')
+    Copy-Item -LiteralPath (Join-Path $repo 'docs\ADMIN_QUICKSTART.md') -Destination (Join-Path $package 'README.md')
+    New-Item -ItemType Directory -Path (Join-Path $package 'docs') -Force | Out-Null
+    Copy-Item -LiteralPath (Join-Path $repo 'docs\CLIENT_QUICKSTART.md') -Destination (Join-Path $package 'docs\CLIENT_QUICKSTART.md')
+
     # Ship the already verified template only to the authoring machine.
     # End users receive a SEPARATE Client-only ZIP with their selected DB.
     $engineDest = Join-Path $package 'engine-template'

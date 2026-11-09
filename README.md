@@ -1,64 +1,78 @@
 # DK Knowledge Engine
 
-Windows 환경에서 **인터넷·Docker·GPU 없이 동작하는 범용 AI 도움말 엔진**을 목표로 하는 프로젝트입니다.
+**인터넷 연결이나 Docker 없이 Windows PC에서 사용하는 AI 도움말 엔진**입니다. PDF·DOCX·TXT·Markdown 설명서를 로컬 지식 DB로 만들고, 사용자는 로컬 AI에게 질문하거나 문서를 검색할 수 있습니다.
 
-사용 설명서(PDF/DOCX/TXT/Markdown), FAQ, 트러블슈팅 자료를 제작자 PC에서 지식 DB로 만들고, 배포 대상 PC에서는 기존 웹·Windows 프로그램이 `127.0.0.1` HTTP API로 도움말을 요청합니다.
+두 개의 프로그램을 구분합니다.
 
-## 목표 구조
+| 프로그램 | 누구를 위한 프로그램인가요? | 주요 기능 |
+| --- | --- | --- |
+| **Admin** — DK-Knowledge-Admin.exe | 문서 제작자·관리자 | 원본문서 추가/교체/삭제, DB 재생성, 사용자용 ZIP 제작 |
+| **Client** — DK-Knowledge-Client.exe | 최종 사용자 | 로컬 엔진 시작/종료, AI 질문·검색, 출처 확인, DB 갱신·복구 |
+
+## 다운로드 및 설치
+
+- **배포용 ZIP을 사용하세요.** 개발 소스를 `git clone`하는 것만으로는 GGUF 모델과 실행 엔진이 설치되지 않습니다.
+- 배포판: [GitHub Releases](https://github.com/danhk0612/DK-Knowledge-Engine/releases) — 첫 버전은 `v0.1.0-preview.1`로 준비 중입니다. Release가 게시되기 전에는 GitHub Actions의 시험용 아티팩트를 사용합니다.
+- 운영체제: **Windows 10/11 x64**. 프로그램은 설치 관리자가 없는 **포터블 ZIP**입니다.
+- 기본 구성: **Qwen3 1.7B GGUF (Q4_K_M) + llama.cpp CPU + SQLite FTS5**, 자체 포함 Windows GUI. 최종 사용자 PC에서는 기본 모델을 별도로 내려받거나 Python·Docker·.NET SDK를 설치할 필요가 없습니다.
+- **미서명 실행 파일**입니다. SmartScreen·조직 보안 정책과 실제 고객 환경의 호환성은 별도 확인 대상입니다. 보안 정책을 임의로 우회하지 마세요.
+
+### 관리자 첫 실행
+
+1. Admin ZIP을 별도 폴더에 압축 해제하고 `DK-Knowledge-Admin.exe`를 실행합니다.
+2. 원본 문서 폴더에 PDF/DOCX/TXT/MD를 복사하거나 프로그램에서 **문서 추가**를 클릭합니다.
+3. **지식 DB 재생성**을 실행합니다.
+4. **사용자 패키지 제작** 탭에서 별도 Client ZIP을 생성합니다.
+
+기본 작업 위치는 `%LOCALAPPDATA%\DK-Knowledge-Engine\`이며, 문서·DB·출력 경로는 자동 입력됩니다. 경로 옆 버튼으로 탐색기를 바로 열 수 있습니다. 자세한 사용법은 [관리자 안내](docs/ADMIN_QUICKSTART.md)를 참조하세요.
+
+### 사용자 첫 실행
+
+1. Client ZIP을 압축 해제하고 `DK-Knowledge-Client.exe`를 실행합니다.
+2. 로컬 엔진을 시작합니다.
+3. AI에게 질문하거나 지식 DB를 검색합니다. 답변에 제시된 **출처 문서**를 함께 확인합니다.
+
+[사용자 안내](docs/CLIENT_QUICKSTART.md)
+
+**중요:** CI 시험용 ZIP의 지식 DB에는 인공 샘플 문서만 포함됩니다. 실제 제품의 도움말을 배포하려면 Admin에서 고객별 지식 DB를 만들어 새 Client ZIP을 생성해야 합니다. 원본 설명서 파일 자체는 Client ZIP에 포함되지 않습니다.
+
+## 어떻게 동작하나요?
 
 ```text
-[제작자 PC] 매뉴얼 원본 → Knowledge Builder → 배포용 지식 DB
-                                             ↓
-[사용자 PC] 웹/Windows 앱 → localhost API → 지식 검색 → (필요 시) 로컬 LLM
-                                         └──── 근거 문서 기반 안내 ────→ 앱
+관리자 PC: PDF/DOCX/TXT/MD → Builder → knowledge.db → Client ZIP 제작
+사용자 PC: Client GUI → localhost(127.0.0.1) API → SQLite 검색 → 로컬 LLM → 출처 표시
 ```
 
-- 초기 후보: **Qwen3 1.7B GGUF + llama.cpp + SQLite FTS5**
-- 비교 후보: Qwen3.5 2B (실제 성능 검증 이후 결정)
-- 명확한 오류 코드·이벤트는 LLM 호출 없이 규칙에 따라 응답
-- 자연어 질문은 지식 검색 후 로컬 LLM에서 답변
-- 개인화 방식은 **RAG**이며, 모델 가중치에 문서를 파인튜닝하지 않음
-- 실행 환경: Windows x64 포터블, PC 상황에 맞춰 모델·스레드·컨텍스트·CPU/GPU용 실행 파일을 사용자가 선택 (하드웨어별 권장 사양 측정은 필수 조건 아님)
-- 출처가 없는 경우 추측으로 해결책을 제시하지 않음
+- 여러 제품 자료는 `product_id`로 구분하고, 필요하면 버전을 지정합니다.
+- 명확한 오류 코드·이벤트는 사전 정의된 규칙으로 처리하고, 자연어 질문은 검색 결과를 근거로 AI 답변을 생성합니다.
+- `knowledge.db`를 업데이트하거나 롤백할 수 있습니다. 고객 문서를 모델에 추가 학습시키는 방식이 아닙니다.
+- 기본 패키지는 GPU 가속을 필요로 하지 않습니다. 다른 모델·GPU 런타임을 사용하려면 별도 호환성 확인이 필요합니다.
 
-## 재사용·지식 갱신 원칙
+## 개발 및 세부 문서
 
-1. 원본 문서와 메타데이터는 특정 모델·검색 엔진의 저장 형식과 독립적으로 관리합니다.
-2. 문서 **추가·수정·삭제·재색인**과 전체 DB 재생성을 지원하도록 설계합니다.
-3. 지식 DB 및 제품별 안내 자료는 엔진 코드와 분리하여 갱신·재배포할 수 있게 합니다.
-4. 동일 엔진을 여러 웹·Windows 프로그램에서 재사용하고, `product_id`·버전을 기준으로 자료를 구분합니다.
-5. LLM 실행 계층과 검색 계층에 명확한 경계를 두어 추후 구성 변경이 가능하도록 하지만 **첫 버전부터 모든 조합을 지원하지는 않습니다**.
-6. 배포용 지식 패키지는 로컬에서만 동작하며, 민감한 원본·모델 대용량 파일을 Git에 무분별하게 포함하지 않습니다.
+- [설계와 API 계약](docs/T01_CONTRACT.md)
+- [Knowledge Builder](docs/T02_KNOWLEDGE_BUILDER.md)
+- [로컬 검색](docs/T03_KNOWLEDGE_SEARCH.md) / [모델 실행](docs/T04_LOCAL_LLM.md)
+- [localhost API](docs/T05_LOCALHOST_API.md) / [웹·Windows 연동](docs/T06_INTEGRATIONS.md)
+- [Windows 포터블 및 DB 갱신](docs/T07_WINDOWS_PACKAGE.md)
+- [모델 선택](docs/T09_MODEL_CONFIGURATION.md)
+- [관리자 통합 문서 관리](docs/T13_ADMIN_GUI.md)
+- [Windows 시험용 패키지 확인](docs/WINDOWS_TRIAL.md)
+- [사전 배포판 기록](docs/RELEASE_NOTES_v0.1.0-preview.1.md) / [Release 제작](docs/RELEASE_PROCESS.md)
+- [구현 단계 및 검증 기록](TASKS.md)
 
-## 문서
+### 개발 소스 실행
 
-- [T01 요구사항 및 데이터·API 계약](docs/T01_CONTRACT.md)
-- [T02~T10 작업 계획 및 완료 조건](TASKS.md)
-- [T02 Knowledge Builder 사용법](docs/T02_KNOWLEDGE_BUILDER.md)
-- [T03 지식 검색 모듈 사용법](docs/T03_KNOWLEDGE_SEARCH.md)
-- [T04 CPU용 로컬 LLM 연결](docs/T04_LOCAL_LLM.md)
-- [T05 localhost HTTP API 사용법](docs/T05_LOCALHOST_API.md)
-- [T06 웹·Windows 프로그램 연동 예제](docs/T06_INTEGRATIONS.md)
-- [T07 Windows 포터블 ZIP 및 지식 DB 갱신](docs/T07_WINDOWS_PACKAGE.md)
-- [T08 CPU 계측·모델 비교 및 고객 PC 검증 조건](docs/T08_VALIDATION.md)
-- [T08 현장 기능·보안 확인 절차 (사양 측정 없음)](docs/T08_FIELD_CHECKLIST.md)
-- [T09 사용자별 모델·실행 환경 선택](docs/T09_MODEL_CONFIGURATION.md)
-- [T12 제작자/사용자 Windows GUI 분리 및 사용자 전용 ZIP 제작](docs/T12_WINDOWS_GUI.md)
-- [T13 관리자 문서 관리 및 독립형 Admin ZIP](docs/T13_ADMIN_GUI.md)
-  - T14 변경: 원본 폴더 최상위·임의 하위 문서를 통합 관리하며, 개발용 Python은 자동 감지합니다.
-- [T10 근거 출처·답변 정확성·로컬 보안 검증](docs/T10_VALIDATION.md)
-- **[Windows 시험용 패키지 Git 다운로드·로컬 실행 절차](docs/WINDOWS_TRIAL.md)** (실모델 ZIP, GitHub Actions, PowerShell 5.1)
+```powershell
+git clone https://github.com/danhk0612/DK-Knowledge-Engine.git
+cd DK-Knowledge-Engine
+dotnet run --project apps/Admin/DKKnowledgeAdmin.csproj
+```
 
-## 현재 상태
+개발용 실행에는 .NET 10 SDK가 필요하며, Builder를 직접 구동하려면 Python과 `requirements-builder.txt` 의존성도 필요합니다. **배포용 Admin ZIP은 Builder가 포함되어 있으므로 개발 도구가 필요하지 않습니다.**
 
-**T01 설계 및 T02~T10 구현 PR #1~#9와 DB 갱신 복구·CI 재현성 보완 PR #11이 `main`에 병합되었습니다.** Windows 포터블 CPU 추론, localhost API·웹/WPF 연동, 사용자 설정형 모델 선택 및 인공 매뉴얼 품질·보안 14/14 검증이 자동 CI로 확인되었습니다. PR #11의 DB 교체 중단·SHA 기록 복구도 `main`에 반영된 상태입니다.
+## 라이선스와 제한
 
-**후속 검증 보완 PR #13~#15도 `main`에 병합되었습니다.** [#13 사내 HTTPS→localhost LNA 및 Origin/CSP 브라우저 검증](https://github.com/danhk0612/DK-Knowledge-Engine/pull/13), [#14 T08 Windows PowerShell 5.1 현장 평가 판정 수정](https://github.com/danhk0612/DK-Knowledge-Engine/pull/14), [#15 T10 품질 기대값 검증 보강](https://github.com/danhk0612/DK-Knowledge-Engine/pull/15). 각 PR의 최신 자동 CI 검증은 통과했으며, **실제 고객 PC/문서의 현장 검증은 아직 별도**입니다.
+DK-Knowledge-Engine 자체 코드는 [MIT License](LICENSE)입니다. 포함되는 모델·추론 엔진·Python 의존성에는 각자의 라이선스가 적용되며 [서드파티 안내](THIRD_PARTY_NOTICES.md)에서 확인할 수 있습니다.
 
-**정식 고객 배포 적합성은 아직 미확정**입니다. 실제 사내 HTTPS 웹사이트 LNA 권한, 고객 문서 정답성, 완전 오프라인 현장 점검, 서명/SmartScreen 및 라이선스 적합성 검토가 필요합니다. CPU/RAM/GPU 성능 측정은 T09 결정에 따라 필수 승인 조건이 아닙니다.
-
-## GUI 프로그램 (T12 초기 버전)
-
-- **관리자 전용:** `apps/Admin/DKKnowledgeAdmin.csproj` — 원본 지식 파일 색인, QA 시험, Client 전용 패키지 생성. 제작자 PC에서만 실행하며 Python Builder와 .NET 개발 환경이 필요하다.
-- **일반 사용자 전용:** `apps/Client/DKKnowledgeClient.csproj` — AI 질의·검색, 엔진 제어, DB 갱신·복구. 통합된 사용자 ZIP에만 포함하며 관리자 실행 파일·Builder·원본 문서는 포함하지 않는다.
-- 설치 가능한 제품 릴리스가 아닌 테스트 단계이다. 빌드·패키지 검증은 [T12 Windows GUI Actions](.github/workflows/t12-windows-guis.yml)를 참조한다.
+이 프로젝트는 AI 답변의 정확성, 특정 고객 PC·내부망 보안 정책, 모든 Windows 환경과의 호환성을 보장하지 않습니다. 서명되지 않은 첫 배포판은 **preview**로 표시하며, 외부 공개 전 라이선스·보안·실고객 문서에 대한 검토가 필요합니다.

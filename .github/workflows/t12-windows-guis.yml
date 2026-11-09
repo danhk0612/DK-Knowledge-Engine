@@ -130,6 +130,9 @@ jobs:
           if (-not (Test-Path (Join-Path $package 'DK-Knowledge-Client.exe'))) { throw 'Client EXE missing' }
           if (Test-Path (Join-Path $package 'DK-Knowledge-Admin.exe')) { throw 'Admin EXE shipped' }
           if (Test-Path (Join-Path $package 'builder')) { throw 'Builder shipped' }
+          foreach ($item in @('README.md','LICENSE','THIRD_PARTY_NOTICES.md')) {
+            if (-not (Test-Path (Join-Path $package $item))) { throw "Missing Client notice: $item" }
+          }
           if (Test-Path (Join-Path $package 'knowledge/knowledge.previous.db')) { throw 'Previous source DB leaked into Client ZIP' }
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $package 'Verify-AIHelp.ps1') -Root $package
           if ($LASTEXITCODE -ne 0) { throw 'Client package verification failed' }
@@ -221,6 +224,9 @@ jobs:
             $script = Join-Path $admin 'tools\Build-Client-Package.ps1'
             $engine = Join-Path $admin 'engine-template'
             $clientGui = Join-Path $admin 'client\DK-Knowledge-Client.exe'
+            foreach ($item in @('README.md','LICENSE','THIRD_PARTY_NOTICES.md','docs/CLIENT_QUICKSTART.md')) {
+              if (-not (Test-Path (Join-Path $admin $item))) { throw "Missing Admin notice: $item" }
+            }
             & $ps -NoProfile -ExecutionPolicy Bypass -File $script -EnginePackage $engine -KnowledgeDb $db -ClientExe $clientGui -OutputDir '.\t13-generated-client'
             if ($LASTEXITCODE -ne 0) { throw 'Standalone Admin failed to make Client package' }
             $client = '.\t13-generated-client\DK-Knowledge-Engine-Client'
