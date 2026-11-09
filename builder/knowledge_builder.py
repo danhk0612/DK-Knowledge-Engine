@@ -399,8 +399,10 @@ def build(source_root: Path, database_path: Path, *, rebuild: bool = False,
           default_product_id: str = "default") -> dict[str, Any]:
     root = source_root.resolve()
     out = database_path.resolve()
-    if out.is_relative_to(root):
-        raise ValueError("Output database must be outside the source directory")
+    # A .db inside the source folder is safe: document enumeration ignores it.
+    # Never let a DB output overwrite a supported source document.
+    if out.is_relative_to(root) and out.suffix.lower() in SUPPORTED_EXTENSIONS:
+        raise ValueError("Output database cannot overwrite a source document")
     if not root.is_dir():
         raise ValueError(f"Source directory not found: {source_root}")
     docs, rules = _enumerate_sources(root, default_product_id=default_product_id)
@@ -431,7 +433,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Create/update an offline knowledge SQLite FTS5 database")
     parser.add_argument("--source", required=True, type=Path, help="Directory containing documents at any depth")
     parser.add_argument("--default-product-id", default="default", help="Product ID for documents outside product-specific folders")
-    parser.add_argument("--database", required=True, type=Path, help="Output .db file (outside source directory)")
+    parser.add_argument("--database", required=True, type=Path, help="Output .db file (any location, without overwriting source documents)")
     parser.add_argument("--rebuild", action="store_true", help="Rebuild database from all source documents atomically")
     args = parser.parse_args(argv)
     try:
