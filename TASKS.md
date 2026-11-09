@@ -266,3 +266,14 @@ T09 Windows 검증: [Actions run 41955872865](https://github.com/danhk0612/DK-Kn
 ## T13 — 관리자 GUI 문서 CRUD 및 독립 배포 ZIP
 
 **상태: PR #25 구현 및 Windows 독립형 Admin/Client CI 검증 완료. 실제 제작자 PC GUI 클릭 시험은 미완료.** 원본 PDF/DOCX/TXT/MD 파일을 제품별로 추가·교체·삭제하고, 사용자가 명시적으로 DB 재생성 버튼을 눌러 변경을 반영한다. 개별 문서/제품 범위와 메타데이터 규칙은 유지한다. 독립형 Admin ZIP에는 PyInstaller로 묶은 Builder, 자체 포함 Admin/Client WPF EXE와 검증된 엔진·모델 템플릿을 포함한다. 제작자 PC에는 Python/Git/.NET SDK를 요구하지 않으며 Client ZIP에는 Admin·Builder를 포함하지 않는다. 정식 Release·코드 서명·자동 업데이트·현장 버튼 클릭은 후속 검증이다.
+
+## T14 — 임의 원본문서 폴더 통합 관리 및 개발용 Python 자동 확인
+
+**상태: 소스 수정 및 배포 전 문서화 완료. 사용자 요청에 따라 이번 변경의 테스트·실행 파일 재빌드·Release는 진행하지 않음.**
+
+- Builder는 원본 폴더 최상위 또는 임의 하위 폴더의 PDF/DOCX/TXT/MD를 읽는다. 제품별 `<product_id>/manuals` 및 `rules` 구조는 기존과 호환한다. 그 외 문서는 `--default-product-id`(Admin GUI의 일반 폴더 문서 제품 ID)로 지정하며, 제품 ID가 바뀌면 기존 지식 DB 갱신에도 반영한다.
+- 관리자 문서 목록은 원본 폴더 전체를 대상으로 한다. 처음부터 복사해 둔 문서와 GUI에서 추가한 문서를 같은 목록에서 교체·삭제할 수 있다. GUI의 파일 추가는 선택한 원본 폴더 최상위로 복사한다.
+- Windows 절대 경로 및 폴더 위치는 고정하지 않는다. DB 출력은 원본 폴더 안/밖 모두 가능하지만 원본문서 덮어쓰기, 지정 폴더 밖으로의 관리 작업, 심볼릭 링크를 통한 폴더 우회는 허용하지 않는다.
+- 개발용 Admin에서 venv/PATH/py 런처의 Python 및 `pypdf`·`python-docx` 존재를 검사하여 실행 파일 경로를 자동 입력한다. 독립형 Admin은 동봉된 Builder를 사용한다.
+- 변경한 기존 스모크 코드의 호출 형식은 수정했지만 **테스트 명령은 실행하지 않았으며 통과했다고 주장하지 않는다.** ZIP/EXE 빌드, Windows GUI 동작, 실제 매뉴얼 색인 및 사용자 패키지 제작은 배포 승인 전 확인 항목으로 남긴다.
+- 기존 오프라인·Docker 불필요·Client/Admin 분리·API/DB 스키마 정책은 유지한다.
