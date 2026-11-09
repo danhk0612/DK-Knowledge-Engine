@@ -76,7 +76,7 @@ def main() -> int:
             "author_seconds": author_seconds,
             "query_seconds": query_seconds,
             "runtime": "llama.cpp v0.8.0",
-            "model_variant": "multilingual-e5-small-q8_0",
+            "model_variant": "TwinSunsLLC/multilingual-e5-small-q8_0",
         }, sort_keys=True))
     return 0
 

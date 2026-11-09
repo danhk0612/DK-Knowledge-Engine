@@ -37,11 +37,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'CMake configure failed' }
           cmake --build "$env:RUNNER_TEMP\llama-build" --config Release --target llama-embedding --parallel 4
           if ($LASTEXITCODE -ne 0) { throw 'llama-embedding build failed' }
-      - name: Download public MIT multilingual E5 GGUF (CI only, never artifact)
+      - name: Download llama.cpp-converted MIT multilingual E5 GGUF (CI only)
         shell: pwsh
         run: |
           $model = Join-Path $env:RUNNER_TEMP 'multilingual-e5-small-q8_0.gguf'
-          curl.exe --fail --location --retry 3 --retry-delay 4 --output $model "https://huggingface.co/cstr/multilingual-e5-small-GGUF/resolve/178420d/multilingual-e5-small-q8_0.gguf?download=true"
+          curl.exe --fail --location --retry 3 --retry-delay 4 --output $model "https://huggingface.co/TwinSunsLLC/multilingual-e5-small-gguf/resolve/b6cac96/multilingual-e5-small-q8_0.gguf?download=true"
           if ($LASTEXITCODE -ne 0) { throw 'Test embedding GGUF download failed' }
           if ((Get-Item -LiteralPath $model).Length -lt 110MB) {
             throw 'Downloaded GGUF is suspiciously small'
