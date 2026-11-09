@@ -31,7 +31,11 @@
           </Grid.RowDefinitions>
           <StackPanel x:Name="DeveloperRepoPanel" Grid.Row="0" Margin="0,0,0,12">
             <TextBlock Text="소스 저장소 경로" FontWeight="SemiBold"/>
-            <TextBox x:Name="RepoBox" Padding="8" Margin="0,5,0,0"/>
+            <DockPanel Margin="0,5,0,0">
+              <Button Content="탐색기 열기" DockPanel.Dock="Right" Padding="12,7"
+                      Margin="10,0,0,0" Click="OpenRepoFolderClick"/>
+              <TextBox x:Name="RepoBox" Padding="8"/>
+            </DockPanel>
           </StackPanel>
           <StackPanel x:Name="DeveloperPythonPanel" Grid.Row="1" Margin="0,0,0,12">
             <TextBlock Text="개발용 Python 경로 (실행 시 자동 확인, 필요하면 수정 가능)"/>
@@ -42,6 +46,8 @@
             <DockPanel Margin="0,5,0,0">
               <Button Content="폴더 선택" DockPanel.Dock="Right" Padding="12,7"
                       Margin="10,0,0,0" Click="ChooseSourceClick"/>
+              <Button Content="탐색기 열기" DockPanel.Dock="Right" Padding="12,7"
+                      Margin="10,0,0,0" Click="OpenSourceFolderClick"/>
               <TextBox x:Name="SourceBox" Padding="8" TextChanged="SourceBoxTextChanged"/>
             </DockPanel>
           </StackPanel>
@@ -65,6 +71,8 @@
             <DockPanel Margin="0,5,0,0">
               <Button Content="저장 위치" DockPanel.Dock="Right" Padding="12,7"
                       Margin="10,0,0,0" Click="ChooseDbClick"/>
+              <Button Content="탐색기 열기" DockPanel.Dock="Right" Padding="12,7"
+                      Margin="10,0,0,0" Click="OpenDbFolderClick"/>
               <TextBox x:Name="DbBox" Padding="8"/>
             </DockPanel>
           </StackPanel>
@@ -128,10 +136,16 @@
           <DockPanel Margin="0,5,0,16">
             <Button DockPanel.Dock="Right" Content="폴더 선택" Click="ChooseEngineClick"
                     Padding="12,7" Margin="10,0,0,0"/>
+            <Button DockPanel.Dock="Right" Content="탐색기 열기" Click="OpenEngineFolderClick"
+                    Padding="12,7" Margin="10,0,0,0"/>
             <TextBox x:Name="EngineBox" Padding="8"/>
           </DockPanel>
           <TextBlock Text="사용자 패키지 출력 폴더 (기본 자동 설정 · 기존 폴더 사용 가능)" FontWeight="SemiBold"/>
-          <TextBox x:Name="PackageOutputBox" Padding="8" Margin="0,5,0,16"/>
+          <DockPanel Margin="0,5,0,16">
+            <Button DockPanel.Dock="Right" Content="탐색기 열기" Click="OpenPackageOutputFolderClick"
+                    Padding="12,7" Margin="10,0,0,0"/>
+            <TextBox x:Name="PackageOutputBox" Padding="8"/>
+          </DockPanel>
           <Button Content="사용자 패키지 생성" HorizontalAlignment="Left" Padding="20,9"
                   Click="PackageClick"/>
           <TextBlock x:Name="PackageRequirementsText" Text="동일한 출력 파일은 덮어씁니다. 기존 폴더의 무관한 파일은 유지합니다. 독립형 관리자에는 Python·.NET SDK가 필요하지 않습니다."
