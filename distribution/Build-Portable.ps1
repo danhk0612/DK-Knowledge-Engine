@@ -46,7 +46,7 @@ try {
     Copy-Item -Path (Join-Path $engineDir '*') -Destination (Join-Path $package 'engine') -Recurse -Force
 
     foreach ($file in (Get-ChildItem -LiteralPath $runtimeDir -File)) {
-        if ($file.Extension -eq '.dll' -or $file.Name -eq 'llama-completion.exe') {
+        if ($file.Extension -eq '.dll' -or $file.Name -in @('llama-completion.exe', 'llama-embedding.exe')) {
             Copy-Item -LiteralPath $file.FullName -Destination (Join-Path $package 'runtime') -Force
         }
     }
