@@ -88,6 +88,7 @@ class HybridTests(unittest.TestCase):
         build(self.docs, self.db, rebuild=True)
         self.assertEqual(len(search_documents(self.db, product_id="device",
                                               query="전원", embedder=self.fake)), 1)
+        self.assertEqual(self.fake.inputs, [])  # FTS exact hit avoids cold-loading GGUF
         with patch("builder.embedding_index.LlamaEmbedder", return_value=self.fake):
             result = build(self.docs, self.db, rebuild=True,
                            embedding_runtime=self.executable, embedding_model=self.model,
