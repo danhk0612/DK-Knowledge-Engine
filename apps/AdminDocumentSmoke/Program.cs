@@ -23,22 +23,18 @@ try
     File.WriteAllText(first, "# 네트워크\n포트 3308");
     File.WriteAllText(second, "# 네트워크\n포트 3322");
 
-    var doc = DocumentLibrary.Add(sources, "manual-test", first);
-    Check(doc == "manual-test/manuals/manual.md", "Import path/product incorrect");
+    var doc = DocumentLibrary.Add(sources, first);
+    Check(doc == "manual.md", "Import path/product incorrect");
     Check(DocumentLibrary.List(sources).SequenceEqual([doc]), "Document list incorrect");
     Check(DocumentLibrary.List(sources + Path.DirectorySeparatorChar).SequenceEqual([doc]),
         "Trailing separator unexpectedly rejected the document list");
 
-    Reject(() => DocumentLibrary.Add(sources, "manual-test", first),
+    Reject(() => DocumentLibrary.Add(sources, first),
         "Duplicate add overwrote an existing document");
-    Reject(() => DocumentLibrary.Add(sources, "../outside", first),
-        "Invalid product ID was accepted");
     Reject(() => DocumentLibrary.Delete(sources, "../outside/manuals/manual.md"),
         "Traversal was accepted");
-    Reject(() => DocumentLibrary.Delete(sources, "manual-test/rules/rule.md"),
-        "Non-manual path was accepted");
 
-    var target = Path.Combine(sources, "manual-test", "manuals", "manual.md");
+    var target = Path.Combine(sources, "manual.md");
     File.WriteAllText(target + ".meta.json", "{\"document_id\":\"stable-id\"}");
     DocumentLibrary.Replace(sources, doc, second);
     Check(File.ReadAllText(target).Contains("3322"), "Document replace failed");
