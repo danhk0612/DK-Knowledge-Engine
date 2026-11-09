@@ -69,7 +69,7 @@ def _selected_file(root: Path, value: str, folder: str, suffix: str) -> Path:
 
 def portable_cli(root: Path, settings: dict) -> list[str]:
     """T09: reusable T05 CLI args from user-selected local GGUF and runtime."""
-    if not isinstance(settings, dict) or set(settings) - {"port", "allowed_origins", "model"}:
+    if not isinstance(settings, dict) or set(settings) - {"port", "allowed_origins", "model", "embedding"}:
         raise ValueError("Unsupported keys in settings.json")
     if not {"port", "allowed_origins"} <= set(settings):
         raise ValueError("settings.json requires port and allowed_origins")
@@ -116,6 +116,21 @@ def portable_cli(root: Path, settings: dict) -> list[str]:
         "--gpu-layers", str(options["gpu_layers"]),
         "--prompt-mode", options["prompt_mode"],
     ]
+    embedding = settings.get("embedding")
+    if embedding is not None:
+        if not isinstance(embedding, dict) or set(embedding) != {
+                "file", "runtime", "min_similarity"}:
+            raise ValueError("Invalid embedding model settings")
+        threshold = embedding["min_similarity"]
+        if type(threshold) not in (float, int) or not 0.0 < threshold <= 1.0:
+            raise ValueError("Embedding minimum similarity must be in (0, 1]")
+        embedding_runtime = _selected_file(root, embedding["runtime"], "runtime", ".exe")
+        embedding_model = _selected_file(root, embedding["file"], "models", ".gguf")
+        cli.extend((
+            "--embedding-runtime", str(embedding_runtime),
+            "--embedding-model", str(embedding_model),
+            "--embedding-min-similarity", str(threshold),
+        ))
     for origin in origins:
         cli.extend(("--allow-origin", origin))
     return cli
