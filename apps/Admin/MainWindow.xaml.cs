@@ -229,6 +229,20 @@ public partial class MainWindow : Window
         if (picker.ShowDialog(this) == true) EngineBox.Text = picker.FolderName;
     }
 
+    private void OpenQualityReportClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var report = Path.ChangeExtension(Path.GetFullPath(DbBox.Text.Trim()), ".quality.json");
+            if (!File.Exists(report))
+                throw new FileNotFoundException("먼저 지식 DB를 재생성하세요.", report);
+            var startInfo = new ProcessStartInfo("notepad.exe") { UseShellExecute = true };
+            startInfo.ArgumentList.Add(report);
+            Process.Start(startInfo);
+        }
+        catch (Exception error) { StatusText.Text = "품질 보고서 열기 실패: " + error.Message; }
+    }
+
     private void ChoosePackageModelClick(object sender, RoutedEventArgs e)
     {
         var picker = new OpenFileDialog

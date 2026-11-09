@@ -10,6 +10,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -503,20 +504,31 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--quality-report", type=Path, help="Optional JSON extraction/chunk quality report")
     args = parser.parse_args(argv)
     try:
+        if args.ocr_scanned_pages:
+            for program, command in (("Tesseract", args.tesseract), ("Poppler pdftoppm", args.pdftoppm)):
+                if shutil.which(command) is None:
+                    raise ValueError(f"{program} executable not found: {command}; install it on the authoring PC or supply its path")
         summary = build(args.source, args.database, rebuild=args.rebuild,
                         default_product_id=args.default_product_id,
                         pdf_layout=args.pdf_layout, ocr_scanned_pages=args.ocr_scanned_pages,
                         tesseract=args.tesseract, pdftoppm=args.pdftoppm,
                         ocr_language=args.ocr_language)
+        visible_summary = dict(summary)
         if args.quality_report:
             report = args.quality_report.resolve()
+            if report == args.database.resolve() or (
+                    report.is_relative_to(args.source.resolve())
+                    and report.suffix.lower() in SUPPORTED_EXTENSIONS):
+                raise ValueError("Quality report cannot replace the database or a source document")
             report.parent.mkdir(parents=True, exist_ok=True)
             report.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+            visible_summary.pop("quality", None)
+            visible_summary["quality_report"] = str(report)
     except (ValueError, OSError, sqlite3.Error, ImportError, json.JSONDecodeError,
             subprocess.TimeoutExpired) as exc:
         print(f"Knowledge Builder failed: {exc}", file=sys.stderr)
         return 1
-    print(json.dumps(summary, ensure_ascii=False, indent=2))
+    print(json.dumps(visible_summary, ensure_ascii=False, indent=2))
     return 0
 
 

@@ -85,7 +85,8 @@
             </StackPanel>
             <StackPanel Orientation="Horizontal">
               <Button Content="지식 DB 재생성" Padding="20,9" Click="BuildDbClick"/>
-              <TextBlock Text="추출 품질 보고서는 DB 옆에 .quality.json으로 저장됩니다."
+              <Button Content="품질 보고서 열기" Padding="14,9" Margin="10,0,0,0" Click="OpenQualityReportClick"/>
+              <TextBlock Text="DB 옆 .quality.json 파일"
                          Foreground="#566273" VerticalAlignment="Center" Margin="12,0,0,0"/>
             </StackPanel>
           </StackPanel>
