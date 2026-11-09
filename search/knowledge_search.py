@@ -146,6 +146,56 @@ def _compound_at_word_start(text: str, compound: str) -> bool:
     return False
 
 
+def _original_compound_fallback(
+    database: str | Path, *, product_id: str, terms: list[tuple[str, bool]],
+    requested: tuple[int, ...] | None, limit: int,
+) -> list[dict]:
+    # Unicode61 indexes Korean sequences as whole words. A search written
+    # "데이터 베이스" cannot find "데이터베이스", or vice versa, even when the
+    # words are adjacent in the source. Use a narrow, opt-in fallback that
+    # requires *all* meaningful Hangul terms in the same order and adjacency.
+    # It is not an arbitrary infix search, synonym expansion or semantic match.
+    if (len(terms) > 6 or not terms or
+            not all(re.fullmatch(r"[가-힣]{2,}", term) for term, _ in terms)):
+        return []
+    compound = "".join(term for term, _ in terms)
+    # A single short term is too broad for whitespace-insensitive matching.
+    if len(terms) == 1 and len(compound) < 4:
+        return []
+    first = terms[0][0][:2]
+    with _database(database) as db:
+        candidates = db.execute("""
+            SELECT d.document_id, d.title, d.source_path,
+                   d.version_from, d.version_to,
+                   c.chunk_id, c.section_title, c.content,
+                   c.page_from, c.page_to
+            FROM chunks c JOIN documents d ON d.document_id = c.document_id
+            WHERE d.product_id = ?
+              AND (instr(c.content, ?) > 0 OR instr(coalesce(c.section_title, ''), ?) > 0)
+            ORDER BY d.source_path, c.sequence
+        """, (product_id, first, first))
+        fallback: list[dict] = []
+        for row in candidates:
+            if not _version_applies(requested, row["version_from"], row["version_to"]):
+                continue
+            original = (row["section_title"] or "") + "\n" + row["content"]
+            if not _compound_at_word_start(original, compound):
+                continue
+            fallback.append({
+                "document_id": row["document_id"],
+                "chunk_id": row["chunk_id"],
+                "title": row["title"],
+                "section_title": row["section_title"],
+                "excerpt": row["content"],
+                "source_path": row["source_path"],
+                "page_from": row["page_from"],
+                "page_to": row["page_to"],
+            })
+            if len(fallback) >= limit:
+                break
+        return fallback
+
+
 def search_documents(
     database: str | Path, *, product_id: str, query: str,
     version: str | None = None, limit: int = 10,
@@ -203,53 +253,61 @@ def search_documents(
     # Prefer coverage of distinct query terms before FTS5 BM25 score.
     # SQL's stable path/sequence ordering remains the tiebreaker.
     ranked.sort(key=lambda hit: (-hit[0], hit[1]))
-    if ranked:
-        return [hit for _, _, hit in ranked[:limit]]
+    primary = [hit for _, _, hit in ranked[:limit]]
+    if not primary:
+        # Preserve the established original-text Korean spacing recovery
+        # before optional dense or LLM-generated search expansions.
+        primary = _original_compound_fallback(
+            database, product_id=product_id, terms=terms,
+            requested=requested, limit=limit,
+        )
+    if len(primary) >= limit:
+        return primary
 
-    # Unicode61 indexes Korean sequences as whole words. A search written
-    # "데이터 베이스" cannot find "데이터베이스", or vice versa, even when the
-    # words are adjacent in the source. Use a narrow, opt-in fallback that
-    # requires *all* meaningful Hangul terms in the same order and adjacency.
-    # It is not an arbitrary infix search, synonym expansion or semantic match.
-    if (len(terms) > 6 or not terms or
-            not all(re.fullmatch(r"[가-힣]{2,}", term) for term, _ in terms)):
-        return []
-    compound = "".join(term for term, _ in terms)
-    # A single short term is too broad for whitespace-insensitive matching.
-    if len(terms) == 1 and len(compound) < 4:
-        return []
-    first = terms[0][0][:2]
+    # Optional author-side LLM-generated question/keyword index. It is ONLY
+    # a route to the original excerpt, never a source of factual answer text.
+    # Legacy v1 databases lack this table and still work unchanged.
+    seen = {hit["chunk_id"] for hit in primary}
     with _database(database) as db:
-        candidates = db.execute("""
-            SELECT d.document_id, d.title, d.source_path,
-                   d.version_from, d.version_to,
-                   c.chunk_id, c.section_title, c.content,
-                   c.page_from, c.page_to
-            FROM chunks c JOIN documents d ON d.document_id = c.document_id
-            WHERE d.product_id = ?
-              AND (instr(c.content, ?) > 0 OR instr(coalesce(c.section_title, ''), ?) > 0)
-            ORDER BY d.source_path, c.sequence
-        """, (product_id, first, first))
-        fallback: list[dict] = []
-        for row in candidates:
-            if not _version_applies(requested, row["version_from"], row["version_to"]):
-                continue
-            original = (row["section_title"] or "") + "\n" + row["content"]
-            if not _compound_at_word_start(original, compound):
-                continue
-            fallback.append({
-                "document_id": row["document_id"],
-                "chunk_id": row["chunk_id"],
-                "title": row["title"],
-                "section_title": row["section_title"],
-                "excerpt": row["content"],
-                "source_path": row["source_path"],
-                "page_from": row["page_from"],
-                "page_to": row["page_to"],
-            })
-            if len(fallback) >= limit:
-                break
-        return fallback
+        exists = db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='chunk_search_hints_fts'"
+        ).fetchone()
+        if exists:
+            hints = db.execute("""
+                SELECT d.document_id, d.title, d.source_path, d.version_from,
+                       d.version_to, c.chunk_id, c.section_title, c.content,
+                       c.page_from, c.page_to, h.hints
+                FROM chunk_search_hints_fts AS f
+                JOIN chunk_search_hints AS h ON h.rowid = f.rowid
+                JOIN chunks AS c ON c.chunk_id = h.chunk_id
+                JOIN documents AS d ON d.document_id = c.document_id
+                WHERE chunk_search_hints_fts MATCH ? AND d.product_id = ?
+                ORDER BY bm25(chunk_search_hints_fts), d.source_path
+            """, (expression, product_id)).fetchall()
+            for hint in hints:
+                if hint["chunk_id"] in seen:
+                    continue
+                if not _version_applies(requested, hint["version_from"], hint["version_to"]):
+                    continue
+                # Generic one-word hints are weak evidence; require a
+                # specific query or two independently matching concepts.
+                n = _matched_term_count(terms, hint["hints"])
+                if n < minimum_matches or (len(terms) == 1 and len(terms[0][0]) < 4):
+                    continue
+                primary.append({
+                    "document_id": hint["document_id"],
+                    "chunk_id": hint["chunk_id"],
+                    "title": hint["title"],
+                    "section_title": hint["section_title"],
+                    "excerpt": hint["content"],  # never emit generated hints as evidence
+                    "source_path": hint["source_path"],
+                    "page_from": hint["page_from"],
+                    "page_to": hint["page_to"],
+                })
+                seen.add(hint["chunk_id"])
+                if len(primary) >= limit:
+                    return primary
+    return primary
 
 
 def match_event(

@@ -83,6 +83,37 @@
               <CheckBox x:Name="PdfOcrBox" Content="스캔 PDF OCR" Margin="18,0,0,0" VerticalAlignment="Center"
                         ToolTip="텍스트 없는 PDF 페이지를 제작자 PC의 Tesseract(kor+eng)와 Poppler(pdftoppm)로 처리합니다. 두 도구가 PATH에 필요합니다."/>
             </StackPanel>
+            <CheckBox x:Name="AuthorEnrichmentBox" Content="제작용 AI로 문서 검색 표현 보강 (시간이 걸림, 사용자 패키지에 제작 모델 미포함)"
+                      FontWeight="SemiBold" Margin="0,3,0,7" />
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+              <TextBlock Text="로컬 제작 AI 서버 (선택)" VerticalAlignment="Center" Margin="0,0,8,0"/>
+              <TextBox x:Name="AuthorEndpointBox" Padding="6" MinWidth="370"
+                       ToolTip="예: http://127.0.0.1:8080/v1/chat/completions. 입력하면 로컬 GGUF/실행 파일 대신 사용합니다."/>
+              <TextBlock Text="모델 ID" VerticalAlignment="Center" Margin="10,0,5,0"/>
+              <TextBox x:Name="AuthorEndpointModelBox" Padding="6" Width="95" Text="local"/>
+            </StackPanel>
+            <DockPanel Margin="0,0,0,6">
+              <Button DockPanel.Dock="Right" Content="제작용 GGUF 선택" Padding="12,6"
+                      Margin="10,0,0,0" Click="ChooseAuthorModelClick"/>
+              <TextBox x:Name="AuthorModelBox" Padding="6"
+                       ToolTip="DB 생성에만 사용할 GGUF 모델. 사용자에게 배포할 GGUF와 독립적입니다."/>
+            </DockPanel>
+            <DockPanel Margin="0,0,0,6">
+              <Button DockPanel.Dock="Right" Content="실행 파일 선택" Padding="12,6"
+                      Margin="10,0,0,0" Click="ChooseAuthorRuntimeClick"/>
+              <TextBox x:Name="AuthorRuntimeBox" Padding="6"
+                       ToolTip="비워두면 포터블 엔진의 runtime/llama-completion.exe를 사용합니다. GPU용은 직접 선택할 수 있습니다."/>
+            </DockPanel>
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,9">
+              <TextBlock Text="제작용 프롬프트" VerticalAlignment="Center" Margin="0,0,8,0"/>
+              <ComboBox x:Name="AuthorPromptBox" Width="132" SelectedIndex="0">
+                <ComboBoxItem Content="raw_chatml"/>
+                <ComboBoxItem Content="qwen3"/>
+                <ComboBoxItem Content="jinja"/>
+              </ComboBox>
+              <TextBlock Text="GPU layers" VerticalAlignment="Center" Margin="15,0,7,0"/>
+              <TextBox x:Name="AuthorGpuLayersBox" Width="52" Text="0" Padding="5"/>
+            </StackPanel>
             <StackPanel Orientation="Horizontal">
               <Button Content="지식 DB 재생성" Padding="20,9" Click="BuildDbClick"/>
               <Button Content="품질 보고서 열기" Padding="14,9" Margin="10,0,0,0" Click="OpenQualityReportClick"/>
