@@ -116,6 +116,19 @@ class EnrichmentTests(unittest.TestCase):
         self.assertEqual(len(found), 1)
         self.assertIn("초기화 버튼", found[0]["excerpt"])
 
+    def test_original_compound_source_precedes_model_generated_hint(self):
+        # The old source-grounded whitespace fallback must still win over
+        # generated search hints from a different, irrelevant chunk.
+        (self.src / "product-a" / "manuals" / "true.md").write_text(
+            "데이터베이스 연결 상태를 확인합니다.", encoding="utf-8")
+        self.create(DummyGenerator(
+            '{"questions":["데이터 베이스 관련 안내"],"keywords":["데이터 베이스"]}'
+        ))
+        hits = search_documents(self.db, product_id="product-a",
+                                query="데이터 베이스")
+        self.assertGreaterEqual(len(hits), 1)
+        self.assertEqual(hits[0]["source_path"], "product-a/manuals/true.md")
+
     def test_generated_phrases_are_bounded(self):
         self.assertEqual(_questions('{"questions":["설정 복구"],"keywords":[]}'), "설정 복구")
         self.assertEqual(_questions('{"questions":["설정 복구"],"keywords":[],"answer":"x"}'), "")
