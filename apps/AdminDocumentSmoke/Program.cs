@@ -26,6 +26,8 @@ try
     var doc = DocumentLibrary.Add(sources, "manual-test", first);
     Check(doc == "manual-test/manuals/manual.md", "Import path/product incorrect");
     Check(DocumentLibrary.List(sources).SequenceEqual([doc]), "Document list incorrect");
+    Check(DocumentLibrary.List(sources + Path.DirectorySeparatorChar).SequenceEqual([doc]),
+        "Trailing separator unexpectedly rejected the document list");
 
     Reject(() => DocumentLibrary.Add(sources, "manual-test", first),
         "Duplicate add overwrote an existing document");
