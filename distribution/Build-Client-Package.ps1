@@ -11,24 +11,38 @@ $engineRoot = (Resolve-Path -LiteralPath $EnginePackage).Path
 $db = (Resolve-Path -LiteralPath $KnowledgeDb).Path
 $output = [System.IO.Path]::GetFullPath($OutputDir)
 $clientProject = Join-Path $repo 'apps\Client\DKKnowledgeClient.csproj'
+$finalPackage = Join-Path $output 'DK-Knowledge-Engine-Client'
+$finalZip = Join-Path $output 'DK-Knowledge-Engine-Client-Win-x64.zip'
+
+function Test-Within([string]$Candidate, [string]$Root) {
+    $candidatePath = [IO.Path]::GetFullPath($Candidate).TrimEnd('\', '/')
+    $rootPath = [IO.Path]::GetFullPath($Root).TrimEnd('\', '/')
+    return ($candidatePath.Equals($rootPath, [StringComparison]::OrdinalIgnoreCase) -or
+        $candidatePath.StartsWith($rootPath + [IO.Path]::DirectorySeparatorChar,
+            [StringComparison]::OrdinalIgnoreCase))
+}
 
 if ([string]::IsNullOrWhiteSpace($ClientExe) -and
     -not (Test-Path -LiteralPath $clientProject -PathType Leaf)) {
     throw 'Client UI project not found; specify -ClientExe for standalone Admin packaging'
 }
-if ((Test-Path -LiteralPath $output) -or
-    $output.StartsWith($engineRoot + [IO.Path]::DirectorySeparatorChar,
-                       [StringComparison]::OrdinalIgnoreCase)) {
-    throw 'OutputDir must be new and outside the source engine package'
+# An existing destination is fine; only overlap with input files is forbidden.
+if ((Test-Within $output $engineRoot) -or
+    (Test-Within $engineRoot $finalPackage) -or
+    (Test-Within $db $finalPackage)) {
+    throw 'Output package must not overlap the source engine or selected knowledge DB'
 }
 
 & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $engineRoot 'Verify-AIHelp.ps1') -Root $engineRoot
 if ($LASTEXITCODE -ne 0) { throw 'Input engine package verification failed' }
 
-New-Item -ItemType Directory -Path $output | Out-Null
-$package = Join-Path $output 'DK-Knowledge-Engine-Client'
-$publish = Join-Path $output '_client-publish'
-New-Item -ItemType Directory -Path $package | Out-Null
+New-Item -ItemType Directory -Path $output -Force | Out-Null
+# Build and verify in a new isolated directory so old output remains untouched
+# until the replacement package and ZIP are complete.
+$stage = Join-Path $output ('_client-build-' + [guid]::NewGuid().ToString('N'))
+$package = Join-Path $stage 'DK-Knowledge-Engine-Client'
+$publish = Join-Path $stage '_client-publish'
+New-Item -ItemType Directory -Path $package -Force | Out-Null
 
 try {
     # Explicit allowlist: never copy unexpected admin tools or authoring data.
@@ -47,10 +61,7 @@ try {
         Copy-Item -LiteralPath $src -Destination (Join-Path $package $file)
     }
 
-    # This is a NEW, offline package folder, not a live installed database.
-    # Update-Knowledge.ps1 correctly blocks changes while any API runs, but
-    # using it here would wrongly block assembling an independent package.
-    # Provision only this fresh copy, verifying the selected DB and its hash.
+    # Populate this isolated package, never an unrelated installed API.
     $dbHash = (Get-FileHash -LiteralPath $db -Algorithm SHA256).Hash.ToLowerInvariant()
     $packagedDb = Join-Path $package 'knowledge\knowledge.db'
     Copy-Item -LiteralPath $db -Destination $packagedDb -Force
@@ -63,18 +74,14 @@ try {
         $packagedHash + [Environment]::NewLine,
         (New-Object System.Text.UTF8Encoding($false))
     )
-    # The base package's sample/previous DB must never be delivered to users.
-    # A rollback backup will be created by the first subsequent user update.
     foreach ($name in @('knowledge.previous.db', 'knowledge.previous.sha256')) {
-        $stale = Join-Path $package ('knowledge\\' + $name)
+        $stale = Join-Path $package ('knowledge\' + $name)
         if (Test-Path -LiteralPath $stale) {
             Remove-Item -LiteralPath $stale -Force
         }
     }
 
     if (-not [string]::IsNullOrWhiteSpace($ClientExe)) {
-        # Standalone administrator package includes the already built Client GUI.
-        # No .NET SDK or repository is needed on the authoring workstation.
         $gui = (Resolve-Path -LiteralPath $ClientExe).Path
     }
     else {
@@ -88,8 +95,6 @@ try {
     }
     Copy-Item -LiteralPath $gui -Destination (Join-Path $package 'DK-Knowledge-Client.exe')
 
-    # The original manifest keeps engine/model/script hashes; extend it with
-    # the only new immutable executable. Administrator binaries are never copied.
     $manifestPath = Join-Path $package 'manifest.json'
     $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
     $guiHash = (Get-FileHash -LiteralPath (Join-Path $package 'DK-Knowledge-Client.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
@@ -109,12 +114,24 @@ try {
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $package 'Verify-AIHelp.ps1') -Root $package
     if ($LASTEXITCODE -ne 0) { throw 'Client-only package integrity check failed' }
 
-    $zip = Join-Path $output 'DK-Knowledge-Engine-Client-Win-x64.zip'
-    Compress-Archive -LiteralPath $package -DestinationPath $zip -CompressionLevel Fastest
-    Write-Output ('CLIENT_ONLY_PACKAGE_READY ' + $zip)
+    $stageZip = Join-Path $stage 'DK-Knowledge-Engine-Client-Win-x64.zip'
+    Compress-Archive -LiteralPath $package -DestinationPath $stageZip -CompressionLevel Fastest
+
+    # Reuse the chosen output directory. Replace generated files by relative path
+    # without deleting unrelated files that the author may keep in the directory.
+    New-Item -ItemType Directory -Path $finalPackage -Force | Out-Null
+    foreach ($file in (Get-ChildItem -LiteralPath $package -File -Recurse)) {
+        $relative = $file.FullName.Substring($package.Length).TrimStart('\', '/')
+        $destination = Join-Path $finalPackage $relative
+        New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
+        Copy-Item -LiteralPath $file.FullName -Destination $destination -Force
+    }
+    # The ZIP is assembled from clean staging, never from the reused output folder.
+    Copy-Item -LiteralPath $stageZip -Destination $finalZip -Force
+    Write-Output ('CLIENT_ONLY_PACKAGE_READY ' + $finalZip)
 }
 finally {
-    if (Test-Path -LiteralPath $publish) {
-        Remove-Item -LiteralPath $publish -Recurse -Force
+    if (Test-Path -LiteralPath $stage) {
+        Remove-Item -LiteralPath $stage -Recurse -Force
     }
 }

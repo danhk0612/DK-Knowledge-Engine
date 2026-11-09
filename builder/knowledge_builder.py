@@ -81,10 +81,17 @@ def _required_text(obj: dict[str, Any], key: str) -> str:
     return value
 
 
-def _enumerate_sources(source_root: Path) -> tuple[list[DocumentSource], list[Path]]:
+def _enumerate_sources(source_root: Path, default_product_id: str = "default") -> tuple[list[DocumentSource], list[Path]]:
     if not source_root.is_dir():
         raise ValueError(f"Source directory not found: {source_root}")
     root_resolved = source_root.resolve()
+    if not default_product_id.strip():
+        raise ValueError("Default product ID cannot be empty")
+    # Preserve product-scoped trees already used by existing integrations.
+    product_directories = {
+        child.name for child in source_root.iterdir()
+        if child.is_dir() and ((child / "manuals").is_dir() or (child / "rules").is_dir())
+    }
     docs: list[DocumentSource] = []
     rules: list[Path] = []
     ids: set[str] = set()
@@ -96,14 +103,19 @@ def _enumerate_sources(source_root: Path) -> tuple[list[DocumentSource], list[Pa
         if not path.resolve().is_relative_to(root_resolved):
             raise ValueError(f"File escapes the source root: {path}")
         relative = path.relative_to(source_root)
-        if len(relative.parts) < 2:
-            raise ValueError(f"Source file must be under a product directory: {relative}")
-        if path.suffix.lower() == ".json" and "rules" in relative.parts[1:-1] and not path.name.endswith(".meta.json"):
+        if (path.suffix.lower() == ".json" and len(relative.parts) >= 3
+                and relative.parts[0] in product_directories
+                and "rules" in relative.parts[1:-1]
+                and not path.name.endswith(".meta.json")):
             rules.append(path)
             continue
         if path.suffix.lower() not in SUPPORTED_EXTENSIONS:
             continue
-        product_id = relative.parts[0]
+        # Loose documents at the root or in arbitrary subfolders use the
+        # administrator's selected product; legacy product trees remain scoped.
+        product_id = (relative.parts[0]
+                      if len(relative.parts) >= 2 and relative.parts[0] in product_directories
+                      else default_product_id)
         source_path = relative.as_posix()
         sidecar = path.with_name(path.name + ".meta.json")
         meta = _load_json(sidecar) if sidecar.is_file() else {}
@@ -119,7 +131,7 @@ def _enumerate_sources(source_root: Path) -> tuple[list[DocumentSource], list[Pa
         version_to = _optional_text(meta, "version_to")
         language = _optional_text(meta, "language") or "ko"
         normalized = {"document_id": document_id, "title": title, "version_from": version_from,
-                      "version_to": version_to, "language": language}
+                      "version_to": version_to, "language": language, "product_id": product_id}
         docs.append(DocumentSource(
             file=path, source_path=source_path, product_id=product_id,
             document_id=document_id, title=title,
@@ -383,14 +395,17 @@ def _sync(db: sqlite3.Connection, docs: list[DocumentSource], rules: list[Path],
     return changes
 
 
-def build(source_root: Path, database_path: Path, *, rebuild: bool = False) -> dict[str, Any]:
+def build(source_root: Path, database_path: Path, *, rebuild: bool = False,
+          default_product_id: str = "default") -> dict[str, Any]:
     root = source_root.resolve()
     out = database_path.resolve()
-    if out.is_relative_to(root):
-        raise ValueError("Output database must be outside the source directory")
+    # A .db inside the source folder is safe: document enumeration ignores it.
+    # Never let a DB output overwrite a supported source document.
+    if out.is_relative_to(root) and out.suffix.lower() in SUPPORTED_EXTENSIONS:
+        raise ValueError("Output database cannot overwrite a source document")
     if not root.is_dir():
         raise ValueError(f"Source directory not found: {source_root}")
-    docs, rules = _enumerate_sources(root)
+    docs, rules = _enumerate_sources(root, default_product_id=default_product_id)
     out.parent.mkdir(parents=True, exist_ok=True)
     working = out
     temp: Path | None = None
@@ -416,12 +431,14 @@ def build(source_root: Path, database_path: Path, *, rebuild: bool = False) -> d
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Create/update an offline knowledge SQLite FTS5 database")
-    parser.add_argument("--source", required=True, type=Path, help="Directory containing <product_id>/ documents")
-    parser.add_argument("--database", required=True, type=Path, help="Output .db file (outside source directory)")
+    parser.add_argument("--source", required=True, type=Path, help="Directory containing documents at any depth")
+    parser.add_argument("--default-product-id", default="default", help="Product ID for documents outside product-specific folders")
+    parser.add_argument("--database", required=True, type=Path, help="Output .db file (any location, without overwriting source documents)")
     parser.add_argument("--rebuild", action="store_true", help="Rebuild database from all source documents atomically")
     args = parser.parse_args(argv)
     try:
-        summary = build(args.source, args.database, rebuild=args.rebuild)
+        summary = build(args.source, args.database, rebuild=args.rebuild,
+                        default_product_id=args.default_product_id)
     except (ValueError, OSError, sqlite3.Error, ImportError, json.JSONDecodeError) as exc:
         print(f"Knowledge Builder failed: {exc}", file=sys.stderr)
         return 1

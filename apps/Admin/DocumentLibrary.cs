@@ -1,22 +1,12 @@
 using System.IO;
-using System.Text.RegularExpressions;
 
 namespace DKKnowledgeAdmin;
 
-// Files in the authoring tree are never embedded in the end-user package.
+// The authoring source folder is the document library; Client packages never include it.
 public static class DocumentLibrary
 {
     private static readonly HashSet<string> Extensions =
         new(StringComparer.OrdinalIgnoreCase) { ".pdf", ".docx", ".txt", ".md" };
-
-    private static readonly Regex ProductName =
-        new("^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$", RegexOptions.CultureInvariant);
-
-    private static void CheckProduct(string productId)
-    {
-        if (!ProductName.IsMatch(productId) || productId is "." or "..")
-            throw new ArgumentException("제품 ID는 영문·숫자로 시작하고 영문·숫자·._-만 사용할 수 있습니다.");
-    }
 
     private static bool IsLink(string path) =>
         (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
@@ -37,20 +27,20 @@ public static class DocumentLibrary
 
     private static string ResolveDocument(string sourceRoot, string relativePath)
     {
+        if (string.IsNullOrWhiteSpace(relativePath) || Path.IsPathRooted(relativePath))
+            throw new ArgumentException("원본 폴더 내부의 상대 문서 경로를 선택하세요.");
         var parts = relativePath.Replace('/', Path.DirectorySeparatorChar)
             .Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length < 3 || parts[1] != "manuals" ||
-            parts.Any(p => p is "." or ".." || p.Contains(':')))
-            throw new ArgumentException("제품 ID/manuals/문서 경로만 관리할 수 있습니다.");
-        CheckProduct(parts[0]);
+        if (parts.Length == 0 || parts.Any(p => p is "." or ".." || p.Contains(':')))
+            throw new ArgumentException("원본 폴더 외부 경로는 사용할 수 없습니다.");
+
         var root = Path.GetFullPath(sourceRoot);
         var full = Path.GetFullPath(Path.Combine(root, Path.Combine(parts)));
         var rootPrefix = Path.EndsInDirectorySeparator(root)
             ? root : root + Path.DirectorySeparatorChar;
-        if (!full.StartsWith(rootPrefix,
-                StringComparison.OrdinalIgnoreCase) ||
+        if (!full.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase) ||
             !Extensions.Contains(Path.GetExtension(full)))
-            throw new ArgumentException("허용되지 않은 문서 경로 또는 확장자입니다.");
+            throw new ArgumentException("원본 폴더 외부 경로 또는 지원하지 않는 확장자입니다.");
         CheckExistingAncestors(root, full);
         return full;
     }
@@ -60,39 +50,42 @@ public static class DocumentLibrary
         var root = Path.GetFullPath(sourceRoot);
         if (!Directory.Exists(root)) return [];
         if (IsLink(root)) throw new InvalidOperationException("심볼릭 링크 루트는 사용할 수 없습니다.");
+
         var result = new List<string>();
-        foreach (var productDir in Directory.EnumerateDirectories(root))
+        var pending = new Stack<string>();
+        pending.Push(root);
+        while (pending.Count > 0)
         {
-            if (IsLink(productDir))
-                throw new InvalidOperationException("제품별 폴더가 심볼릭 링크입니다.");
-            var manuals = Path.Combine(productDir, "manuals");
-            if (!Directory.Exists(manuals)) continue;
-            if (IsLink(manuals))
-                throw new InvalidOperationException("문서 폴더가 심볼릭 링크입니다.");
-            foreach (var file in Directory.EnumerateFiles(manuals, "*", SearchOption.AllDirectories))
+            var folder = pending.Pop();
+            foreach (var entry in Directory.EnumerateFileSystemEntries(folder))
             {
-                if (!Extensions.Contains(Path.GetExtension(file))) continue;
-                var relative = Path.GetRelativePath(root, file).Replace('\\', '/');
-                ResolveDocument(root, relative);
-                result.Add(relative);
+                if (IsLink(entry))
+                    throw new InvalidOperationException("문서 루트 내부에 심볼릭 링크가 있습니다: " + entry);
+                if (Directory.Exists(entry))
+                {
+                    pending.Push(entry);
+                }
+                else if (File.Exists(entry) && Extensions.Contains(Path.GetExtension(entry)))
+                {
+                    var relative = Path.GetRelativePath(root, entry).Replace('\\', '/');
+                    ResolveDocument(root, relative);
+                    result.Add(relative);
+                }
             }
         }
         result.Sort(StringComparer.OrdinalIgnoreCase);
         return result;
     }
 
-    public static string Add(string sourceRoot, string productId, string original)
+    public static string Add(string sourceRoot, string original)
     {
-        CheckProduct(productId);
         if (!File.Exists(original) || !Extensions.Contains(Path.GetExtension(original)))
             throw new ArgumentException("PDF, DOCX, TXT 또는 MD 원본 파일을 선택하세요.");
         var root = Path.GetFullPath(sourceRoot);
-        var folder = Path.Combine(root, productId, "manuals");
-        var target = Path.Combine(folder, Path.GetFileName(original));
-        CheckExistingAncestors(root, target);
+        var target = ResolveDocument(root, Path.GetFileName(original));
         if (File.Exists(target))
             throw new IOException("동일한 파일 이름이 존재합니다. 교체 기능을 사용하세요.");
-        Directory.CreateDirectory(folder);
+        Directory.CreateDirectory(root);
         File.Copy(original, target, overwrite: false);
         return Path.GetRelativePath(root, target).Replace('\\', '/');
     }
