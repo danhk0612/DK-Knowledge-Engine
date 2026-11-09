@@ -5,7 +5,9 @@ param(
     [Parameter(Mandatory=$true)] [string]$OutputDir,
     [string]$ClientExe,
     [string]$ModelFile,
-    [ValidateSet('raw_chatml','qwen3','jinja')] [string]$PromptMode = 'raw_chatml'
+    [ValidateSet('raw_chatml','qwen3','jinja')] [string]$PromptMode = 'raw_chatml',
+    [string]$EmbeddingModelFile,
+    [ValidateRange(0.05,1.0)] [double]$EmbeddingMinSimilarity = 0.72
 )
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
@@ -105,8 +107,53 @@ try {
     Copy-Item -LiteralPath $db -Destination $packagedDb -Force
     $packagedHash = (Get-FileHash -LiteralPath $packagedDb -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($packagedHash -ne $dbHash) { throw 'Copied knowledge DB SHA-256 mismatch' }
-    & (Join-Path $package 'engine\DK-Knowledge-API.exe') --verify-db $packagedDb
+    $dbInfoText = & (Join-Path $package 'engine\DK-Knowledge-API.exe') --verify-db $packagedDb
     if ($LASTEXITCODE -ne 0) { throw 'Selected knowledge DB failed schema / integrity verification' }
+    $dbInfo = $dbInfoText | ConvertFrom-Json
+    $embeddingHash = $null
+    $embeddingRelative = $null
+    if (-not [string]::IsNullOrWhiteSpace($EmbeddingModelFile)) {
+        if (-not $dbInfo.embedding -or -not $dbInfo.embedding.complete) {
+            throw 'Selected DB has no complete semantic embedding index'
+        }
+        $selectedEncoder = (Resolve-Path -LiteralPath $EmbeddingModelFile -ErrorAction Stop).Path
+        if (-not (Test-Path -LiteralPath $selectedEncoder -PathType Leaf) -or
+            [IO.Path]::GetExtension($selectedEncoder) -ine '.gguf') {
+            throw 'Embedding model must be an existing .gguf file'
+        }
+        $embeddingHash = (Get-FileHash -LiteralPath $selectedEncoder -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($embeddingHash -ne [string]$dbInfo.embedding.model_sha256) {
+            throw 'Selected semantic GGUF does not match the author-built DB vectors'
+        }
+        if (-not (Test-Path -LiteralPath (Join-Path $package 'runtime/llama-embedding.exe') -PathType Leaf)) {
+            throw 'Input portable engine has no compatible llama-embedding.exe'
+        }
+        $encoderName = [IO.Path]::GetFileName($selectedEncoder)
+        $embeddingRelative = 'models/' + $encoderName
+        $encoderDest = Join-Path $package ('models/' + $encoderName)
+        if ((Test-Path -LiteralPath $encoderDest -PathType Leaf) -and
+            (Get-FileHash -LiteralPath $encoderDest -Algorithm SHA256).Hash.ToLowerInvariant() -ne $embeddingHash) {
+            throw 'Embedding GGUF filename collides with another selected model'
+        }
+        Copy-Item -LiteralPath $selectedEncoder -Destination $encoderDest -Force
+        $settingsPath = Join-Path $package 'config/settings.json'
+        $settings = Get-Content -LiteralPath $settingsPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        $settings | Add-Member -NotePropertyName embedding -NotePropertyValue ([pscustomobject]@{
+            file = $embeddingRelative
+            runtime = 'runtime/llama-embedding.exe'
+            min_similarity = $EmbeddingMinSimilarity
+        }) -Force
+        [IO.File]::WriteAllText($settingsPath,
+            ($settings | ConvertTo-Json -Depth 20), (New-Object System.Text.UTF8Encoding($false)))
+    }
+    else {
+        # Default Client is genuinely light: it carries neither the optional
+        # embedding GGUF nor its executable, only FTS5 + the user LLM.
+        $embeddingExe = Join-Path $package 'runtime/llama-embedding.exe'
+        if (Test-Path -LiteralPath $embeddingExe) {
+            Remove-Item -LiteralPath $embeddingExe -Force
+        }
+    }
     [System.IO.File]::WriteAllText(
         (Join-Path $package 'knowledge\knowledge.sha256'),
         $packagedHash + [Environment]::NewLine,
@@ -149,6 +196,13 @@ try {
 
     $manifestPath = Join-Path $package 'manifest.json'
     $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if (-not $embeddingRelative) {
+        $manifest.immutable_files.PSObject.Properties.Remove('runtime/llama-embedding.exe')
+    }
+    else {
+        $manifest.immutable_files | Add-Member -NotePropertyName $embeddingRelative -NotePropertyValue $embeddingHash -Force
+        $manifest | Add-Member -NotePropertyName embedding_model_sha256 -NotePropertyValue $embeddingHash -Force
+    }
     if ($modelRelative) {
         foreach ($property in @($manifest.immutable_files.PSObject.Properties)) {
             if ($property.Name.StartsWith('models/', [StringComparison]::OrdinalIgnoreCase)) {
