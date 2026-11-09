@@ -6,14 +6,15 @@ pass/fail flags, not private questions, documents, answers, or source paths.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
+import sqlite3
 import statistics
+from contextlib import closing
 from pathlib import Path
 from time import perf_counter
 from typing import Any
 
-from embedding.llama_embedder import LlamaEmbedder
+from embedding.llama_embedder import LlamaEmbedder, sha256_file
 from search.knowledge_search import search_documents
 
 
@@ -62,7 +63,7 @@ def evaluate(db: Path, cases: list[dict], *, embedder=None) -> dict:
             "latency_ms": elapsed,
         })
     return {
-        "db_sha256": hashlib.sha256(db.read_bytes()).hexdigest(),
+        "db_sha256": sha256_file(db),
         "db_bytes": db.stat().st_size,
         "cases": len(cases),
         "passed": sum(x["passed"] for x in results),
@@ -111,8 +112,15 @@ def main() -> int:
         parser.error("Output report already exists; refuse to overwrite")
     if (args.embedding_runtime is None) != (args.embedding_model is None):
         parser.error("Embedding model/runtime must be supplied together")
-    model = (LlamaEmbedder(args.embedding_runtime, args.embedding_model)
-             if args.embedding_model else None)
+    model = None
+    if args.embedding_model:
+        with closing(sqlite3.connect(args.candidate_db.resolve().as_uri() + "?mode=ro", uri=True)) as db:
+            meta = dict(db.execute("SELECT key,value FROM embedding_metadata").fetchall())
+            embedded = db.execute("SELECT count(*) FROM chunk_embeddings").fetchone()[0]
+            total = db.execute("SELECT count(*) FROM chunks").fetchone()[0]
+        if meta.get("model_sha256") != sha256_file(args.embedding_model) or embedded != total:
+            parser.error("Encoder must match a complete candidate knowledge index")
+        model = LlamaEmbedder(args.embedding_runtime, args.embedding_model)
     result = compare(args.baseline_db, args.candidate_db, read_cases(args.cases),
                      embedder=model)
     args.output.parent.mkdir(parents=True, exist_ok=True)
