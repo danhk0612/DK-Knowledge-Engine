@@ -18,6 +18,7 @@
     </Border>
     <TabControl Grid.Row="1" Margin="0,16,0,0">
       <TabItem Header="문서 · 지식 DB">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
         <Grid Margin="16">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -25,13 +26,14 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
           </Grid.RowDefinitions>
-          <StackPanel Grid.Row="0" Margin="0,0,0,12">
+          <StackPanel x:Name="DeveloperRepoPanel" Grid.Row="0" Margin="0,0,0,12">
             <TextBlock Text="소스 저장소 경로" FontWeight="SemiBold"/>
             <TextBox x:Name="RepoBox" Padding="8" Margin="0,5,0,0"/>
           </StackPanel>
-          <StackPanel Grid.Row="1" Margin="0,0,0,12">
+          <StackPanel x:Name="DeveloperPythonPanel" Grid.Row="1" Margin="0,0,0,12">
             <TextBlock Text="관리자 PC의 Python 실행 명령"/>
             <TextBox x:Name="PythonBox" Text="python" Padding="8" Margin="0,5,0,0"/>
           </StackPanel>
@@ -43,7 +45,22 @@
               <TextBox x:Name="SourceBox" Padding="8"/>
             </DockPanel>
           </StackPanel>
-          <StackPanel Grid.Row="3" Margin="0,0,0,16">
+          <StackPanel Grid.Row="3" Margin="0,0,0,14">
+            <TextBlock Text="문서 등록·교체·삭제 (DB 반영은 아래 재생성 버튼)" FontWeight="SemiBold"/>
+            <DockPanel Margin="0,6,0,8">
+              <TextBlock Text="제품 ID" VerticalAlignment="Center" Margin="0,0,10,0"/>
+              <TextBox x:Name="ManageProductBox" Text="manual-test" Width="220" Padding="6"/>
+              <Button Content="문서 추가" Padding="12,6" Margin="10,0,0,0" Click="AddDocumentClick"/>
+              <Button Content="목록 새로고침" Padding="12,6" Margin="10,0,0,0" Click="RefreshDocumentsClick"/>
+            </DockPanel>
+            <ListBox x:Name="DocumentsList" Height="105" Margin="0,0,0,8"/>
+            <StackPanel Orientation="Horizontal">
+              <Button Content="선택 문서 교체" Padding="14,6" Click="ReplaceDocumentClick"/>
+              <Button Content="선택 문서 삭제" Padding="14,6" Margin="10,0,0,0"
+                      Click="DeleteDocumentClick"/>
+            </StackPanel>
+          </StackPanel>
+          <StackPanel Grid.Row="4" Margin="0,0,0,16">
             <TextBlock Text="출력할 knowledge.db 파일" FontWeight="SemiBold"/>
             <DockPanel Margin="0,5,0,0">
               <Button Content="저장 위치" DockPanel.Dock="Right" Padding="12,7"
@@ -51,15 +68,16 @@
               <TextBox x:Name="DbBox" Padding="8"/>
             </DockPanel>
           </StackPanel>
-          <StackPanel Grid.Row="4" Orientation="Horizontal" Margin="0,0,0,10">
+          <StackPanel Grid.Row="5" Orientation="Horizontal" Margin="0,0,0,10">
             <Button Content="지식 DB 재생성" Padding="20,9" Click="BuildDbClick"/>
             <TextBlock Text="기존 Builder의 --rebuild 기능을 사용합니다."
                        Foreground="#566273" VerticalAlignment="Center" Margin="12,0,0,0"/>
           </StackPanel>
-          <TextBox x:Name="BuildLog" Grid.Row="5" IsReadOnly="True"
+          <TextBox x:Name="BuildLog" Grid.Row="6" IsReadOnly="True"
                    TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
-                   Padding="12" Text="제작자 PC에서 문서를 등록하고 DB를 생성할 수 있습니다."/>
+                   MinHeight="140" Padding="12" Text="문서를 등록한 뒤 지식 DB를 재생성하세요."/>
         </Grid>
+        </ScrollViewer>
       </TabItem>
       <TabItem Header="AI 답변 시험">
         <Grid Margin="16">
@@ -116,7 +134,7 @@
           <TextBox x:Name="PackageOutputBox" Padding="8" Margin="0,5,0,16"/>
           <Button Content="사용자 패키지 생성" HorizontalAlignment="Left" Padding="20,9"
                   Click="PackageClick"/>
-          <TextBlock Text="패키지 생성 시 로컬 .NET 10 SDK가 필요합니다. 정식 서명·Release를 수행하지 않습니다."
+          <TextBlock x:Name="PackageRequirementsText" Text="개발용 실행 시 .NET SDK가 필요합니다. 독립형 관리자 패키지는 내부 도구를 사용합니다. 정식 서명·Release는 수행하지 않습니다."
                      Margin="0,16,0,0" TextWrapping="Wrap" Foreground="#566273"/>
         </StackPanel>
       </TabItem>
