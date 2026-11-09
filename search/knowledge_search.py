@@ -203,8 +203,55 @@ def search_documents(
     # Prefer coverage of distinct query terms before FTS5 BM25 score.
     # SQL's stable path/sequence ordering remains the tiebreaker.
     ranked.sort(key=lambda hit: (-hit[0], hit[1]))
-    if ranked:
-        return [hit for _, _, hit in ranked[:limit]]
+    primary = [hit for _, _, hit in ranked[:limit]]
+    if len(primary) >= limit:
+        return primary
+
+    # Optional author-side LLM-generated question/keyword index. It is ONLY
+    # a route to the original excerpt, never a source of factual answer text.
+    # Legacy v1 databases lack this table and still work unchanged.
+    seen = {hit["chunk_id"] for hit in primary}
+    with _database(database) as db:
+        exists = db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='chunk_search_hints_fts'"
+        ).fetchone()
+        if exists:
+            hints = db.execute("""
+                SELECT d.document_id, d.title, d.source_path, d.version_from,
+                       d.version_to, c.chunk_id, c.section_title, c.content,
+                       c.page_from, c.page_to, h.hints
+                FROM chunk_search_hints_fts AS f
+                JOIN chunk_search_hints AS h ON h.rowid = f.rowid
+                JOIN chunks AS c ON c.chunk_id = h.chunk_id
+                JOIN documents AS d ON d.document_id = c.document_id
+                WHERE chunk_search_hints_fts MATCH ? AND d.product_id = ?
+                ORDER BY bm25(chunk_search_hints_fts), d.source_path
+            """, (expression, product_id)).fetchall()
+            for hint in hints:
+                if hint["chunk_id"] in seen:
+                    continue
+                if not _version_applies(requested, hint["version_from"], hint["version_to"]):
+                    continue
+                # Generic one-word hints are weak evidence; require a
+                # specific query or two independently matching concepts.
+                n = _matched_term_count(terms, hint["hints"])
+                if n < minimum_matches or (len(terms) == 1 and len(terms[0][0]) < 4):
+                    continue
+                primary.append({
+                    "document_id": hint["document_id"],
+                    "chunk_id": hint["chunk_id"],
+                    "title": hint["title"],
+                    "section_title": hint["section_title"],
+                    "excerpt": hint["content"],  # never emit generated hints as evidence
+                    "source_path": hint["source_path"],
+                    "page_from": hint["page_from"],
+                    "page_to": hint["page_to"],
+                })
+                seen.add(hint["chunk_id"])
+                if len(primary) >= limit:
+                    return primary
+    if primary:
+        return primary
 
     # Unicode61 indexes Korean sequences as whole words. A search written
     # "데이터 베이스" cannot find "데이터베이스", or vice versa, even when the
