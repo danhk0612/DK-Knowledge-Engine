@@ -176,6 +176,43 @@ public partial class MainWindow : Window
             StatusText.Text = "문서 삭제: " + selected + " — DB 재생성 전";
         });
 
+    private void OpenConfiguredFolder(string value, bool filePath = false, bool createIfMissing = false)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                throw new ArgumentException("먼저 경로를 지정하세요.");
+            var fullPath = Path.GetFullPath(value.Trim());
+            var directory = filePath ? Path.GetDirectoryName(fullPath)! : fullPath;
+            if (createIfMissing) Directory.CreateDirectory(directory);
+            if (!Directory.Exists(directory))
+                throw new DirectoryNotFoundException("폴더가 존재하지 않습니다: " + directory);
+
+            var startInfo = new ProcessStartInfo("explorer.exe") { UseShellExecute = true };
+            startInfo.ArgumentList.Add(directory);
+            Process.Start(startInfo);
+        }
+        catch (Exception error)
+        {
+            StatusText.Text = "탐색기 열기 실패: " + error.Message;
+        }
+    }
+
+    private void OpenRepoFolderClick(object sender, RoutedEventArgs e) =>
+        OpenConfiguredFolder(RepoBox.Text);
+
+    private void OpenSourceFolderClick(object sender, RoutedEventArgs e) =>
+        OpenConfiguredFolder(SourceBox.Text, createIfMissing: true);
+
+    private void OpenDbFolderClick(object sender, RoutedEventArgs e) =>
+        OpenConfiguredFolder(DbBox.Text, filePath: true, createIfMissing: true);
+
+    private void OpenEngineFolderClick(object sender, RoutedEventArgs e) =>
+        OpenConfiguredFolder(EngineBox.Text);
+
+    private void OpenPackageOutputFolderClick(object sender, RoutedEventArgs e) =>
+        OpenConfiguredFolder(PackageOutputBox.Text, createIfMissing: true);
+
     private void ChooseSourceClick(object sender, RoutedEventArgs e)
     {
         var picker = new OpenFolderDialog { Title = "원본 문서 루트 선택" };
