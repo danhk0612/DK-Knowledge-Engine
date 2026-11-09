@@ -45,6 +45,16 @@ public partial class MainWindow : Window
         catch (Exception error) { StatusText.Text = "작업 실패: " + error.Message; }
     }
 
+    // A document selection is valid only for its original source root.
+    private void SourceBoxTextChanged(object sender, System.Windows.Controls.TextChangedEventArgs e)
+    {
+        if (DocumentsList is not null)
+        {
+            DocumentsList.SelectedItem = null;
+            DocumentsList.ItemsSource = Array.Empty<string>();
+        }
+    }
+
     private void RefreshDocuments()
     {
         DocumentsList.ItemsSource = string.IsNullOrWhiteSpace(SourceBox.Text)
