@@ -5,12 +5,16 @@ on:
     paths:
       - 'apps/**'
       - 'distribution/Build-Client-Package.ps1'
+      - 'distribution/Build-Admin-Package.ps1'
+      - 'distribution/builder_entry.py'
       - '.github/workflows/t12-windows-guis.yml'
   push:
     branches: [main]
     paths:
       - 'apps/**'
       - 'distribution/Build-Client-Package.ps1'
+      - 'distribution/Build-Admin-Package.ps1'
+      - 'distribution/builder_entry.py'
       - '.github/workflows/t12-windows-guis.yml'
   workflow_dispatch:
 
@@ -28,6 +32,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+      - name: Check authoring document add replace delete
+        run: dotnet run --project apps/AdminDocumentSmoke/AdminDocumentSmoke.csproj -c Release --nologo
       - name: Build administrator UI
         run: dotnet build apps/Admin/DKKnowledgeAdmin.csproj -c Release --nologo
       - name: Publish administrator UI for authoring PCs
@@ -133,6 +139,95 @@ jobs:
         with:
           name: DK-Knowledge-Engine-Client-Win-x64-T12
           path: client-package-output/DK-Knowledge-Engine-Client-Win-x64.zip
+          if-no-files-found: error
+          retention-days: 7
+          compression-level: 0
+
+  admin-package:
+    name: Build and verify standalone Admin ZIP without target Python or SDK
+    needs: [gui-build, engine-base]
+    runs-on: windows-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install packaging and synthetic document test tools
+        shell: pwsh
+        run: |
+          python -m pip install -r requirements-builder.txt
+          python -m pip install pyinstaller==6.22.3 reportlab
+          if ($LASTEXITCODE -ne 0) { throw 'Packaging dependencies failed' }
+      - uses: actions/download-artifact@v4
+        with:
+          name: DK-Knowledge-Engine-Win-x64-demo-T07
+          path: ./admin-engine-base
+      - name: Build independent Admin ZIP
+        shell: pwsh
+        run: |
+          Expand-Archive -LiteralPath '.\admin-engine-base\DK-Knowledge-Engine-Win-x64.zip' -DestinationPath '.\admin-engine-extract'
+          $engine = (Resolve-Path '.\admin-engine-extract\DK-Knowledge-Engine-Win-x64').Path
+          & .\distribution\Build-Admin-Package.ps1 -EnginePackage $engine -OutputDir '.\admin-package-output'
+          if ($LASTEXITCODE -ne 0) { throw 'Standalone Admin ZIP creation failed' }
+      - name: Fresh extraction and Builder PDF DOCX TXT MD smoke without target Python or SDK
+        shell: pwsh
+        run: |
+          Expand-Archive -LiteralPath '.\admin-package-output\DK-Knowledge-Engine-Admin-Win-x64.zip' -DestinationPath '.\admin-extracted'
+          $admin = (Resolve-Path '.\admin-extracted\DK-Knowledge-Engine-Admin').Path
+          $manuals = Join-Path $admin 'workspace\sources\manual-test\manuals'
+          New-Item -ItemType Directory -Path $manuals -Force | Out-Null
+          Set-Content -LiteralPath (Join-Path $manuals 'guide.md') -Value '# Manual - instructions' -Encoding UTF8
+          Set-Content -LiteralPath (Join-Path $manuals 'notes.txt') -Value 'Configuration help' -Encoding UTF8
+          $env:ADMIN_DOC_DIR = $manuals
+          @'
+          import os
+          from pathlib import Path
+          from docx import Document
+          from reportlab.pdfgen import canvas
+          root = Path(os.environ["ADMIN_DOC_DIR"])
+          d = Document()
+          d.add_paragraph("DOCX setup instruction")
+          d.save(root / "setup.docx")
+          pdf = canvas.Canvas(str(root / "setup.pdf"))
+          pdf.drawString(72, 750, "PDF setup instruction")
+          pdf.save()
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'Fixture generation failed' }
+
+          # The authoring workstation has no Python or .NET SDK in PATH.
+          $previousPath = $env:PATH
+          $env:PATH = "$env:SystemRoot\System32\WindowsPowerShell\v1.0;$env:SystemRoot\System32;$env:SystemRoot"
+          try {
+            $builder = Join-Path $admin 'tools\builder\DK-Knowledge-Builder.exe'
+            if (-not (Test-Path -LiteralPath $builder)) { throw 'Missing standalone Builder' }
+            $db = Join-Path $admin 'workspace\knowledge.db'
+            & $builder --source (Join-Path $admin 'workspace\sources') --database $db --rebuild
+            if ($LASTEXITCODE -ne 0) { throw 'Standalone Builder failed to extract documents' }
+            $ps = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+            $script = Join-Path $admin 'tools\Build-Client-Package.ps1'
+            $engine = Join-Path $admin 'engine-template'
+            $clientGui = Join-Path $admin 'client\DK-Knowledge-Client.exe'
+            & $ps -NoProfile -ExecutionPolicy Bypass -File $script -EnginePackage $engine -KnowledgeDb $db -ClientExe $clientGui -OutputDir '.\t13-generated-client'
+            if ($LASTEXITCODE -ne 0) { throw 'Standalone Admin failed to make Client package' }
+            $client = '.\t13-generated-client\DK-Knowledge-Engine-Client'
+            if (Test-Path (Join-Path $client 'DK-Knowledge-Admin.exe')) { throw 'Admin EXE leaked to Client' }
+            if (Test-Path (Join-Path $client 'builder')) { throw 'Builder leaked to Client' }
+            & $ps -NoProfile -ExecutionPolicy Bypass -File (Join-Path $client 'Verify-AIHelp.ps1') -Root $client
+            if ($LASTEXITCODE -ne 0) { throw 'Generated Client package failed verification' }
+          }
+          finally {
+            $env:PATH = $previousPath
+          }
+          Write-Output 'T13_STANDALONE_ADMIN_CLIENT_PACKAGE_OK'
+      - name: Upload standalone authoring workstation ZIP (not Release)
+        uses: actions/upload-artifact@v4
+        with:
+          name: DK-Knowledge-Engine-Admin-Win-x64-T13
+          path: admin-package-output/DK-Knowledge-Engine-Admin-Win-x64.zip
           if-no-files-found: error
           retention-days: 7
           compression-level: 0
