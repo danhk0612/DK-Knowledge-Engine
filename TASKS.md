@@ -265,4 +265,4 @@ T09 Windows 검증: [Actions run 41955872865](https://github.com/danhk0612/DK-Kn
 
 ## T13 — 관리자 GUI 문서 CRUD 및 독립 배포 ZIP
 
-**상태: PR #25 구현·Windows CI 및 제작자 PC 최종 실기 검증 대상.** 원본 PDF/DOCX/TXT/MD 파일을 제품별로 추가·교체·삭제하고, 사용자가 명시적으로 DB 재생성 버튼을 눌러 변경을 반영한다. 개별 문서/제품 범위와 메타데이터 규칙은 유지한다. 독립형 Admin ZIP에는 PyInstaller로 묶은 Builder, 자체 포함 Admin/Client WPF EXE와 검증된 엔진·모델 템플릿을 포함한다. 제작자 PC에는 Python/Git/.NET SDK를 요구하지 않으며 Client ZIP에는 Admin·Builder를 포함하지 않는다. 정식 Release·코드 서명·자동 업데이트·현장 버튼 클릭은 후속 검증이다.
+**상태: PR #25 구현 및 Windows 독립형 Admin/Client CI 검증 완료. 실제 제작자 PC GUI 클릭 시험은 미완료.** 원본 PDF/DOCX/TXT/MD 파일을 제품별로 추가·교체·삭제하고, 사용자가 명시적으로 DB 재생성 버튼을 눌러 변경을 반영한다. 개별 문서/제품 범위와 메타데이터 규칙은 유지한다. 독립형 Admin ZIP에는 PyInstaller로 묶은 Builder, 자체 포함 Admin/Client WPF EXE와 검증된 엔진·모델 템플릿을 포함한다. 제작자 PC에는 Python/Git/.NET SDK를 요구하지 않으며 Client ZIP에는 Admin·Builder를 포함하지 않는다. 정식 Release·코드 서명·자동 업데이트·현장 버튼 클릭은 후속 검증이다.
