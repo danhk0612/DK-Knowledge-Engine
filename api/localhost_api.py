@@ -280,7 +280,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-tokens", type=int, default=192)
     parser.add_argument("--timeout-seconds", type=int, default=180)
     parser.add_argument("--gpu-layers", type=int, default=0)
-    parser.add_argument("--prompt-mode", choices=("qwen3", "raw_chatml"), default="qwen3")
+    parser.add_argument("--prompt-mode", choices=("qwen3", "raw_chatml", "jinja"), default="qwen3")
     parser.add_argument("--allow-origin", action="append", default=[], help="Exact allowed browser origin")
     args = parser.parse_args(argv)
     if (args.llama_cli is None) != (args.model is None):
