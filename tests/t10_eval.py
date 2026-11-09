@@ -14,6 +14,7 @@ import http.client
 import json
 import sqlite3
 from collections import Counter
+from contextlib import closing
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -110,7 +111,7 @@ def check_terms(text: str, case: dict, failures: list[str]) -> None:
 
 def source_belongs_to_product(db: Path, source_path: str, product_id: str) -> bool:
     """Check real DB ownership; T14 accepts root-level documents without a product folder."""
-    with sqlite3.connect(f"{db.resolve().as_uri()}?mode=ro", uri=True) as connection:
+    with closing(sqlite3.connect(f"{db.resolve().as_uri()}?mode=ro", uri=True)) as connection:
         return connection.execute(
             "SELECT 1 FROM documents WHERE source_path = ? AND product_id = ? LIMIT 1",
             (source_path, product_id),
