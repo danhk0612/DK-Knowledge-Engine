@@ -52,3 +52,11 @@ Admin 패키지에는 배포 테스트용 엔진 템플릿이 들어갑니다. �
 - Admin ZIP을 새 폴더에 압축 해제한 후 Python/.NET SDK가 PATH에 없는 환경에서 동봉 Builder로 MD/TXT/PDF/DOCX 색인, 동봉 Client EXE와 지식 DB를 조합한 사용자 전용 ZIP 생성 및 무결성 검사.
 - 샘플 DB·모델을 사용하는 GitHub Actions 검증 결과와 **실제 제작자 PC의 WPF 버튼 클릭 검증**을 구분합니다.
 - 시험 ZIP이며 정식 Release, 서명, 자동 업데이트는 아직 없습니다.
+
+## T13 CI 검증 기록 (2026-11-09)
+
+- [Windows 독립형 Admin·Client 빌드 및 통합 검증](https://github.com/danhk0612/DK-Knowledge-Engine/actions/runs/42547416394): 전체 작업 성공.
+- Admin/Client WPF 빌드, C# 문서 추가·교체·삭제·경로 보호 스모크 통과.
+- 독립형 Admin ZIP 생성 및 새로운 폴더에 압축 해제; Python/.NET SDK 미포함 PATH에서 동봉 Builder로 PDF·DOCX·TXT·MD 각 1개씩 총 4개 색인(4청크), 사용자 전용 Client ZIP 생성 및 `PACKAGE_VERIFY_OK` 확인.
+- T02 Windows/Ubuntu, T07 CPU 포터블, T09 로컬 모델 설정 회귀도 성공.
+- 사용한 문서는 합성 테스트 자료이며, 실제 제작자 PC에서 GUI 문서 교체·삭제 버튼 조작 및 원본문서 적용은 아직 직접 확인하지 않았습니다.
