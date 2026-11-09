@@ -504,6 +504,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--quality-report", type=Path, help="Optional JSON extraction/chunk quality report")
     args = parser.parse_args(argv)
     try:
+        if args.quality_report:
+            report = args.quality_report.resolve()
+            if report == args.database.resolve() or (
+                    report.is_relative_to(args.source.resolve())
+                    and report.suffix.lower() in SUPPORTED_EXTENSIONS):
+                raise ValueError("Quality report cannot replace the database or a source document")
         if args.ocr_scanned_pages:
             for program, command in (("Tesseract", args.tesseract), ("Poppler pdftoppm", args.pdftoppm)):
                 if shutil.which(command) is None:
@@ -516,10 +522,6 @@ def main(argv: list[str] | None = None) -> int:
         visible_summary = dict(summary)
         if args.quality_report:
             report = args.quality_report.resolve()
-            if report == args.database.resolve() or (
-                    report.is_relative_to(args.source.resolve())
-                    and report.suffix.lower() in SUPPORTED_EXTENSIONS):
-                raise ValueError("Quality report cannot replace the database or a source document")
             report.parent.mkdir(parents=True, exist_ok=True)
             report.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
             visible_summary.pop("quality", None)
