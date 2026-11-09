@@ -45,7 +45,9 @@ public static class DocumentLibrary
         CheckProduct(parts[0]);
         var root = Path.GetFullPath(sourceRoot);
         var full = Path.GetFullPath(Path.Combine(root, Path.Combine(parts)));
-        if (!full.StartsWith(root + Path.DirectorySeparatorChar,
+        var rootPrefix = Path.EndsInDirectorySeparator(root)
+            ? root : root + Path.DirectorySeparatorChar;
+        if (!full.StartsWith(rootPrefix,
                 StringComparison.OrdinalIgnoreCase) ||
             !Extensions.Contains(Path.GetExtension(full)))
             throw new ArgumentException("허용되지 않은 문서 경로 또는 확장자입니다.");
