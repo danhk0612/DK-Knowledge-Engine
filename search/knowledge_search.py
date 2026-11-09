@@ -180,7 +180,51 @@ def search_documents(
     # Prefer coverage of distinct query terms before FTS5 BM25 score.
     # SQL's stable path/sequence ordering remains the tiebreaker.
     ranked.sort(key=lambda hit: (-hit[0], hit[1]))
-    return [hit for _, _, hit in ranked[:limit]]
+    if ranked:
+        return [hit for _, _, hit in ranked[:limit]]
+
+    # Unicode61 indexes Korean sequences as whole words. A search written
+    # "데이터 베이스" cannot find "데이터베이스", or vice versa, even when the
+    # words are adjacent in the source. Use a narrow, opt-in fallback that
+    # requires *all* meaningful Hangul terms in the same order and adjacency.
+    # It is not an arbitrary infix search, synonym expansion or semantic match.
+    if (len(terms) < 2 or len(terms) > 6 or
+            not all(re.fullmatch(r"[가-힣]{2,}", term) for term, _ in terms)):
+        return []
+    compound = "".join(term for term, _ in terms)
+    first = terms[0][0]
+    with _database(database) as db:
+        candidates = db.execute("""
+            SELECT d.document_id, d.title, d.source_path,
+                   d.version_from, d.version_to,
+                   c.chunk_id, c.section_title, c.content,
+                   c.page_from, c.page_to
+            FROM chunks c JOIN documents d ON d.document_id = c.document_id
+            WHERE d.product_id = ?
+              AND (instr(c.content, ?) > 0 OR instr(coalesce(c.section_title, ''), ?) > 0)
+            ORDER BY d.source_path, c.sequence
+        """, (product_id, first, first))
+        fallback: list[dict] = []
+        for row in candidates:
+            if not _version_applies(requested, row["version_from"], row["version_to"]):
+                continue
+            original = (row["section_title"] or "") + "\n" + row["content"]
+            compact = "".join(_SEARCH_TOKENS.findall(original.casefold()))
+            if compound not in compact:
+                continue
+            fallback.append({
+                "document_id": row["document_id"],
+                "chunk_id": row["chunk_id"],
+                "title": row["title"],
+                "section_title": row["section_title"],
+                "excerpt": row["content"],
+                "source_path": row["source_path"],
+                "page_from": row["page_from"],
+                "page_to": row["page_to"],
+            })
+            if len(fallback) >= limit:
+                break
+        return fallback
 
 
 def match_event(
