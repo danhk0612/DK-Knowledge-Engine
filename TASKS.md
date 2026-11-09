@@ -313,3 +313,7 @@ Knowledge Builder는 모델 기반 임베딩/OCR/LLM 처리를 하지 않으며 
 **개발 브랜치:** `feat/t19-optional-lightweight-embeddings`. 관리자에서 선택한 임베딩 GGUF·llama-embedding 실행 파일로 문서 벡터를 사전 생성하고, 사용자 쪽에는 요청할 경우에만 동일 SHA-256 임베딩 GGUF와 경량 실행 파일을 포함한다. 기존 키워드 검색·T18 사전 생성 힌트는 유지하고 선택적 cosine 기반 하이브리드 검색을 추가한다. 모델·차원·완성 여부는 DB에 저장하고 Client 패키징과 실행에서 검증한다. 기본 Client는 생성형 소형 GGUF와 FTS5만 사용하며 임베딩 모델은 탑재하지 않는다.
 
 **제약:** 짧은 사용자 질문마다 임베딩 GGUF 콜드 로딩으로 지연이 발생할 수 있다. 전체 청크를 SQLite에서 순차 비교하므로 대량 DB의 의미 검색은 성능 검증이 필요하다. 모델 정확도, v0.8.0 호환성, 고객 문서 정답률은 실모델·실문서 검증 필요. [문서](docs/T19_OPTIONAL_SEMANTIC_SEARCH.md).
+
+## T22 — 기본 사용자 패키지 DB 경량화
+
+**개발 브랜치:** `feat/t22-light-client-db-compaction`. 관리자의 지식 DB에 T19 임베딩 벡터가 있더라도 의미 검색을 선택하지 않은 Client를 만들 때만 **분리된 스테이징 DB 사본**에서 `chunk_embeddings`·`embedding_metadata`를 제거하고 SQLite `VACUUM`으로 축소한다. 원본 관리자 DB와 의미 검색을 선택한 Client에는 영향이 없다. 패키지에 포함된 frozen API의 제한적 `--compact-no-embeddings` 작업으로 실행하므로 별도 Python·SQLite 도구 설치가 불필요하다. T12 합성 DB 전체 통합 패키징에서 원본 DB 불변·소형 DB·API 무결성·의미 검색 DB 보존을 함께 확인한다.
