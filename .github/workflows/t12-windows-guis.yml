@@ -178,6 +178,43 @@ jobs:
           retention-days: 7
           compression-level: 0
 
+      - name: Confirm optional semantic package and default lightweight package are isolated
+        shell: pwsh
+        env:
+          PYTHONPATH: .
+        run: |
+          $base = (Resolve-Path '.\base-extracted\DK-Knowledge-Engine-Win-x64').Path
+          $normal = '.\client-package-output\DK-Knowledge-Engine-Client'
+          if (Test-Path (Join-Path $normal 'runtime\llama-embedding.exe')) {
+            throw 'Default Client unexpectedly includes embedding runtime'
+          }
+          $fakeModel = Join-Path $env:RUNNER_TEMP 'test-only-encoder.gguf'
+          [IO.File]::WriteAllBytes($fakeModel, [byte[]](1,2,3,4,5,6,7,8))
+          $syntheticDb = Join-Path $env:RUNNER_TEMP 't19-fixture.db'
+          python tests/t19_prepare_vector_fixture.py --database (Join-Path $base 'knowledge\knowledge.db') --output $syntheticDb --model $fakeModel
+          if ($LASTEXITCODE -ne 0) { throw 'T19 synthetic DB fixture creation failed' }
+          & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $syntheticDb -OutputDir '.\semantic-test-output' -EmbeddingModelFile $fakeModel
+          if ($LASTEXITCODE -ne 0) { throw 'Optional semantic package creation failed' }
+          $semantic = '.\semantic-test-output\DK-Knowledge-Engine-Client'
+          if (-not (Test-Path (Join-Path $semantic 'runtime\llama-embedding.exe'))) {
+            throw 'Semantic Client is missing its embedding runtime'
+          }
+          if (-not (Test-Path (Join-Path $semantic 'models\test-only-encoder.gguf'))) {
+            throw 'Semantic Client is missing its selected encoder'
+          }
+          $settings = Get-Content -LiteralPath (Join-Path $semantic 'config\settings.json') -Raw | ConvertFrom-Json
+          if ($settings.embedding.file -ne 'models/test-only-encoder.gguf') { throw 'Embedding setting missing' }
+          $expected = (Get-FileHash -LiteralPath $fakeModel -Algorithm SHA256).Hash.ToLowerInvariant()
+          $manifest = Get-Content -LiteralPath (Join-Path $semantic 'manifest.json') -Raw | ConvertFrom-Json
+          if ($manifest.embedding_model_sha256 -ne $expected -or
+              $manifest.immutable_files.'models/test-only-encoder.gguf' -ne $expected) {
+            throw 'Embedding checksum not included in Client manifest'
+          }
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $semantic 'Verify-AIHelp.ps1') -Root $semantic
+          if ($LASTEXITCODE -ne 0) { throw 'Optional semantic package integrity check failed' }
+          Write-Output 'T19_SYNTHETIC_SEMANTIC_PACKAGE_OK'
+          # Test-only fake model is never published as a release artifact.
+
   admin-package:
     name: Build and verify standalone Admin ZIP without target Python or SDK
     needs: [gui-build, engine-base]
