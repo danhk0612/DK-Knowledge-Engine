@@ -1,0 +1,72 @@
+name: T21 real Korean embedding GGUF compatibility smoke
+
+on:
+  pull_request:
+    paths:
+      - 'embedding/**'
+      - 'builder/embedding_index.py'
+      - 'search/knowledge_search.py'
+      - 'tests/t21_real_embedding_smoke.py'
+      - '.github/workflows/t21-real-embedding-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-real-embedding:
+    name: Test actual Korean GGUF on Windows CPU
+    runs-on: windows-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install offline document fixture dependencies
+        shell: pwsh
+        run: |
+          python -m pip install -r requirements-builder.txt
+          if ($LASTEXITCODE -ne 0) { throw 'Builder dependencies failed' }
+      - name: Build pinned llama.cpp v0.8.0 embedding executable
+        shell: pwsh
+        run: |
+          git clone --depth 1 --branch v0.8.0 https://github.com/ggml-org/llama.cpp.git "$env:RUNNER_TEMP\llama.cpp"
+          if ($LASTEXITCODE -ne 0) { throw 'llama.cpp clone failed' }
+          cmake -S "$env:RUNNER_TEMP\llama.cpp" -B "$env:RUNNER_TEMP\llama-build" -A x64 -DGGML_CUDA=OFF -DGGML_NATIVE=OFF -DGGML_OPENMP=OFF -DLLAMA_OPENSSL=OFF -DLLAMA_BUILD_TESTS=OFF -DBUILD_SHARED_LIBS=OFF -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+          if ($LASTEXITCODE -ne 0) { throw 'CMake configure failed' }
+          cmake --build "$env:RUNNER_TEMP\llama-build" --config Release --target llama-embedding --parallel 4
+          if ($LASTEXITCODE -ne 0) { throw 'llama-embedding build failed' }
+      - name: Download llama.cpp-converted MIT multilingual E5 GGUF (CI only)
+        shell: pwsh
+        run: |
+          $model = Join-Path $env:RUNNER_TEMP 'multilingual-e5-small-q8_0.gguf'
+          curl.exe --fail --location --retry 3 --retry-delay 4 --output $model "https://huggingface.co/TwinSunsLLC/multilingual-e5-small-gguf/resolve/b6cac96/multilingual-e5-small-q8_0.gguf?download=true"
+          if ($LASTEXITCODE -ne 0) { throw 'Test embedding GGUF download failed' }
+          if ((Get-Item -LiteralPath $model).Length -lt 110MB) {
+            throw 'Downloaded GGUF is suspiciously small'
+          }
+          $stream = [IO.File]::OpenRead($model)
+          try {
+            $magic = [byte[]]::new(4)
+            if ($stream.Read($magic, 0, 4) -ne 4 -or [Text.Encoding]::ASCII.GetString($magic) -ne 'GGUF') {
+              throw 'Embedding file does not have GGUF signature'
+            }
+          }
+          finally { $stream.Dispose() }
+          Write-Output ('T21_EMBEDDING_MODEL_SHA256 ' + (Get-FileHash $model -Algorithm SHA256).Hash.ToLowerInvariant())
+      - name: Real GGUF embedding, persisted DB and semantic retrieval
+        shell: pwsh
+        env:
+          PYTHONPATH: .
+        run: |
+          $binary = Join-Path $env:RUNNER_TEMP 'llama-build\bin\Release\llama-embedding.exe'
+          if (-not (Test-Path $binary)) {
+            $binary = Join-Path $env:RUNNER_TEMP 'llama-build\bin\llama-embedding.exe'
+          }
+          if (-not (Test-Path $binary)) { throw 'No embedding executable' }
+          $model = Join-Path $env:RUNNER_TEMP 'multilingual-e5-small-q8_0.gguf'
+          python tests/t21_real_embedding_smoke.py --runtime $binary --model $model
+          if ($LASTEXITCODE -ne 0) { throw 'Actual Korean embedding/model compatibility failed' }
+          Write-Output 'T21_MODEL_RUNTIME_COMPATIBLE'
+      # No artifact upload: the downloaded model is used only in CI.

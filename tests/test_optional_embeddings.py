@@ -148,7 +148,10 @@ class EmbedderAdapterTests(unittest.TestCase):
             raw = "[[" + ",".join(["3.0", "4.0"] + ["0"] * 14) + "]]"
             with patch("embedding.llama_embedder.subprocess.run",
                        return_value=SimpleNamespace(returncode=0, stdout=raw, stderr="")) as call:
-                v = embedder.encode("example text")
+                v = embedder.encode("example text\\nsecond paragraph")
+                command = call.call_args.args[0]
+            self.assertIn("--embd-separator", command)
+            self.assertNotEqual(command[command.index("--embd-separator") + 1], "\\n")
             self.assertAlmostEqual(v[0], 0.6)
             self.assertAlmostEqual(v[1], 0.8)
             self.assertIn("--embd-output-format", call.call_args.args[0])
