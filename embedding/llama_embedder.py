@@ -52,10 +52,17 @@ class LlamaEmbedder:
     def encode(self, text: str) -> list[float]:
         if not isinstance(text, str) or not text.strip() or len(text) > 4000:
             raise ValueError("Embedding input must be 1..4000 characters")
+        # llama-embedding normally separates inputs on newlines. Manual
+        # chunks contain headings/paragraph breaks; one chunk must produce
+        # exactly one pooled vector, not one vector per line.
+        separator = "<|DK_KNOWLEDGE_EMBED_SPLIT_UNUSED_84e1|>"
+        if separator in text:
+            raise ValueError("Embedding input contains the reserved separator")
         cmd = [
             str(self.executable), "-m", str(self.model),
             "--pooling", "mean", "--embd-normalize", "2",
             "--embd-output-format", "array",
+            "--embd-separator", separator,
             "-p", text.strip(),
         ]
         # Avoid pointless GPU warnings on a CPU-only runtime. Model load
@@ -77,7 +84,11 @@ class LlamaEmbedder:
             decoded = json.loads(data)
             if (not isinstance(decoded, list) or len(decoded) != 1 or
                     not isinstance(decoded[0], list)):
-                raise ValueError("Embedding output requires exactly one pooled vector")
+                raise ValueError(
+                    "Embedding output requires exactly one pooled vector "
+                    f"(shape: {type(decoded).__name__}, count: "
+                    f"{len(decoded) if hasattr(decoded, '__len__') else 'unknown'})"
+                )
             return normalize_vector(decoded[0])
         except (ValueError, TypeError) as error:
             raise RuntimeError("Invalid pooled embedding output") from error
