@@ -17,9 +17,11 @@ from search.knowledge_search import search_documents
 NO_EVIDENCE = "등록된 문서에서 이 질문을 뒷받침하는 정보를 찾지 못했습니다."
 NO_DOCUMENT_ANSWER = "제공된 근거 문서만으로는 답변을 확인할 수 없습니다."
 _SYSTEM_PROMPT = (
-    "답변은 간단한 한국어 한 문장으로 하세요. "
-    "주어진 매뉴얼 내용만 사용하세요. "
-    "매뉴얼에 없는 정보는 추측하지 마세요."
+    "제공된 매뉴얼 내용만 사용하세요. 매뉴얼에 없는 정보는 추측하지 마세요. "
+    "질문이 절차나 문제 해결이면 필요한 순서를 최대 5단계로 구분하세요. "
+    "결론을 뒷받침하는 매뉴얼 근거 번호 [1], [2] 등을 명시하세요. "
+    "제공된 근거가 질문에 답하기에 부족하면 '제공된 근거 문서만으로는 답변을 확인할 수 없습니다.'라고 답하세요. "
+    "불필요한 추론 과정이나 문서에 없는 원인을 만들어 내지 마세요."
 )
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 _THINK = re.compile(r"<think>.*?</think>", re.DOTALL)
@@ -127,7 +129,7 @@ def answer_from_knowledge(
     question: str,
     generator: TextGenerator,
     version: str | None = None,
-    max_sources: int = 3,
+    max_sources: int = 5,
 ) -> dict:
     """Search T03 first; never invoke the model when sources are missing."""
     if not question or not question.strip():
@@ -144,17 +146,29 @@ def answer_from_knowledge(
 
     excerpts = []
     sources = []
+    remaining_chars = 4400  # Keep source context bounded on the default 4096-token CPU package.
     for position, hit in enumerate(hits, 1):
+        content = hit["excerpt"].strip()
+        if not content or remaining_chars < 160:
+            break
+        selected_text = content[:min(1100, remaining_chars)]
+        remaining_chars -= len(selected_text)
+        label = f"[{position}] {hit['source_path']}"
+        if hit["page_from"] is not None:
+            label += f" (p.{hit['page_from']})"
         sources.append({
             "document_id": hit["document_id"],
             "chunk_id": hit["chunk_id"],
             "source_path": hit["source_path"],
             "page_from": hit["page_from"],
         })
-        excerpts.append(hit["excerpt"])
+        excerpts.append(label + "\n" + selected_text)
+    if not excerpts:
+        return {"answer": NO_EVIDENCE, "grounded": False, "sources": []}
     prompt = (
-        "매뉴얼: " + "\n".join(excerpts) + "\n"
-        + "질문: " + question + " 답변:"
+        "매뉴얼:\n" + "\n\n".join(excerpts) + "\n\n"
+        + "질문: " + question + "\n"
+        + "매뉴얼의 해당 근거 번호를 표시하여 답변:"
     )
     started = perf_counter()
     answer = generator.generate(_SYSTEM_PROMPT, prompt).strip()
