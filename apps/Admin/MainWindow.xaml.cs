@@ -335,23 +335,32 @@ public partial class MainWindow : Window
             if (PdfOcrBox.IsChecked == true) builderArgs.Add("--ocr-scanned-pages");
             if (AuthorEnrichmentBox.IsChecked == true)
             {
-                var model = AuthorModelBox.Text.Trim();
-                var runtime = AuthorRuntimeBox.Text.Trim();
-                if (string.IsNullOrWhiteSpace(runtime))
-                    runtime = Path.Combine(EngineBox.Text.Trim(), "runtime", "llama-completion.exe");
-                if (!File.Exists(model) || !string.Equals(Path.GetExtension(model), ".gguf",
-                      StringComparison.OrdinalIgnoreCase))
-                    throw new ArgumentException("제작용 GGUF 모델 파일을 선택하세요.");
-                if (!File.Exists(runtime))
-                    throw new FileNotFoundException("제작용 llama.cpp 실행 파일을 찾을 수 없습니다.", runtime);
-                if (!int.TryParse(AuthorGpuLayersBox.Text.Trim(), out var gpuLayers) || gpuLayers < 0)
-                    throw new ArgumentException("GPU layers는 0 이상의 정수여야 합니다.");
-                var mode = (AuthorPromptBox.SelectedItem as System.Windows.Controls.ComboBoxItem)
-                    ?.Content?.ToString() ?? "raw_chatml";
-                builderArgs.AddRange(new[] {
-                    "--author-model", model, "--author-llama-cli", runtime,
-                    "--author-prompt-mode", mode, "--author-gpu-layers", gpuLayers.ToString()
-                });
+                var endpoint = AuthorEndpointBox.Text.Trim();
+                if (!string.IsNullOrEmpty(endpoint))
+                {
+                    builderArgs.AddRange(new[] { "--author-endpoint", endpoint,
+                        "--author-endpoint-model", AuthorEndpointModelBox.Text.Trim() });
+                }
+                else
+                {
+                    var model = AuthorModelBox.Text.Trim();
+                    var runtime = AuthorRuntimeBox.Text.Trim();
+                    if (string.IsNullOrWhiteSpace(runtime))
+                        runtime = Path.Combine(EngineBox.Text.Trim(), "runtime", "llama-completion.exe");
+                    if (!File.Exists(model) || !string.Equals(Path.GetExtension(model), ".gguf",
+                          StringComparison.OrdinalIgnoreCase))
+                        throw new ArgumentException("제작용 GGUF 모델 파일을 선택하세요.");
+                    if (!File.Exists(runtime))
+                        throw new FileNotFoundException("제작용 llama.cpp 실행 파일을 찾을 수 없습니다.", runtime);
+                    if (!int.TryParse(AuthorGpuLayersBox.Text.Trim(), out var gpuLayers) || gpuLayers < 0)
+                        throw new ArgumentException("GPU layers는 0 이상의 정수여야 합니다.");
+                    var mode = (AuthorPromptBox.SelectedItem as System.Windows.Controls.ComboBoxItem)
+                        ?.Content?.ToString() ?? "raw_chatml";
+                    builderArgs.AddRange(new[] {
+                        "--author-model", model, "--author-llama-cli", runtime,
+                        "--author-prompt-mode", mode, "--author-gpu-layers", gpuLayers.ToString()
+                    });
+                }
             }
             if (_bundled)
                 BuildLog.Text = await RunToolAsync(
