@@ -196,13 +196,6 @@ try {
 
     $manifestPath = Join-Path $package 'manifest.json'
     $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
-    if (-not $embeddingRelative) {
-        $manifest.immutable_files.PSObject.Properties.Remove('runtime/llama-embedding.exe')
-    }
-    else {
-        $manifest.immutable_files | Add-Member -NotePropertyName $embeddingRelative -NotePropertyValue $embeddingHash -Force
-        $manifest | Add-Member -NotePropertyName embedding_model_sha256 -NotePropertyValue $embeddingHash -Force
-    }
     if ($modelRelative) {
         foreach ($property in @($manifest.immutable_files.PSObject.Properties)) {
             if ($property.Name.StartsWith('models/', [StringComparison]::OrdinalIgnoreCase)) {
@@ -212,6 +205,15 @@ try {
         $manifest.immutable_files | Add-Member -NotePropertyName $modelRelative -NotePropertyValue $modelHash -Force
         $manifest.model = 'selected-local-gguf/' + [IO.Path]::GetFileName($modelRelative)
         $manifest.model_sha256 = $modelHash
+    }
+    # Add the separate query encoder AFTER changing the generative GGUF
+    # so its hash remains in the immutable file list.
+    if (-not $embeddingRelative) {
+        $manifest.immutable_files.PSObject.Properties.Remove('runtime/llama-embedding.exe')
+    }
+    else {
+        $manifest.immutable_files | Add-Member -NotePropertyName $embeddingRelative -NotePropertyValue $embeddingHash -Force
+        $manifest | Add-Member -NotePropertyName embedding_model_sha256 -NotePropertyValue $embeddingHash -Force
     }
     $guiHash = (Get-FileHash -LiteralPath (Join-Path $package 'DK-Knowledge-Client.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
     $manifest.immutable_files | Add-Member -NotePropertyName 'DK-Knowledge-Client.exe' -NotePropertyValue $guiHash -Force
