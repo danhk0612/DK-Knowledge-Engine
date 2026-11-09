@@ -3,7 +3,9 @@ param(
     [Parameter(Mandatory=$true)] [string]$EnginePackage,
     [Parameter(Mandatory=$true)] [string]$KnowledgeDb,
     [Parameter(Mandatory=$true)] [string]$OutputDir,
-    [string]$ClientExe
+    [string]$ClientExe,
+    [string]$ModelFile,
+    [ValidateSet('raw_chatml','qwen3')] [string]$PromptMode = 'raw_chatml'
 )
 $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot '..')).Path
@@ -61,6 +63,42 @@ try {
         Copy-Item -LiteralPath $src -Destination (Join-Path $package $file)
     }
 
+    # Select the user-facing GGUF independently from knowledge DB creation.
+    # Custom GGUF files are bundled into this Client package, not referenced
+    # by their original path on the authoring workstation.
+    $modelHash = $null
+    $modelRelative = $null
+    if (-not [string]::IsNullOrWhiteSpace($ModelFile)) {
+        $chosenModel = (Resolve-Path -LiteralPath $ModelFile -ErrorAction Stop).Path
+        if (-not (Test-Path -LiteralPath $chosenModel -PathType Leaf) -or
+            [IO.Path]::GetExtension($chosenModel) -ine '.gguf') {
+            throw 'Selected AI model must be an existing .gguf file'
+        }
+        $modelName = [IO.Path]::GetFileName($chosenModel)
+        $modelsRoot = Join-Path $package 'models'
+        foreach ($oldModel in @(Get-ChildItem -LiteralPath $modelsRoot -File -Filter '*.gguf')) {
+            Remove-Item -LiteralPath $oldModel.FullName -Force
+        }
+        $destinationModel = Join-Path $modelsRoot $modelName
+        Copy-Item -LiteralPath $chosenModel -Destination $destinationModel -Force
+        $modelHash = (Get-FileHash -LiteralPath $destinationModel -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($modelHash -ne (Get-FileHash -LiteralPath $chosenModel -Algorithm SHA256).Hash.ToLowerInvariant()) {
+            throw 'Selected AI model SHA-256 mismatch after copying'
+        }
+        $modelRelative = 'models/' + $modelName
+    }
+    if ($modelRelative -or $PSBoundParameters.ContainsKey('PromptMode')) {
+        $settingsPath = Join-Path $package 'config/settings.json'
+        $settings = Get-Content -LiteralPath $settingsPath -Raw -Encoding UTF8 | ConvertFrom-Json
+        if (-not $settings.model) {
+            throw 'Input engine settings have no model configuration'
+        }
+        if ($modelRelative) { $settings.model.file = $modelRelative }
+        if ($PSBoundParameters.ContainsKey('PromptMode')) { $settings.model.prompt_mode = $PromptMode }
+        [IO.File]::WriteAllText($settingsPath,
+            ($settings | ConvertTo-Json -Depth 20), (New-Object System.Text.UTF8Encoding($false)))
+    }
+
     # Populate this isolated package, never an unrelated installed API.
     $dbHash = (Get-FileHash -LiteralPath $db -Algorithm SHA256).Hash.ToLowerInvariant()
     $packagedDb = Join-Path $package 'knowledge\knowledge.db'
@@ -111,6 +149,16 @@ try {
 
     $manifestPath = Join-Path $package 'manifest.json'
     $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($modelRelative) {
+        foreach ($property in @($manifest.immutable_files.PSObject.Properties)) {
+            if ($property.Name.StartsWith('models/', [StringComparison]::OrdinalIgnoreCase)) {
+                $manifest.immutable_files.PSObject.Properties.Remove($property.Name)
+            }
+        }
+        $manifest.immutable_files | Add-Member -NotePropertyName $modelRelative -NotePropertyValue $modelHash -Force
+        $manifest.model = 'selected-local-gguf/' + [IO.Path]::GetFileName($modelRelative)
+        $manifest.model_sha256 = $modelHash
+    }
     $guiHash = (Get-FileHash -LiteralPath (Join-Path $package 'DK-Knowledge-Client.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
     $manifest.immutable_files | Add-Member -NotePropertyName 'DK-Knowledge-Client.exe' -NotePropertyValue $guiHash -Force
     foreach ($name in @('LICENSE', 'README.md', 'THIRD_PARTY_NOTICES.md')) {
