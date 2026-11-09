@@ -456,11 +456,16 @@ def build(source_root: Path, database_path: Path, *, rebuild: bool = False,
           author_llama_cli: Path | None = None, author_model: Path | None = None,
           author_prompt_mode: str = "raw_chatml", author_gpu_layers: int = 0,
           author_max_chunks: int = 0, author_endpoint: str | None = None,
-          author_endpoint_model: str = "local") -> dict[str, Any]:
+          author_endpoint_model: str = "local",
+          embedding_runtime: Path | None = None, embedding_model: Path | None = None,
+          embedding_profile: str = "generic", embedding_gpu_layers: int = 0,
+          embedding_max_chunks: int = 0) -> dict[str, Any]:
     if author_endpoint and (author_model is not None or author_llama_cli is not None):
         raise ValueError("Author endpoint cannot be combined with a local GGUF")
     if (author_llama_cli is None) != (author_model is None):
         raise ValueError("Authoring model and llama.cpp executable must be provided together")
+    if (embedding_runtime is None) != (embedding_model is None):
+        raise ValueError("Embedding model and llama-embedding executable must be provided together")
     if author_endpoint:
         from builder.author_enrichment import LocalServerGenerator
         LocalServerGenerator(author_endpoint, author_endpoint_model)
@@ -501,6 +506,13 @@ def build(source_root: Path, database_path: Path, *, rebuild: bool = False,
                 max_chunks=author_max_chunks, endpoint=author_endpoint,
                 endpoint_model=author_endpoint_model,
             )
+        if embedding_runtime is not None and embedding_model is not None:
+            from builder.embedding_index import embed_database
+            result["embedding_index"] = embed_database(
+                working, runtime=embedding_runtime, model=embedding_model,
+                profile=embedding_profile, gpu_layers=embedding_gpu_layers,
+                max_chunks=embedding_max_chunks,
+            )
         if temp:
             os.replace(temp, out)
         return result
@@ -528,6 +540,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--author-max-chunks", type=int, default=0, help="0=all chunks; positive = limit new calls")
     parser.add_argument("--author-endpoint", help="Existing author-only localhost /v1/chat/completions endpoint")
     parser.add_argument("--author-endpoint-model", default="local", help="Local server model name")
+    parser.add_argument("--embedding-runtime", type=Path, help="Local llama-embedding executable")
+    parser.add_argument("--embedding-model", type=Path, help="Compact query-compatible GGUF for document vectors")
+    parser.add_argument("--embedding-profile", choices=("generic", "e5"), default="generic")
+    parser.add_argument("--embedding-gpu-layers", type=int, default=0)
+    parser.add_argument("--embedding-max-chunks", type=int, default=0, help="0=all; partial indexes are not deployable")
     args = parser.parse_args(argv)
     try:
         if args.quality_report:
@@ -555,7 +572,11 @@ def main(argv: list[str] | None = None) -> int:
                         author_gpu_layers=args.author_gpu_layers,
                         author_max_chunks=args.author_max_chunks,
                         author_endpoint=args.author_endpoint,
-                        author_endpoint_model=args.author_endpoint_model)
+                        author_endpoint_model=args.author_endpoint_model,
+                        embedding_runtime=args.embedding_runtime, embedding_model=args.embedding_model,
+                        embedding_profile=args.embedding_profile,
+                        embedding_gpu_layers=args.embedding_gpu_layers,
+                        embedding_max_chunks=args.embedding_max_chunks)
         visible_summary = dict(summary)
         if args.quality_report:
             report = args.quality_report.resolve()
