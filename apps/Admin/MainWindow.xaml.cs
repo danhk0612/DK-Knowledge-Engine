@@ -229,6 +229,18 @@ public partial class MainWindow : Window
         if (picker.ShowDialog(this) == true) EngineBox.Text = picker.FolderName;
     }
 
+    private void ChoosePackageModelClick(object sender, RoutedEventArgs e)
+    {
+        var picker = new OpenFileDialog
+        {
+            Title = "사용자 패키지에 포함할 GGUF 모델 선택",
+            Filter = "GGUF 모델 (*.gguf)|*.gguf",
+            CheckFileExists = true
+        };
+        if (picker.ShowDialog(this) == true)
+            PackageModelBox.Text = picker.FileName;
+    }
+
     private void ChooseDbClick(object sender, RoutedEventArgs e)
     {
         var picker = new SaveFileDialog
@@ -350,6 +362,14 @@ public partial class MainWindow : Window
                 PackageOutputBox.Text = Path.Combine(
                     Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                     "DK-Knowledge-Engine", "client-packages");
+            var selectedModel = PackageModelBox.Text.Trim();
+            if (selectedModel.Length > 0 &&
+                (!File.Exists(selectedModel) ||
+                 !string.Equals(Path.GetExtension(selectedModel), ".gguf",
+                     StringComparison.OrdinalIgnoreCase)))
+                throw new ArgumentException("배포할 AI 모델은 실제 GGUF 파일이어야 합니다.");
+            var promptMode = (PackagePromptModeBox.SelectedItem as System.Windows.Controls.ComboBoxItem)
+                ?.Content?.ToString() ?? "raw_chatml";
             var script = _bundled
                 ? Path.Combine(_appRoot, "tools", "Build-Client-Package.ps1")
                 : Path.Combine(RepoBox.Text.Trim(), "distribution", "Build-Client-Package.ps1");
@@ -358,8 +378,14 @@ public partial class MainWindow : Window
                 "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script,
                 "-EnginePackage", EngineBox.Text.Trim(),
                 "-KnowledgeDb", DbBox.Text.Trim(),
-                "-OutputDir", PackageOutputBox.Text.Trim()
+                "-OutputDir", PackageOutputBox.Text.Trim(),
+                "-PromptMode", promptMode
             };
+            if (selectedModel.Length > 0)
+            {
+                args.Add("-ModelFile");
+                args.Add(selectedModel);
+            }
             if (_bundled)
             {
                 args.Add("-ClientExe");
