@@ -68,7 +68,7 @@ try {
             runtime = 'runtime/llama-completion.exe'
             threads = 4
             context_size = 4096
-            max_tokens = 192
+            max_tokens = 384
             timeout_seconds = 180
             gpu_layers = 0
             prompt_mode = 'raw_chatml'

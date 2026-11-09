@@ -10,7 +10,9 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import sqlite3
+import subprocess
 import sys
 import tempfile
 from contextlib import closing
@@ -158,7 +160,39 @@ def _text_segments(text: str, *, markdown: bool = False, page: int | None = None
     return result
 
 
-def _extract(path: Path) -> tuple[list[Segment], list[str]]:
+def _ocr_pdf_page(path: Path, page_number: int, *, tesseract: str,
+                  pdftoppm: str, language: str) -> str:
+    """Run author-side, offline OCR for one otherwise non-text PDF page.
+
+    Both external executables must be installed by the author. Nothing is
+    downloaded, installed or bundled into the user's Client package.
+    """
+    if not re.fullmatch(r"[A-Za-z0-9_+\-]+", language):
+        raise ValueError("Invalid OCR language code")
+    with tempfile.TemporaryDirectory(prefix="dk-ocr-") as temporary:
+        prefix = Path(temporary) / "page"
+        render = subprocess.run(
+            [pdftoppm, "-f", str(page_number), "-l", str(page_number),
+             "-singlefile", "-r", "200", "-png", str(path), str(prefix)],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=120, check=False,
+        )
+        if render.returncode != 0 or not prefix.with_suffix(".png").is_file():
+            raise ValueError(f"PDF page {page_number} render failed: {render.stderr[-300:]}")
+        recognition = subprocess.run(
+            [tesseract, str(prefix.with_suffix(".png")), "stdout", "-l", language],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=120, check=False,
+        )
+        if recognition.returncode != 0:
+            raise ValueError(f"PDF page {page_number} OCR failed: {recognition.stderr[-300:]}")
+        return recognition.stdout
+
+
+def _extract(path: Path, *, pdf_layout: bool = False,
+             ocr_scanned_pages: bool = False,
+             tesseract: str = "tesseract", pdftoppm: str = "pdftoppm",
+             ocr_language: str = "kor+eng") -> tuple[list[Segment], list[str]]:
     warnings: list[str] = []
     suffix = path.suffix.lower()
     if suffix in {".txt", ".md"}:
@@ -168,8 +202,15 @@ def _extract(path: Path) -> tuple[list[Segment], list[str]]:
         reader = PdfReader(str(path))
         segments = []
         for page_number, page in enumerate(reader.pages, start=1):
-            text = page.extract_text() or ""
+            text = (page.extract_text(extraction_mode="layout")
+                    if pdf_layout else page.extract_text()) or ""
             extracted = _text_segments(text, page=page_number)
+            if not extracted and ocr_scanned_pages:
+                text = _ocr_pdf_page(path, page_number, tesseract=tesseract,
+                                     pdftoppm=pdftoppm, language=ocr_language)
+                extracted = _text_segments(text, page=page_number)
+                if extracted:
+                    warnings.append(f"{path}: page {page_number} OCR text recovered")
             if not extracted:
                 warnings.append(f"{path}: page {page_number} has no extractable text (possibly scanned)")
             segments.extend(extracted)
@@ -329,10 +370,14 @@ def _parse_rule(path: Path, root: Path) -> dict[str, Any]:
     return rule
 
 
-def _sync(db: sqlite3.Connection, docs: list[DocumentSource], rules: list[Path], root: Path) -> dict[str, Any]:
+def _sync(db: sqlite3.Connection, docs: list[DocumentSource], rules: list[Path],
+          root: Path, *, pdf_layout: bool = False, ocr_scanned_pages: bool = False,
+          tesseract: str = "tesseract", pdftoppm: str = "pdftoppm",
+          ocr_language: str = "kor+eng") -> dict[str, Any]:
     existing = {row["source_path"]: row for row in db.execute("SELECT * FROM documents")}
     seen = set()
-    changes = {"added": 0, "updated": 0, "deleted": 0, "unchanged": 0, "chunks": 0, "rules": 0, "warnings": []}
+    changes = {"added": 0, "updated": 0, "deleted": 0, "unchanged": 0, "chunks": 0,
+               "rules": 0, "warnings": [], "quality": []}
     with db:
         for doc in docs:
             seen.add(doc.source_path)
@@ -340,9 +385,18 @@ def _sync(db: sqlite3.Connection, docs: list[DocumentSource], rules: list[Path],
             if previous and previous["source_hash"] == doc.source_hash and previous["metadata_hash"] == doc.metadata_hash:
                 changes["unchanged"] += 1
                 continue
-            segments, warnings = _extract(doc.file)
+            segments, warnings = _extract(doc.file, pdf_layout=pdf_layout,
+                                          ocr_scanned_pages=ocr_scanned_pages,
+                                          tesseract=tesseract, pdftoppm=pdftoppm,
+                                          ocr_language=ocr_language)
             changes["warnings"].extend(warnings)
             chunks = _make_chunks(segments)
+            changes["quality"].append({
+                "source_path": doc.source_path, "product_id": doc.product_id,
+                "extracted_characters": sum(len(s.text) for s in segments),
+                "chunks": len(chunks),
+                "warnings": warnings,
+            })
             if not chunks:
                 raise ValueError(f"No chunks generated for {doc.source_path}")
             if previous:
@@ -396,7 +450,11 @@ def _sync(db: sqlite3.Connection, docs: list[DocumentSource], rules: list[Path],
 
 
 def build(source_root: Path, database_path: Path, *, rebuild: bool = False,
-          default_product_id: str = "default") -> dict[str, Any]:
+          default_product_id: str = "default", pdf_layout: bool = False,
+          ocr_scanned_pages: bool = False, tesseract: str = "tesseract",
+          pdftoppm: str = "pdftoppm", ocr_language: str = "kor+eng") -> dict[str, Any]:
+    if (pdf_layout or ocr_scanned_pages) and not rebuild:
+        raise ValueError("PDF extraction options require --rebuild to refresh existing documents")
     root = source_root.resolve()
     out = database_path.resolve()
     # A .db inside the source folder is safe: document enumeration ignores it.
@@ -420,7 +478,10 @@ def build(source_root: Path, database_path: Path, *, rebuild: bool = False,
             db.execute("PRAGMA foreign_keys=ON")
             db.execute("PRAGMA journal_mode=DELETE")
             _prepare_schema(db)
-            result = _sync(db, docs, rules, root)
+            result = _sync(db, docs, rules, root, pdf_layout=pdf_layout,
+                           ocr_scanned_pages=ocr_scanned_pages,
+                           tesseract=tesseract, pdftoppm=pdftoppm,
+                           ocr_language=ocr_language)
         if temp:
             os.replace(temp, out)
         return result
@@ -435,14 +496,46 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--default-product-id", default="default", help="Product ID for documents outside product-specific folders")
     parser.add_argument("--database", required=True, type=Path, help="Output .db file (any location, without overwriting source documents)")
     parser.add_argument("--rebuild", action="store_true", help="Rebuild database from all source documents atomically")
+    parser.add_argument("--pdf-layout", action="store_true", help="Use pypdf layout-mode extraction for complex text PDFs")
+    parser.add_argument("--ocr-scanned-pages", action="store_true", help="Use external offline Poppler+Tesseract on pages with no extracted text")
+    parser.add_argument("--tesseract", default="tesseract", help="Tesseract executable or PATH command")
+    parser.add_argument("--pdftoppm", default="pdftoppm", help="Poppler pdftoppm executable or PATH command")
+    parser.add_argument("--ocr-language", default="kor+eng", help="Installed Tesseract language data")
+    parser.add_argument("--quality-report", type=Path, help="Optional JSON extraction/chunk quality report")
     args = parser.parse_args(argv)
     try:
+        if args.quality_report:
+            report = args.quality_report.resolve()
+            if report == args.database.resolve():
+                raise ValueError("Quality report cannot replace the database")
+            source_root = args.source.resolve()
+            if report.is_relative_to(source_root):
+                relative = report.relative_to(source_root)
+                if (report.suffix.lower() in SUPPORTED_EXTENSIONS or
+                        report.name.endswith(".meta.json") or
+                        (report.suffix.lower() == ".json" and "rules" in relative.parts[:-1])):
+                    raise ValueError("Quality report cannot overwrite a source document, metadata or rules")
+        if args.ocr_scanned_pages:
+            for program, command in (("Tesseract", args.tesseract), ("Poppler pdftoppm", args.pdftoppm)):
+                if shutil.which(command) is None:
+                    raise ValueError(f"{program} executable not found: {command}; install it on the authoring PC or supply its path")
         summary = build(args.source, args.database, rebuild=args.rebuild,
-                        default_product_id=args.default_product_id)
-    except (ValueError, OSError, sqlite3.Error, ImportError, json.JSONDecodeError) as exc:
+                        default_product_id=args.default_product_id,
+                        pdf_layout=args.pdf_layout, ocr_scanned_pages=args.ocr_scanned_pages,
+                        tesseract=args.tesseract, pdftoppm=args.pdftoppm,
+                        ocr_language=args.ocr_language)
+        visible_summary = dict(summary)
+        if args.quality_report:
+            report = args.quality_report.resolve()
+            report.parent.mkdir(parents=True, exist_ok=True)
+            report.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+            visible_summary.pop("quality", None)
+            visible_summary["quality_report"] = str(report)
+    except (ValueError, OSError, sqlite3.Error, ImportError, json.JSONDecodeError,
+            subprocess.TimeoutExpired) as exc:
         print(f"Knowledge Builder failed: {exc}", file=sys.stderr)
         return 1
-    print(json.dumps(summary, ensure_ascii=False, indent=2))
+    print(json.dumps(visible_summary, ensure_ascii=False, indent=2))
     return 0
 
 

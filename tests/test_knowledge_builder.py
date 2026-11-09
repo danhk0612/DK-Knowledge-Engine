@@ -4,11 +4,12 @@ import hashlib
 import json
 import sqlite3
 import tempfile
+from unittest.mock import patch
 import unittest
 from contextlib import closing
 from pathlib import Path
 
-from builder.knowledge_builder import build, _make_chunks, Segment
+from builder.knowledge_builder import build, _make_chunks, Segment, main
 
 
 class BuilderTests(unittest.TestCase):
@@ -139,6 +140,52 @@ class BuilderTests(unittest.TestCase):
         result = build(self.root, self.out)
         self.assertEqual(len(result["warnings"]), 1)
         self.assertIn("page 2", result["warnings"][0])
+
+    def test_offline_ocr_recovers_blank_pdf_without_changing_source(self):
+        from pypdf import PdfWriter
+        target = self.root / "product-one/manuals/scan.pdf"
+        writer = PdfWriter()
+        writer.add_blank_page(width=240, height=320)
+        with target.open("wb") as stream:
+            writer.write(stream)
+        original = hashlib.sha256(target.read_bytes()).hexdigest()
+        with patch("builder.knowledge_builder._ocr_pdf_page",
+                   return_value="OCR 복구한 설치 절차") as mocked:
+            result = build(self.root, self.out, rebuild=True, ocr_scanned_pages=True)
+        self.assertEqual(mocked.call_count, 1)
+        self.assertEqual(result["added"], 1)
+        self.assertEqual(result["quality"][0]["chunks"], 1)
+        self.assertTrue(any("OCR text recovered" in warning for warning in result["warnings"]))
+        with self.db() as db:
+            self.assertIn("OCR 복구한", db.execute("SELECT content FROM chunks").fetchone()[0])
+        self.assertEqual(hashlib.sha256(target.read_bytes()).hexdigest(), original)
+
+    def test_quality_report_json_and_pdf_mode_requires_rebuild(self):
+        self.put("product-one/manuals/guide.md", "# Setup\n\nUser account help")
+        report = self.out.with_suffix(".quality.json")
+        status = main(["--source", str(self.root), "--database", str(self.out),
+                       "--rebuild", "--quality-report", str(report)])
+        self.assertEqual(status, 0)
+        summary = json.loads(report.read_text(encoding="utf-8"))
+        self.assertEqual(summary["quality"][0]["source_path"], "product-one/manuals/guide.md")
+        self.assertGreater(summary["quality"][0]["extracted_characters"], 0)
+        with self.assertRaisesRegex(ValueError, "require --rebuild"):
+            build(self.root, self.out, pdf_layout=True)
+
+    def test_quality_report_cannot_overwrite_sidecars_or_rules(self):
+        doc = self.put("product-one/manuals/guide.md", "# Guide\n\nSetup instructions")
+        sidecar = doc.with_name(doc.name + ".meta.json")
+        sidecar.write_text('{"document_id":"guide-id"}', encoding="utf-8")
+        rule = self.put("product-one/rules/guide.json", '{}')
+        for protected in (sidecar, rule):
+            before = protected.read_bytes()
+            with self.subTest(path=str(protected)):
+                self.assertEqual(main([
+                    "--source", str(self.root), "--database", str(self.out),
+                    "--rebuild", "--quality-report", str(protected),
+                ]), 1)
+                self.assertEqual(protected.read_bytes(), before)
+                self.assertFalse(self.out.exists())
 
     def test_metadata_and_rules_references(self):
         doc = self.put("product-one/manuals/guide.md", "# Connection\n\nServer not available")

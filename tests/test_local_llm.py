@@ -62,6 +62,26 @@ class GroundedAnswerTests(unittest.TestCase):
         self.assertIn("매뉴얼 내용만 사용하세요", fake.calls[0][0])
         self.assertGreaterEqual(answer["elapsed_seconds"], 0)
 
+    def test_multi_step_prompt_keeps_numbered_sources_and_bounded_context(self):
+        source = self.root / "app-one" / "manuals"
+        for n in range(5):
+            (source / f"case{n}.md").write_text(
+                "연결 오류 해결 절차: " + ("포트 3308을 점검합니다. " * 80),
+                encoding="utf-8",
+            )
+        build(self.root, self.db, rebuild=True)
+        fake = FakeGenerator("1. 포트를 확인합니다. [1]")
+        result = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="연결 오류 해결 절차는?", generator=fake,
+        )
+        self.assertTrue(result["grounded"])
+        self.assertGreaterEqual(len(result["sources"]), 2)
+        self.assertLessEqual(len(result["sources"]), 5)
+        self.assertIn("[1]", fake.calls[0][1])
+        self.assertIn("최대 5단계", fake.calls[0][0])
+        self.assertLess(len(fake.calls[0][1]), 5300)
+
     def test_empty_evidence_never_calls_model(self):
         fake = FakeGenerator()
         no_result = answer_from_knowledge(
