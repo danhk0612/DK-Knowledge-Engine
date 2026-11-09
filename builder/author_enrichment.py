@@ -10,7 +10,7 @@ import json
 import re
 import sqlite3
 from urllib.parse import urlsplit
-from urllib.request import Request, build_opener, HTTPRedirectHandler
+from urllib.request import Request, build_opener, HTTPRedirectHandler, ProxyHandler
 from urllib.error import URLError
 from contextlib import closing
 from pathlib import Path
@@ -96,7 +96,7 @@ class LocalServerGenerator:
             raise ValueError("Author endpoint must be http://127.0.0.1:PORT/v1/chat/completions")
         self.endpoint = endpoint
         self.model = model
-        self.client = build_opener(_NoRedirect())
+        self.client = build_opener(ProxyHandler({}), _NoRedirect())
 
     def generate(self, system: str, user: str) -> str:
         body = json.dumps({
