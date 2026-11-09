@@ -289,3 +289,9 @@ T09 Windows 검증: [Actions run 41955872865](https://github.com/danhk0612/DK-Kn
 **상태: v0.1.0-preview.1 배포 준비 브랜치에서 작업.** 사용자용 README, Admin/Client 빠른 시작, MIT 프로젝트 LICENSE, 제3자 의존성 고지, 버전별 릴리스 노트 및 Release 초안 생성 절차를 마련한다. 관리자/사용자 ZIP 안에 안내·라이선스 파일을 포함하고 Client의 불변 매니페스트에 해당 파일의 해시를 기록한다. 공개 릴리스는 성공한 같은 main 커밋의 통합 CI Run ID와 두 ZIP을 확인한 후 **Draft prerelease**로 생성하며 자동 공개하지 않는다.
 
 **공개 전 제한:** unsigned ZIP/SmartScreen, 실제 고객 문서 권리·데이터, Python/PyInstaller 및 transitive dependency의 완전한 라이선스 고지, Windows 현장 적합성은 별도 승인 대상. 첫 preview의 사용자 ZIP은 합성 샘플 DB만 포함한다.
+
+## T16 — 배포용 GGUF 모델 선택 및 DB/답변 경로 분리 설명
+
+**상태: 개발 브랜치에서 구현·CI 검증 진행.** 관리자는 사용자 패키지 제작 시 컴퓨터의 GGUF 파일을 선택해 Client ZIP에 포함할 수 있다. 선택 파일이 없으면 기본 Qwen3가 유지되며, 선택 시 기본 모델 대신 GGUF 복사, 설정 파일 경로/프롬프트 형식 업데이트, 매니페스트 모델 SHA-256 재계산을 수행한다. 호환 모델의 GGUF 채팅 템플릿 사용을 위한 일반 `jinja` 모드를 추가하고 기존 Qwen3 모드는 유지한다. 지원하지 않는 모델 아키텍처·런타임의 자동 업데이트는 범위 밖이다.
+
+Knowledge Builder는 모델 기반 임베딩/OCR/LLM 처리를 하지 않으며 기존 pypdf·python-docx 텍스트 추출 및 SQLite FTS5 검색 방식을 변경하지 않는다. 진단 방법은 `docs/T16_MODEL_PACKAGING.md`에 기록. 새 스키마·백엔드·다운로드·신규 서비스·정식 Release는 추가하지 않는다.

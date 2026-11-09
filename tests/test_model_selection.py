@@ -55,6 +55,22 @@ class PortableSelectionTests(unittest.TestCase):
             self.assertEqual(self.at(cli, flag), val)
         self.assertIn("https://support.example", cli)
 
+    def test_generic_jinja_uses_model_chat_template_without_qwen_reasoning_flag(self):
+        config = dict(self.default, model={"prompt_mode": "jinja"})
+        cli = portable_cli(self.root, config)
+        self.assertEqual(self.at(cli, "--prompt-mode"), "jinja")
+        with patch("llm.local_llm.subprocess.run", return_value=SimpleNamespace(
+            returncode=0, stdout="answer", stderr=""
+        )) as task:
+            generator = LlamaCli(self.root / "runtime/llama-completion.exe",
+                                 self.root / "models/other.gguf", prompt_mode="jinja")
+            self.assertEqual(generator.generate("system", "question"), "answer")
+        argv = task.call_args.args[0]
+        for flag in ("--jinja", "--single-turn", "-sys", "-p"):
+            self.assertIn(flag, argv)
+        self.assertNotIn("--reasoning", argv)
+        self.assertNotIn("-no-cnv", argv)
+
     def test_invalid_selection_rejected(self):
         bad = [
             {"file": "models/../secret.gguf"},

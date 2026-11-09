@@ -35,4 +35,6 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Update-Knowledge.ps1 -
 
 ## 주의 사항
 
+관리자가 다른 모델을 선택하면 해당 GGUF는 패키지의 `models/`에 포함되며 `config/settings.json`에 선택 파일 경로가 설정됩니다. 사용자가 모델을 직접 추가·변경하는 방법은 [T09 모델 설정](T09_MODEL_CONFIGURATION.md)을 참고하세요.
+
 이 프로그램은 생성형 AI 답변을 제공하므로 틀린 답변이 나올 수 있습니다. 원본 설명서·공식 기술 지원 문서를 우선하세요. 서명되지 않은 포터블 EXE에 대한 Windows SmartScreen 또는 조직 정책은 별도의 검토 대상입니다. 공식 배포의 SHA-256 체크섬과 다운로드 출처를 먼저 확인하세요.

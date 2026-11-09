@@ -128,6 +128,7 @@
         </Grid>
       </TabItem>
       <TabItem Header="사용자 패키지 제작">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="16">
           <TextBlock Text="사용자 전용 패키지 만들기" FontSize="18" FontWeight="SemiBold"/>
           <TextBlock Text="기존 검증된 포터블 엔진과 현재 지식 DB를 결합합니다. 관리자 실행 파일·문서 변환 도구는 포함하지 않습니다."
@@ -140,6 +141,22 @@
                     Padding="12,7" Margin="10,0,0,0"/>
             <TextBox x:Name="EngineBox" Padding="8"/>
           </DockPanel>
+          <TextBlock Text="사용자용 AI 모델 (GGUF, 선택하지 않으면 기본 Qwen3 1.7B)" FontWeight="SemiBold"/>
+          <DockPanel Margin="0,5,0,8">
+            <Button DockPanel.Dock="Right" Content="GGUF 선택" Padding="12,7"
+                    Margin="10,0,0,0" Click="ChoosePackageModelClick"/>
+            <TextBox x:Name="PackageModelBox" Padding="8"/>
+          </DockPanel>
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
+            <TextBlock Text="프롬프트 형식" VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <ComboBox x:Name="PackagePromptModeBox" Width="160" SelectedIndex="0">
+              <ComboBoxItem Content="raw_chatml"/>
+              <ComboBoxItem Content="qwen3"/>
+              <ComboBoxItem Content="jinja"/>
+            </ComboBox>
+          </StackPanel>
+          <TextBlock Text="선택 모델은 사용자 ZIP의 models 폴더에 포함합니다. 현재 llama.cpp 런타임과 프롬프트 형식에 호환되는 GGUF를 선택하세요."
+                     Foreground="#566273" TextWrapping="Wrap" Margin="0,0,0,14"/>
           <TextBlock Text="사용자 패키지 출력 폴더 (기본 자동 설정 · 기존 폴더 사용 가능)" FontWeight="SemiBold"/>
           <DockPanel Margin="0,5,0,16">
             <Button DockPanel.Dock="Right" Content="탐색기 열기" Click="OpenPackageOutputFolderClick"
@@ -151,6 +168,7 @@
           <TextBlock x:Name="PackageRequirementsText" Text="동일한 출력 파일은 덮어씁니다. 기존 폴더의 무관한 파일은 유지합니다. 독립형 관리자에는 Python·.NET SDK가 필요하지 않습니다."
                      Margin="0,16,0,0" TextWrapping="Wrap" Foreground="#566273"/>
         </StackPanel>
+        </ScrollViewer>
       </TabItem>
     </TabControl>
     <TextBlock x:Name="StatusText" Grid.Row="2" Padding="6,12,0,0" Text="준비"

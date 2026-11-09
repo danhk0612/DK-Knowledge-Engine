@@ -140,8 +140,30 @@ jobs:
           # unrelated authoring files and must not include them in the ZIP.
           $note = Join-Path '.\client-package-output' 'keep-local.txt'
           Set-Content -LiteralPath $note -Value 'author-notes'
-          & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $db -OutputDir '.\client-package-output'
-          if ($LASTEXITCODE -ne 0) { throw 'Repeated build with existing output failed' }
+          # Select an alternate-name GGUF from the authoring PC. Use the
+          # identical verified Qwen3 model bytes to test packaging without
+          # claiming a different architecture is compatible.
+          $selected = Join-Path $base 'models\selected-test.gguf'
+          Copy-Item -LiteralPath (Join-Path $base 'models\Qwen3-1.7B-Q4_K_M.gguf') -Destination $selected
+          & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $db -OutputDir '.\client-package-output' -ModelFile $selected -PromptMode 'jinja'
+          if ($LASTEXITCODE -ne 0) { throw 'Repeated build with selected model failed' }
+          $generated = '.\client-package-output\DK-Knowledge-Engine-Client'
+          $modelConfig = Get-Content (Join-Path $generated 'config\settings.json') -Raw | ConvertFrom-Json
+          if ($modelConfig.model.file -ne 'models/selected-test.gguf' -or $modelConfig.model.prompt_mode -ne 'jinja') {
+            throw 'Selected model or prompt mode not written into client configuration'
+          }
+          $models = @(Get-ChildItem (Join-Path $generated 'models') -Filter '*.gguf' -File)
+          if ($models.Count -ne 1 -or $models[0].Name -ne 'selected-test.gguf') {
+            throw 'Client package did not replace default GGUF with selected model'
+          }
+          $manifest = Get-Content (Join-Path $generated 'manifest.json') -Raw | ConvertFrom-Json
+          $expectedHash = (Get-FileHash $models[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($manifest.model_sha256 -ne $expectedHash -or
+              $manifest.immutable_files.'models/selected-test.gguf' -ne $expectedHash) {
+            throw 'Selected model SHA-256 was not recorded in manifest'
+          }
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $generated 'Verify-AIHelp.ps1') -Root $generated
+          if ($LASTEXITCODE -ne 0) { throw 'Selected model Client integrity verification failed' }
           if ((Get-Content -LiteralPath $note -Raw).Trim() -ne 'author-notes') { throw 'Unrelated output file was lost' }
           $zip = '.\client-package-output\DK-Knowledge-Engine-Client-Win-x64.zip'
           $zipContents = & tar.exe -tf $zip
