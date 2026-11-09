@@ -17,8 +17,9 @@ Windows가 출처가 불분명한 파일에 대한 경고를 표시하면 배포
 3. **선택 문서 교체 / 삭제**는 목록의 기존 문서와 추가한 문서 모두에 적용됩니다.
 4. **일반 폴더 문서 제품 ID**를 확인합니다. 예: `manual-test`. 제품별 `product-id/manuals/` 구조는 기존 제품 구분을 유지합니다.
 5. 필요한 경우 **PDF 레이아웃 보존 추출** 또는 **스캔 PDF OCR**을 선택합니다. OCR은 제작자 PC에 Tesseract와 Poppler(pdftoppm), 한국어 언어 데이터가 미리 있어야 합니다.
-6. **지식 DB 재생성**을 눌러 `knowledge.db`를 생성합니다. 원본 파일만 바꾸어서는 DB가 자동 반영되지 않습니다.
-7. **품질 보고서 열기**로 `knowledge.quality.json`의 문서별 텍스트 추출량·청크 수·경고를 확인합니다. [진단 안내](T17_QUALITY_PIPELINE.md)
+6. 고사양 제작용 LLM을 사용해 검색 표현을 보강하려면 **제작용 AI로 문서 검색 표현 보강**을 켜고 별도 GGUF/llama.cpp 또는 localhost 모델 서버를 지정합니다. [T18 자세한 사용법](T18_AUTHOR_ENRICHMENT.md)
+7. **지식 DB 재생성**을 눌러 `knowledge.db`를 생성합니다. 원본 파일만 바꾸어서는 DB가 자동 반영되지 않습니다.
+8. **품질 보고서 열기**로 `knowledge.quality.json`의 문서별 텍스트 추출량·청크 수·경고를 확인합니다. [진단 안내](T17_QUALITY_PIPELINE.md)
 
 기본 위치:
 - 문서: `%LOCALAPPDATA%\DK-Knowledge-Engine\sources`
