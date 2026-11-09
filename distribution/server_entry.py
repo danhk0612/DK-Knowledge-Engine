@@ -44,12 +44,35 @@ def verify_database(database: Path) -> dict:
             ).fetchone()
             if match is None:
                 raise ValueError(f"Required knowledge table is missing: {table}")
-        return {
+        result = {
             "schema_version": version[0],
             "documents": db.execute("SELECT count(*) FROM documents").fetchone()[0],
             "chunks": db.execute("SELECT count(*) FROM chunks").fetchone()[0],
             "rules": db.execute("SELECT count(*) FROM help_rules").fetchone()[0],
         }
+        has_vectors = db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='chunk_embeddings'"
+        ).fetchone()
+        if has_vectors:
+            metadata = dict(db.execute("SELECT key,value FROM embedding_metadata").fetchall())
+            count = db.execute("SELECT count(*) FROM chunk_embeddings").fetchone()[0]
+            dimensions = int(metadata.get("dimensions", "0"))
+            consistent = (16 <= dimensions <= 4096 and
+                db.execute(
+                    "SELECT count(*) FROM chunk_embeddings "
+                    "WHERE dimensions != ? OR length(vector) != ?",
+                    (dimensions, 4 * dimensions)
+                ).fetchone()[0] == 0)
+            result["embedding"] = {
+                "model_sha256": metadata.get("model_sha256", ""),
+                "profile": metadata.get("profile", ""),
+                "vectors": count, "dimensions": dimensions,
+                "complete": bool(
+                    consistent and metadata.get("model_sha256") and
+                    count == result["chunks"]
+                ),
+            }
+        return result
 
 
 def _selected_file(root: Path, value: str, folder: str, suffix: str) -> Path:
