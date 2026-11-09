@@ -359,7 +359,8 @@ public partial class MainWindow : Window
                 .Select(s => s.GetProperty("title").GetString() + "\n" +
                     s.GetProperty("source_path").GetString() +
                     (s.TryGetProperty("page_from", out var p) && p.ValueKind == JsonValueKind.Number
-                        ? $" (p.{p.GetInt32()})" : "")).ToArray();
+                        ? $" (p.{p.GetInt32()})" : "") + "\n" +
+                    s.GetProperty("excerpt").GetString()).ToArray();
             TestLog.Text = lines.Length == 0 ? "검색 결과 없음" : string.Join("\n\n", lines);
         }
         StatusText.Text = "시험 완료";
