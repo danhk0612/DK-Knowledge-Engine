@@ -452,7 +452,12 @@ def _sync(db: sqlite3.Connection, docs: list[DocumentSource], rules: list[Path],
 def build(source_root: Path, database_path: Path, *, rebuild: bool = False,
           default_product_id: str = "default", pdf_layout: bool = False,
           ocr_scanned_pages: bool = False, tesseract: str = "tesseract",
-          pdftoppm: str = "pdftoppm", ocr_language: str = "kor+eng") -> dict[str, Any]:
+          pdftoppm: str = "pdftoppm", ocr_language: str = "kor+eng",
+          author_llama_cli: Path | None = None, author_model: Path | None = None,
+          author_prompt_mode: str = "raw_chatml", author_gpu_layers: int = 0,
+          author_max_chunks: int = 0) -> dict[str, Any]:
+    if (author_llama_cli is None) != (author_model is None):
+        raise ValueError("Authoring model and llama.cpp executable must be provided together")
     if (pdf_layout or ocr_scanned_pages) and not rebuild:
         raise ValueError("PDF extraction options require --rebuild to refresh existing documents")
     root = source_root.resolve()
@@ -482,6 +487,13 @@ def build(source_root: Path, database_path: Path, *, rebuild: bool = False,
                            ocr_scanned_pages=ocr_scanned_pages,
                            tesseract=tesseract, pdftoppm=pdftoppm,
                            ocr_language=ocr_language)
+        if author_model is not None and author_llama_cli is not None:
+            from builder.author_enrichment import enrich
+            result["author_enrichment"] = enrich(
+                working, llama_cli=author_llama_cli, model=author_model,
+                prompt_mode=author_prompt_mode, gpu_layers=author_gpu_layers,
+                max_chunks=author_max_chunks,
+            )
         if temp:
             os.replace(temp, out)
         return result
@@ -502,6 +514,11 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--pdftoppm", default="pdftoppm", help="Poppler pdftoppm executable or PATH command")
     parser.add_argument("--ocr-language", default="kor+eng", help="Installed Tesseract language data")
     parser.add_argument("--quality-report", type=Path, help="Optional JSON extraction/chunk quality report")
+    parser.add_argument("--author-llama-cli", type=Path, help="Local authoring-only llama.cpp executable")
+    parser.add_argument("--author-model", type=Path, help="Local GGUF for generating source-backed search hints")
+    parser.add_argument("--author-prompt-mode", choices=("raw_chatml", "qwen3", "jinja"), default="raw_chatml")
+    parser.add_argument("--author-gpu-layers", type=int, default=0, help="GPU layers if author runtime supports GPU")
+    parser.add_argument("--author-max-chunks", type=int, default=0, help="0=all chunks; positive = limit new calls")
     args = parser.parse_args(argv)
     try:
         if args.quality_report:
@@ -523,7 +540,11 @@ def main(argv: list[str] | None = None) -> int:
                         default_product_id=args.default_product_id,
                         pdf_layout=args.pdf_layout, ocr_scanned_pages=args.ocr_scanned_pages,
                         tesseract=args.tesseract, pdftoppm=args.pdftoppm,
-                        ocr_language=args.ocr_language)
+                        ocr_language=args.ocr_language,
+                        author_llama_cli=args.author_llama_cli, author_model=args.author_model,
+                        author_prompt_mode=args.author_prompt_mode,
+                        author_gpu_layers=args.author_gpu_layers,
+                        author_max_chunks=args.author_max_chunks)
         visible_summary = dict(summary)
         if args.quality_report:
             report = args.quality_report.resolve()
@@ -532,7 +553,7 @@ def main(argv: list[str] | None = None) -> int:
             visible_summary.pop("quality", None)
             visible_summary["quality_report"] = str(report)
     except (ValueError, OSError, sqlite3.Error, ImportError, json.JSONDecodeError,
-            subprocess.TimeoutExpired) as exc:
+            subprocess.TimeoutExpired, RuntimeError) as exc:
         print(f"Knowledge Builder failed: {exc}", file=sys.stderr)
         return 1
     print(json.dumps(visible_summary, ensure_ascii=False, indent=2))
