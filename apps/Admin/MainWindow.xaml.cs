@@ -261,6 +261,33 @@ public partial class MainWindow : Window
         if (dialog.ShowDialog(this) == true) AuthorRuntimeBox.Text = dialog.FileName;
     }
 
+    private void ChooseEmbeddingModelClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog {
+            Title = "문서 벡터 생성용 임베딩 GGUF 선택",
+            Filter = "GGUF 모델 (*.gguf)|*.gguf", CheckFileExists = true
+        };
+        if (dialog.ShowDialog(this) == true) EmbeddingModelBox.Text = dialog.FileName;
+    }
+
+    private void ChooseEmbeddingRuntimeClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog {
+            Title = "임베딩용 llama.cpp 실행 파일 선택",
+            Filter = "Windows 실행 파일 (*.exe)|*.exe", CheckFileExists = true
+        };
+        if (dialog.ShowDialog(this) == true) EmbeddingRuntimeBox.Text = dialog.FileName;
+    }
+
+    private void ChoosePackageEmbeddingModelClick(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog {
+            Title = "사용자 ZIP에 포함할 경량 임베딩 GGUF",
+            Filter = "GGUF 모델 (*.gguf)|*.gguf", CheckFileExists = true
+        };
+        if (dialog.ShowDialog(this) == true) PackageEmbeddingModelBox.Text = dialog.FileName;
+    }
+
     private void ChoosePackageModelClick(object sender, RoutedEventArgs e)
     {
         var picker = new OpenFileDialog
@@ -362,6 +389,26 @@ public partial class MainWindow : Window
                     });
                 }
             }
+            if (EmbeddingIndexBox.IsChecked == true)
+            {
+                var model = EmbeddingModelBox.Text.Trim();
+                var executable = EmbeddingRuntimeBox.Text.Trim();
+                if (string.IsNullOrWhiteSpace(executable))
+                    executable = Path.Combine(EngineBox.Text.Trim(), "runtime", "llama-embedding.exe");
+                if (!File.Exists(model) || !string.Equals(Path.GetExtension(model), ".gguf",
+                      StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException("문서 벡터 생성용 GGUF 파일을 선택하세요.");
+                if (!File.Exists(executable))
+                    throw new FileNotFoundException("llama-embedding.exe 실행 파일을 찾을 수 없습니다.", executable);
+                if (!int.TryParse(EmbeddingGpuLayersBox.Text.Trim(), out var gpuLayers) || gpuLayers < 0)
+                    throw new ArgumentException("임베딩 GPU layers는 0 이상의 정수여야 합니다.");
+                var profile = (EmbeddingProfileBox.SelectedItem as System.Windows.Controls.ComboBoxItem)
+                    ?.Content?.ToString() ?? "generic";
+                builderArgs.AddRange(new[] {
+                    "--embedding-model", model, "--embedding-runtime", executable,
+                    "--embedding-profile", profile, "--embedding-gpu-layers", gpuLayers.ToString()
+                });
+            }
             if (_bundled)
                 BuildLog.Text = await RunToolAsync(
                     Path.Combine(_appRoot, "tools", "builder", "DK-Knowledge-Builder.exe"),
@@ -454,6 +501,18 @@ public partial class MainWindow : Window
             {
                 args.Add("-ModelFile");
                 args.Add(selectedModel);
+            }
+            if (PackageEmbeddingBox.IsChecked == true)
+            {
+                var embeddingModel = PackageEmbeddingModelBox.Text.Trim();
+                if (string.IsNullOrWhiteSpace(embeddingModel))
+                    embeddingModel = EmbeddingModelBox.Text.Trim();
+                if (!File.Exists(embeddingModel) ||
+                    !string.Equals(Path.GetExtension(embeddingModel), ".gguf",
+                        StringComparison.OrdinalIgnoreCase))
+                    throw new ArgumentException("사용자용 임베딩 GGUF를 선택하세요.");
+                args.Add("-EmbeddingModelFile");
+                args.Add(embeddingModel);
             }
             if (_bundled)
             {

@@ -44,12 +44,35 @@ def verify_database(database: Path) -> dict:
             ).fetchone()
             if match is None:
                 raise ValueError(f"Required knowledge table is missing: {table}")
-        return {
+        result = {
             "schema_version": version[0],
             "documents": db.execute("SELECT count(*) FROM documents").fetchone()[0],
             "chunks": db.execute("SELECT count(*) FROM chunks").fetchone()[0],
             "rules": db.execute("SELECT count(*) FROM help_rules").fetchone()[0],
         }
+        has_vectors = db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='chunk_embeddings'"
+        ).fetchone()
+        if has_vectors:
+            metadata = dict(db.execute("SELECT key,value FROM embedding_metadata").fetchall())
+            count = db.execute("SELECT count(*) FROM chunk_embeddings").fetchone()[0]
+            dimensions = int(metadata.get("dimensions", "0"))
+            consistent = (16 <= dimensions <= 4096 and
+                db.execute(
+                    "SELECT count(*) FROM chunk_embeddings "
+                    "WHERE dimensions != ? OR length(vector) != ?",
+                    (dimensions, 4 * dimensions)
+                ).fetchone()[0] == 0)
+            result["embedding"] = {
+                "model_sha256": metadata.get("model_sha256", ""),
+                "profile": metadata.get("profile", ""),
+                "vectors": count, "dimensions": dimensions,
+                "complete": bool(
+                    consistent and metadata.get("model_sha256") and
+                    count == result["chunks"]
+                ),
+            }
+        return result
 
 
 def _selected_file(root: Path, value: str, folder: str, suffix: str) -> Path:
@@ -69,7 +92,7 @@ def _selected_file(root: Path, value: str, folder: str, suffix: str) -> Path:
 
 def portable_cli(root: Path, settings: dict) -> list[str]:
     """T09: reusable T05 CLI args from user-selected local GGUF and runtime."""
-    if not isinstance(settings, dict) or set(settings) - {"port", "allowed_origins", "model"}:
+    if not isinstance(settings, dict) or set(settings) - {"port", "allowed_origins", "model", "embedding"}:
         raise ValueError("Unsupported keys in settings.json")
     if not {"port", "allowed_origins"} <= set(settings):
         raise ValueError("settings.json requires port and allowed_origins")
@@ -116,6 +139,21 @@ def portable_cli(root: Path, settings: dict) -> list[str]:
         "--gpu-layers", str(options["gpu_layers"]),
         "--prompt-mode", options["prompt_mode"],
     ]
+    embedding = settings.get("embedding")
+    if embedding is not None:
+        if not isinstance(embedding, dict) or set(embedding) != {
+                "file", "runtime", "min_similarity"}:
+            raise ValueError("Invalid embedding model settings")
+        threshold = embedding["min_similarity"]
+        if type(threshold) not in (float, int) or not 0.0 < threshold <= 1.0:
+            raise ValueError("Embedding minimum similarity must be in (0, 1]")
+        embedding_runtime = _selected_file(root, embedding["runtime"], "runtime", ".exe")
+        embedding_model = _selected_file(root, embedding["file"], "models", ".gguf")
+        cli.extend((
+            "--embedding-runtime", str(embedding_runtime),
+            "--embedding-model", str(embedding_model),
+            "--embedding-min-similarity", str(threshold),
+        ))
     for origin in origins:
         cli.extend(("--allow-origin", origin))
     return cli

@@ -7,10 +7,11 @@ from __future__ import annotations
 
 import re
 import sqlite3
+import struct
 from contextlib import contextmanager, closing
 from itertools import zip_longest
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Protocol
 
 SCHEMA_VERSION = "1"
 _VERSION_PATTERN = re.compile(r"\d+(?:\.\d+)*\Z", re.ASCII)
@@ -146,6 +147,64 @@ def _compound_at_word_start(text: str, compound: str) -> bool:
     return False
 
 
+class QueryEmbedder(Protocol):
+    def encode(self, text: str) -> list[float]: ...
+
+
+def _semantic_hits(
+    database: str | Path, *, product_id: str, query: str,
+    requested: tuple[int, ...] | None, embedder: QueryEmbedder,
+    min_similarity: float, limit: int,
+) -> list[dict]:
+    """Exact-model dense retrieval, bounded by source product and version."""
+    with _database(database) as db:
+        has_table = db.execute(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='chunk_embeddings'"
+        ).fetchone()
+        if not has_table:
+            return []
+        meta = dict(db.execute("SELECT key,value FROM embedding_metadata").fetchall())
+        dim = int(meta.get("dimensions", "0"))
+        if dim < 16 or dim > 4096:
+            return []
+        question_vector = embedder.encode(meta.get("query_prefix", "") + query[:2000])
+        if len(question_vector) != dim:
+            raise ValueError("Query embedding dimension differs from knowledge index")
+        scored: list[tuple[float, str, dict]] = []
+        rows = db.execute("""
+            SELECT d.document_id, d.title, d.source_path,
+                   d.version_from, d.version_to,
+                   c.chunk_id, c.section_title, c.content, c.page_from, c.page_to,
+                   e.vector, e.dimensions
+            FROM chunk_embeddings e
+            JOIN chunks c ON c.chunk_id = e.chunk_id
+            JOIN documents d ON d.document_id = c.document_id
+            WHERE d.product_id = ?
+        """, (product_id,))
+        for row in rows:
+            if not _version_applies(requested, row["version_from"], row["version_to"]):
+                continue
+            raw = row["vector"]
+            if row["dimensions"] != dim or len(raw) != 4 * dim:
+                raise ValueError("Invalid stored embedding vector")
+            vector = struct.unpack("<" + "f" * dim, raw)
+            cosine = sum(x * y for x, y in zip(question_vector, vector))
+            if cosine < min_similarity:
+                continue
+            scored.append((-cosine, row["source_path"], {
+                "document_id": row["document_id"],
+                "chunk_id": row["chunk_id"],
+                "title": row["title"],
+                "section_title": row["section_title"],
+                "excerpt": row["content"],
+                "source_path": row["source_path"],
+                "page_from": row["page_from"],
+                "page_to": row["page_to"],
+            }))
+        scored.sort(key=lambda item: (item[0], item[1]))
+        return [hit for _, _, hit in scored[:limit]]
+
+
 def _original_compound_fallback(
     database: str | Path, *, product_id: str, terms: list[tuple[str, bool]],
     requested: tuple[int, ...] | None, limit: int,
@@ -199,6 +258,7 @@ def _original_compound_fallback(
 def search_documents(
     database: str | Path, *, product_id: str, query: str,
     version: str | None = None, limit: int = 10,
+    embedder: QueryEmbedder | None = None, min_similarity: float = 0.72,
 ) -> list[dict]:
     """Return only product/version-appropriate FTS5 hits, with source provenance.
 
@@ -210,6 +270,8 @@ def search_documents(
         return []
     if not isinstance(limit, int) or not 1 <= limit <= 100:
         raise ValueError("limit must be between 1 and 100")
+    if not isinstance(min_similarity, (int, float)) or not 0.0 < min_similarity <= 1.0:
+        raise ValueError("min_similarity must be between 0 and 1")
     requested = _version(version) if version is not None else None
     terms = _query_terms(query)
     expression = _fts_query(query)
@@ -307,7 +369,14 @@ def search_documents(
                 seen.add(hint["chunk_id"])
                 if len(primary) >= limit:
                     return primary
-    return primary
+    if primary or embedder is None:
+        # Common case: exact original/author-assisted retrieval needs no
+        # additional model loading or embedding CPU work on Client PCs.
+        return primary
+    return _semantic_hits(
+        database, product_id=product_id, query=query, requested=requested,
+        embedder=embedder, min_similarity=min_similarity, limit=limit,
+    )
 
 
 def match_event(

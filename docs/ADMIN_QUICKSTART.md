@@ -18,8 +18,9 @@ Windows가 출처가 불분명한 파일에 대한 경고를 표시하면 배포
 4. **일반 폴더 문서 제품 ID**를 확인합니다. 예: `manual-test`. 제품별 `product-id/manuals/` 구조는 기존 제품 구분을 유지합니다.
 5. 필요한 경우 **PDF 레이아웃 보존 추출** 또는 **스캔 PDF OCR**을 선택합니다. OCR은 제작자 PC에 Tesseract와 Poppler(pdftoppm), 한국어 언어 데이터가 미리 있어야 합니다.
 6. 고사양 제작용 LLM을 사용해 검색 표현을 보강하려면 **제작용 AI로 문서 검색 표현 보강**을 켜고 별도 GGUF/llama.cpp 또는 localhost 모델 서버를 지정합니다. [T18 자세한 사용법](T18_AUTHOR_ENRICHMENT.md)
-7. **지식 DB 재생성**을 눌러 `knowledge.db`를 생성합니다. 원본 파일만 바꾸어서는 DB가 자동 반영되지 않습니다.
-8. **품질 보고서 열기**로 `knowledge.quality.json`의 문서별 텍스트 추출량·청크 수·경고를 확인합니다. [진단 안내](T17_QUALITY_PIPELINE.md)
+7. 필요하면 **의미 검색용 문서 벡터 생성**을 켜고 경량 다국어 GGUF/llama-embedding을 선택합니다. 사용자에게 의미 검색을 제공하려면 이후 Client ZIP에 **동일 임베딩 GGUF**를 선택해 포함해야 합니다. [T19 상세 사용법](T19_OPTIONAL_SEMANTIC_SEARCH.md)
+8. **지식 DB 재생성**을 눌러 `knowledge.db`를 생성합니다. 원본 파일만 바꾸어서는 DB가 자동 반영되지 않습니다.
+9. **품질 보고서 열기**로 `knowledge.quality.json`의 문서별 텍스트 추출량·청크 수·경고를 확인합니다. [진단 안내](T17_QUALITY_PIPELINE.md)
 
 기본 위치:
 - 문서: `%LOCALAPPDATA%\DK-Knowledge-Engine\sources`
@@ -33,7 +34,8 @@ Windows가 출처가 불분명한 파일에 대한 경고를 표시하면 배포
 1. **사용자 패키지 제작** 탭으로 이동합니다.
 2. 기본 엔진 템플릿은 관리자 패키지에서 자동으로 지정됩니다.
 3. 위에서 생성한 지식 DB를 확인합니다. 필요한 경우 **사용자용 AI 모델(GGUF)** 에서 모델 파일을 선택하고 `raw_chatml`/`qwen3`/`jinja` 프롬프트 형식을 고릅니다. 비워 두면 기본 Qwen3를 사용합니다.
-4. **사용자 패키지 생성**을 누릅니다. 다른 모델을 골랐다면 선택 GGUF가 Client ZIP에 포함되고 기본 Qwen3 GGUF 대신 배포됩니다.
+4. **경량 의미 검색 모델 포함**을 켜는 경우 DB 제작 시와 같은 인코더 GGUF를 선택합니다. 모델 해시와 벡터 색인이 맞지 않으면 패키징을 거부합니다. 체크하지 않으면 의미 검색용 실행 파일/모델이 ZIP에 추가되지 않습니다.
+5. **사용자 패키지 생성**을 누릅니다. 다른 모델을 골랐다면 선택 GGUF가 Client ZIP에 포함되고 기본 Qwen3 GGUF 대신 배포됩니다.
 4. 출력 폴더 안의 `DK-Knowledge-Engine-Client-Win-x64.zip`을 사용자에게 전달합니다.
 
 출력 폴더가 이미 있어도 생성 파일을 갱신합니다. 다른 파일은 유지됩니다. **실행 중인 기존 Client는 종료한 다음 덮어쓰세요.**

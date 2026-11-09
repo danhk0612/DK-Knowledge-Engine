@@ -307,3 +307,9 @@ Knowledge Builder는 모델 기반 임베딩/OCR/LLM 처리를 하지 않으며 
 **개발 브랜치:** `feat/t18-author-knowledge-enrichment`. Builder에서 선택한 로컬 llama.cpp/GGUF 또는 이미 실행 중인 localhost 호환 고성능 LLM으로 문서 청크의 검색 질문과 용어를 오프라인 생성한다. 생성된 값은 근거가 아닌 별도 SQLite FTS5 보조 검색 힌트로만 기록하고, 반환하는 근거는 원본 청크로 제한한다. Client는 새 실행 모델이나 서비스 없이 기존 SQLite와 사용자용 별도 GGUF를 유지한다. schema_version=1 유지, 구형 DB 검색 호환, 제품/버전 분리, 원본문서 변경 시 색인 정리 회귀 테스트 추가.
 
 한계: 사용자 질문의 의미 임베딩·벡터 검색은 별도 단계이며, 생성된 검색 힌트에 오탐 가능성이 있어 고객 정답 질의 집합으로 비교해야 한다. [사용법](docs/T18_AUTHOR_ENRICHMENT.md).
+
+## T19 — 선택형 경량 임베딩 하이브리드 검색
+
+**개발 브랜치:** `feat/t19-optional-lightweight-embeddings`. 관리자에서 선택한 임베딩 GGUF·llama-embedding 실행 파일로 문서 벡터를 사전 생성하고, 사용자 쪽에는 요청할 경우에만 동일 SHA-256 임베딩 GGUF와 경량 실행 파일을 포함한다. 기존 키워드 검색·T18 사전 생성 힌트는 유지하고 선택적 cosine 기반 하이브리드 검색을 추가한다. 모델·차원·완성 여부는 DB에 저장하고 Client 패키징과 실행에서 검증한다. 기본 Client는 생성형 소형 GGUF와 FTS5만 사용하며 임베딩 모델은 탑재하지 않는다.
+
+**제약:** 짧은 사용자 질문마다 임베딩 GGUF 콜드 로딩으로 지연이 발생할 수 있다. 전체 청크를 SQLite에서 순차 비교하므로 대량 DB의 의미 검색은 성능 검증이 필요하다. 모델 정확도, v0.8.0 호환성, 고객 문서 정답률은 실모델·실문서 검증 필요. [문서](docs/T19_OPTIONAL_SEMANTIC_SEARCH.md).
