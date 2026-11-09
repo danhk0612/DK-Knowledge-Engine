@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from builder.knowledge_builder import build
-from builder.author_enrichment import _questions
+from builder.author_enrichment import _questions, LocalServerGenerator
 from search.knowledge_search import search_documents
 
 
@@ -88,6 +88,32 @@ class EnrichmentTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "provided together"):
             build(self.src, self.db, rebuild=True, author_model=self.model)
         self.assertEqual(self.db.read_bytes(), before)
+
+    def test_server_must_be_loopback_only(self):
+        for uri in (
+            "https://127.0.0.1:8080/v1/chat/completions",
+            "http://example.com:8080/v1/chat/completions",
+            "http://127.0.0.1:8080/redirect",
+            "http://127.0.0.1:8080/v1/chat/completions?url=external",
+        ):
+            with self.subTest(uri=uri):
+                with self.assertRaises(ValueError):
+                    LocalServerGenerator(uri)
+        self.assertEqual(
+            LocalServerGenerator("http://127.0.0.1:8080/v1/chat/completions").model,
+            "local",
+        )
+
+    def test_local_endpoint_calls_generator_but_stores_only_original_chunks(self):
+        fake = DummyGenerator()
+        with patch("builder.author_enrichment.LocalServerGenerator", return_value=fake):
+            result = build(self.src, self.db, rebuild=True,
+                           author_endpoint="http://127.0.0.1:8080/v1/chat/completions")
+        self.assertEqual(result["author_enrichment"]["indexed"], 2)
+        self.assertEqual(len(fake.calls), 2)
+        found = search_documents(self.db, product_id="product-a", query="설정 복구")
+        self.assertEqual(len(found), 1)
+        self.assertIn("초기화 버튼", found[0]["excerpt"])
 
     def test_generated_phrases_are_bounded(self):
         self.assertEqual(_questions('{"questions":["설정 복구"],"keywords":[]}'), "설정 복구")
