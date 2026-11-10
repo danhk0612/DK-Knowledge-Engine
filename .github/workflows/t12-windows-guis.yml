@@ -137,6 +137,18 @@ jobs:
           foreach ($item in @('README.md','LICENSE','THIRD_PARTY_NOTICES.md')) {
             if (-not (Test-Path (Join-Path $package $item))) { throw "Missing Client notice: $item" }
           }
+          foreach ($item in @(
+            'NET_RUNTIME_LICENSE.txt', 'NET_RUNTIME_THIRD-PARTY-NOTICES.txt',
+            'WPF_LICENSE.txt', 'WPF_THIRD-PARTY-NOTICES.txt',
+            'WINDOWS_LICENSE_INFORMATION.md', 'NET_LIBRARY_LICENSE.html',
+            'WINDOWS_SDK_LICENSE.html'
+          )) {
+            $file = Join-Path $package ('licenses\dotnet\' + $item)
+            if (-not (Test-Path -LiteralPath $file -PathType Leaf) -or (Get-Item $file).Length -lt 500) {
+              throw "Client missing Microsoft redistributable notice: $file"
+            }
+          }
+          Write-Output 'T24_CLIENT_DOTNET_NOTICES_INCLUDED'
           if (Test-Path (Join-Path $package 'knowledge/knowledge.previous.db')) { throw 'Previous source DB leaked into Client ZIP' }
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $package 'Verify-AIHelp.ps1') -Root $package
           if ($LASTEXITCODE -ne 0) { throw 'Client package verification failed' }
@@ -311,6 +323,18 @@ jobs:
             foreach ($item in @('README.md','LICENSE','THIRD_PARTY_NOTICES.md','docs/CLIENT_QUICKSTART.md')) {
               if (-not (Test-Path (Join-Path $admin $item))) { throw "Missing Admin notice: $item" }
             }
+            foreach ($item in @(
+              'NET_RUNTIME_LICENSE.txt', 'NET_RUNTIME_THIRD-PARTY-NOTICES.txt',
+              'WPF_LICENSE.txt', 'WPF_THIRD-PARTY-NOTICES.txt',
+              'WINDOWS_LICENSE_INFORMATION.md', 'NET_LIBRARY_LICENSE.html',
+              'WINDOWS_SDK_LICENSE.html'
+            )) {
+              $file = Join-Path $admin ('licenses\dotnet\' + $item)
+              if (-not (Test-Path -LiteralPath $file -PathType Leaf) -or (Get-Item $file).Length -lt 500) {
+                throw "Admin missing Microsoft redistributable notice: $file"
+              }
+            }
+            Write-Output 'T24_ADMIN_DOTNET_NOTICES_INCLUDED'
             $licenses = Join-Path $admin 'licenses\builder'
             foreach ($dependency in @('pypdf', 'python-docx', 'lxml', 'typing_extensions')) {
               $folder = @(Get-ChildItem -LiteralPath $licenses -Directory | Where-Object {
@@ -327,6 +351,16 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw 'Standalone Admin failed to make Client package' }
             $client = '.\t13-generated-client\DK-Knowledge-Engine-Client'
             if (Test-Path (Join-Path $client 'DK-Knowledge-Admin.exe')) { throw 'Admin EXE leaked to Client' }
+            foreach ($name in @('NET_LIBRARY_LICENSE.html','WINDOWS_SDK_LICENSE.html','NET_RUNTIME_THIRD-PARTY-NOTICES.txt')) {
+              $adminNotice = Join-Path $admin ('licenses\dotnet\' + $name)
+              $clientNotice = Join-Path $client ('licenses\dotnet\' + $name)
+              if (-not (Test-Path -LiteralPath $clientNotice -PathType Leaf) -or
+                  (Get-FileHash $clientNotice -Algorithm SHA256).Hash -ne
+                  (Get-FileHash $adminNotice -Algorithm SHA256).Hash) {
+                throw "Offline Client did not preserve Admin Microsoft legal notice: $name"
+              }
+            }
+            Write-Output 'T24_OFFLINE_ADMIN_CLIENT_NOTICE_COPY_OK'
             if (Test-Path (Join-Path $client 'builder')) { throw 'Builder leaked to Client' }
             & $ps -NoProfile -ExecutionPolicy Bypass -File (Join-Path $client 'Verify-AIHelp.ps1') -Root $client
             if ($LASTEXITCODE -ne 0) { throw 'Generated Client package failed verification' }
