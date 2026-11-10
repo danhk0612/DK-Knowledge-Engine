@@ -207,12 +207,10 @@ try {
     $repoNoticeSource = Join-Path $repo 'distribution\notices\dotnet'
     $destNotices = Join-Path $package 'licenses\dotnet'
     if (Test-Path -LiteralPath $repoNoticeSource -PathType Container) {
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $noticeScript 
-            -SourceDir $repoNoticeSource -OutputDir $destNotices -DownloadOfficialTerms
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $noticeScript -SourceDir $repoNoticeSource -OutputDir $destNotices -DownloadOfficialTerms
     }
     else {
-        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $noticeScript 
-            -SourceDir (Join-Path $repo 'licenses\dotnet') -OutputDir $destNotices
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $noticeScript -SourceDir (Join-Path $repo 'licenses\dotnet') -OutputDir $destNotices
     }
     if ($LASTEXITCODE -ne 0) { throw 'Client .NET redistribution notice collection failed' }
 
