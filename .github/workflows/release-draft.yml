@@ -11,7 +11,7 @@ on:
         description: "Preview version tag (matching docs/RELEASE_NOTES_<tag>.md)"
         required: true
         type: string
-        default: "v0.1.0-preview.1"
+        default: "v0.1.0-preview.3"
 
 permissions:
   contents: write
