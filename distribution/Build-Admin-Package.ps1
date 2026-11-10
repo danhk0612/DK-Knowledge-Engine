@@ -54,6 +54,9 @@ try {
     # Bundle publisher instructions and project notices for the author PC.
     Copy-Item -LiteralPath (Join-Path $repo 'LICENSE') -Destination (Join-Path $package 'LICENSE')
     Copy-Item -LiteralPath (Join-Path $repo 'THIRD_PARTY_NOTICES.md') -Destination (Join-Path $package 'THIRD_PARTY_NOTICES.md')
+    # Copy actual redistribution license texts from the installed Builder wheels.
+    & $Python (Join-Path $repo 'distribution\collect-builder-licenses.py') --output (Join-Path $package 'licenses\builder')
+    if ($LASTEXITCODE -ne 0) { throw 'Builder dependency license collection failed' }
     Copy-Item -LiteralPath (Join-Path $repo 'docs\ADMIN_QUICKSTART.md') -Destination (Join-Path $package 'README.md')
     New-Item -ItemType Directory -Path (Join-Path $package 'docs') -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $repo 'docs\CLIENT_QUICKSTART.md') -Destination (Join-Path $package 'docs\CLIENT_QUICKSTART.md')

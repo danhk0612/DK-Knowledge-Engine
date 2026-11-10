@@ -309,6 +309,18 @@ jobs:
             foreach ($item in @('README.md','LICENSE','THIRD_PARTY_NOTICES.md','docs/CLIENT_QUICKSTART.md')) {
               if (-not (Test-Path (Join-Path $admin $item))) { throw "Missing Admin notice: $item" }
             }
+            $licenses = Join-Path $admin 'licenses\builder'
+            foreach ($dependency in @('pypdf', 'python-docx', 'lxml', 'typing_extensions')) {
+              $folder = @(Get-ChildItem -LiteralPath $licenses -Directory | Where-Object {
+                $_.Name.StartsWith($dependency + '-')
+              })
+              if ($folder.Count -ne 1) { throw "Builder license folder missing: $dependency" }
+              $texts = @(Get-ChildItem -LiteralPath $folder[0].FullName -File | Where-Object {
+                $_.Name -match '^(license|copying|notice)'
+              })
+              if ($texts.Count -lt 1) { throw "Builder license text missing: $dependency" }
+            }
+            Write-Output 'T23_BUILDER_LICENSE_TEXTS_INCLUDED'
             & $ps -NoProfile -ExecutionPolicy Bypass -File $script -EnginePackage $engine -KnowledgeDb $db -ClientExe $clientGui -OutputDir '.\t13-generated-client'
             if ($LASTEXITCODE -ne 0) { throw 'Standalone Admin failed to make Client package' }
             $client = '.\t13-generated-client\DK-Knowledge-Engine-Client'
