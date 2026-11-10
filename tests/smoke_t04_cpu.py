@@ -25,6 +25,15 @@ def main() -> None:
             "# 데이터베이스 연결 오류\n\n연결 실패 시에는 DB 서버 포트 3308을 확인하십시오.",
             encoding="utf-8",
         )
+        # Exact Windows acceptance fixture: Admin-built manual-test DB search
+        # succeeds, so the real generation path must also quote its code.
+        acceptance_manuals = tmp / "sources" / "manual-test" / "manuals"
+        acceptance_manuals.mkdir(parents=True)
+        (acceptance_manuals / "dk-test.md").write_text(
+            "# DK local acceptance test\n\n"
+            "설치 확인 코드 DKTEST-3308. 이 파일은 인공 테스트 문서입니다.",
+            encoding="utf-8",
+        )
         db = tmp / "knowledge.db"
         build(tmp / "sources", db)
         runner = LlamaCli(args.llama_cli, args.model, threads=2, max_tokens=128, timeout_seconds=240)
@@ -48,6 +57,24 @@ def main() -> None:
         assert "<references>" not in answer["answer"], answer
         assert "Exiting..." not in answer["answer"], answer
         print(json.dumps(answer, ensure_ascii=False, indent=2))
+
+        # The Windows Client defaults to raw_chatml; exercise the same mode
+        # with the exact field-report question and artificial source text.
+        raw_runner = LlamaCli(
+            args.llama_cli, args.model, threads=2, max_tokens=384,
+            timeout_seconds=240, prompt_mode="raw_chatml",
+        )
+        exact = answer_from_knowledge(
+            db,
+            product_id="manual-test",
+            question="설치 확인 코드",
+            generator=raw_runner,
+        )
+        assert exact["grounded"], exact
+        assert exact["sources"] and exact["sources"][0]["source_path"] == "manual-test/manuals/dk-test.md", exact
+        assert "DKTEST-3308" in exact["answer"], exact
+        assert "</think>" not in exact["answer"] and "<think>" not in exact["answer"], exact
+        print("WINDOWS_ACCEPTANCE_RAW_CHATML_OK", json.dumps(exact, ensure_ascii=False))
 
 
 if __name__ == "__main__":

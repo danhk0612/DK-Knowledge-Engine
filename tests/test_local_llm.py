@@ -60,6 +60,9 @@ class GroundedAnswerTests(unittest.TestCase):
         self.assertNotIn("9999", fake.calls[0][1])
         self.assertIn("매뉴얼:", fake.calls[0][1])
         self.assertIn("매뉴얼 내용만 사용하세요", fake.calls[0][0])
+        self.assertIn("매뉴얼의 실제 값을 직접 답하세요", fake.calls[0][0])
+        self.assertIn("문서 위치만 알려주지 마세요", fake.calls[0][0])
+        self.assertIn("코드·숫자·기호를 바꾸거나 생략하지 말고", fake.calls[0][1])
         self.assertGreaterEqual(answer["elapsed_seconds"], 0)
 
     def test_multi_step_prompt_keeps_numbered_sources_and_bounded_context(self):
@@ -159,6 +162,13 @@ class LlamaCliTests(unittest.TestCase):
         self.assertEqual(argv[argv.index("-p") + 1], "user text")
         self.assertFalse(run.call_args.kwargs.get("shell", False))
         self.assertEqual(run.call_args.kwargs["timeout"], 180)
+
+    def test_orphan_think_end_tag_removed(self):
+        cli = LlamaCli(self.executable, self.model, prompt_mode="raw_chatml")
+        with patch("llm.local_llm.subprocess.run", return_value=SimpleNamespace(
+            returncode=0, stdout="</think>\n\n설치 확인 코드는 DKTEST-3308입니다. [1]", stderr=""
+        )):
+            self.assertEqual(cli.generate("system", "user"), "설치 확인 코드는 DKTEST-3308입니다. [1]")
 
     def test_completion_end_marker_removed(self):
         cli = LlamaCli(self.executable, self.model)
