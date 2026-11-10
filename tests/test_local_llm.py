@@ -164,7 +164,7 @@ class LlamaCliTests(unittest.TestCase):
     def test_orphan_think_end_tag_removed(self):
         cli = LlamaCli(self.executable, self.model, prompt_mode="raw_chatml")
         with patch("llm.local_llm.subprocess.run", return_value=SimpleNamespace(
-            returncode=0, stdout="</think>\\n\\n설치 확인 코드는 DKTEST-3308입니다. [1]", stderr=""
+            returncode=0, stdout="</think>\n\n설치 확인 코드는 DKTEST-3308입니다. [1]", stderr=""
         )):
             self.assertEqual(cli.generate("system", "user"), "설치 확인 코드는 DKTEST-3308입니다. [1]")
 
