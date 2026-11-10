@@ -21,6 +21,7 @@ _SYSTEM_PROMPT = (
     "질문이 절차나 문제 해결이면 필요한 순서를 최대 5단계로 구분하세요. "
     "결론을 뒷받침하는 매뉴얼 근거 번호 [1], [2] 등을 명시하세요. "
     "제공된 근거가 질문에 답하기에 부족하면 '제공된 근거 문서만으로는 답변을 확인할 수 없습니다.'라고 답하세요. "
+    "질문이 정확한 코드·포트·버전·파일명을 묻고 매뉴얼에 값이 있으면, 그 값을 변경하거나 생략하지 말고 답변에 직접 포함하세요. "
     "불필요한 추론 과정이나 문서에 없는 원인을 만들어 내지 마세요."
 )
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
@@ -114,6 +115,8 @@ class LlamaCli:
         if "<think>" in text:
             text = text.split("<think>", 1)[0]
         text = text.replace("<|im_end|>", "").replace("<|eot_id|>", "").replace("[end of text]", "").strip()
+        # Raw ChatML may emit only the closing thinking delimiter after the prefill.
+        text = re.sub(r"^(?:</think>\s*)+", "", text).strip()
         if any(marker in text for marker in ("Loading model...", "available commands:",
                                             "<references>", "Exiting...")):
             raise RuntimeError("llama.cpp returned a console transcript instead of an answer")
