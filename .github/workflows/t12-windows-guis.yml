@@ -8,6 +8,7 @@ on:
       - 'distribution/Build-Admin-Package.ps1'
       - 'distribution/builder_entry.py'
       - '.github/workflows/t12-windows-guis.yml'
+      - 'docs/RELEASE_NOTES_*'
   push:
     branches: [main]
     paths:
@@ -16,6 +17,7 @@ on:
       - 'distribution/Build-Admin-Package.ps1'
       - 'distribution/builder_entry.py'
       - '.github/workflows/t12-windows-guis.yml'
+      - 'docs/RELEASE_NOTES_*'
   workflow_dispatch:
 
 permissions:
