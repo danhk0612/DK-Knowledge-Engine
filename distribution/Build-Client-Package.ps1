@@ -201,6 +201,19 @@ try {
         Copy-Item -LiteralPath $src -Destination (Join-Path $package $entry[1]) -Force
     }
 
+    # Client created by a portable Admin reuses its bundled legal texts;
+    # developer/CI builds collect current Microsoft terms at build time.
+    $noticeScript = Join-Path $PSScriptRoot 'Copy-DotNet-Notices.ps1'
+    $repoNoticeSource = Join-Path $repo 'distribution\notices\dotnet'
+    $destNotices = Join-Path $package 'licenses\dotnet'
+    if (Test-Path -LiteralPath $repoNoticeSource -PathType Container) {
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $noticeScript -SourceDir $repoNoticeSource -OutputDir $destNotices -DownloadOfficialTerms
+    }
+    else {
+        & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $noticeScript -SourceDir (Join-Path $repo 'licenses\dotnet') -OutputDir $destNotices
+    }
+    if ($LASTEXITCODE -ne 0) { throw 'Client .NET redistribution notice collection failed' }
+
     $manifestPath = Join-Path $package 'manifest.json'
     $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
     if ($modelRelative) {

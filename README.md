@@ -12,7 +12,7 @@
 ## 다운로드 및 설치
 
 - **배포용 ZIP을 사용하세요.** 개발 소스를 `git clone`하는 것만으로는 GGUF 모델과 실행 엔진이 설치되지 않습니다.
-- 배포판: [GitHub Releases](https://github.com/danhk0612/DK-Knowledge-Engine/releases) — 현재 검수 대상은 `v0.1.0-preview.3`입니다. 공개 전까지는 비공개 Draft로 보관하고, 시험용 ZIP은 GitHub Actions 아티팩트를 이용합니다.
+- 배포판: [GitHub Releases](https://github.com/danhk0612/DK-Knowledge-Engine/releases) — 현재 검수 대상은 `v0.1.0-preview.4`입니다. 공개 전까지는 비공개 Draft로 보관하고, 시험용 ZIP은 GitHub Actions 아티팩트를 이용합니다.
 - 운영체제: **Windows 10/11 x64**. 프로그램은 설치 관리자가 없는 **포터블 ZIP**입니다.
 - 기본 구성: **Qwen3 1.7B GGUF (Q4_K_M) + llama.cpp CPU + SQLite FTS5**, 자체 포함 Windows GUI. 최종 사용자 PC에서는 기본 모델을 별도로 내려받거나 Python·Docker·.NET SDK를 설치할 필요가 없습니다.
 - **미서명 실행 파일**입니다. SmartScreen·조직 보안 정책과 실제 고객 환경의 호환성은 별도 확인 대상입니다. 보안 정책을 임의로 우회하지 마세요.
@@ -62,7 +62,7 @@
 - [선택형 경량 임베딩 의미 검색](docs/T19_OPTIONAL_SEMANTIC_SEARCH.md)
 - [관리자 통합 문서 관리](docs/T13_ADMIN_GUI.md)
 - [Windows 시험용 패키지 확인](docs/WINDOWS_TRIAL.md)
-- [사전 배포판 기록](docs/RELEASE_NOTES_v0.1.0-preview.3.md) / [Release 제작](docs/RELEASE_PROCESS.md)
+- [사전 배포판 기록](docs/RELEASE_NOTES_v0.1.0-preview.4.md) / [Release 제작](docs/RELEASE_PROCESS.md)
 - [구현 단계 및 검증 기록](TASKS.md)
 
 ### 개발 소스 실행

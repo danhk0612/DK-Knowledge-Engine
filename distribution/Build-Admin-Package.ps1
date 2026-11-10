@@ -50,10 +50,15 @@ try {
     }
     Copy-Item -LiteralPath $builderFolder -Destination (Join-Path $package 'tools\builder') -Recurse
     Copy-Item -LiteralPath (Join-Path $repo 'distribution\Build-Client-Package.ps1') -Destination (Join-Path $package 'tools\Build-Client-Package.ps1')
+    Copy-Item -LiteralPath (Join-Path $repo 'distribution\Copy-DotNet-Notices.ps1') -Destination (Join-Path $package 'tools\Copy-DotNet-Notices.ps1')
 
     # Bundle publisher instructions and project notices for the author PC.
     Copy-Item -LiteralPath (Join-Path $repo 'LICENSE') -Destination (Join-Path $package 'LICENSE')
     Copy-Item -LiteralPath (Join-Path $repo 'THIRD_PARTY_NOTICES.md') -Destination (Join-Path $package 'THIRD_PARTY_NOTICES.md')
+    # Capture Microsoft Windows terms during the online build. Portable Admin
+    # will carry these files and generate offline Client packages from them.
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $repo 'distribution\Copy-DotNet-Notices.ps1') -SourceDir (Join-Path $repo 'distribution\notices\dotnet') -OutputDir (Join-Path $package 'licenses\dotnet') -DownloadOfficialTerms
+    if ($LASTEXITCODE -ne 0) { throw 'Windows .NET redistribution notice collection failed' }
     # Copy actual redistribution license texts from the installed Builder wheels.
     & $Python (Join-Path $repo 'distribution\collect-builder-licenses.py') --output (Join-Path $package 'licenses\builder')
     if ($LASTEXITCODE -ne 0) { throw 'Builder dependency license collection failed' }
