@@ -60,7 +60,9 @@ class GroundedAnswerTests(unittest.TestCase):
         self.assertNotIn("9999", fake.calls[0][1])
         self.assertIn("매뉴얼:", fake.calls[0][1])
         self.assertIn("매뉴얼 내용만 사용하세요", fake.calls[0][0])
-        self.assertIn("정확한 코드·포트·버전·파일명", fake.calls[0][0])
+        self.assertIn("매뉴얼의 실제 값을 직접 답하세요", fake.calls[0][0])
+        self.assertIn("문서 위치만 알려주지 마세요", fake.calls[0][0])
+        self.assertIn("코드·숫자·기호를 바꾸거나 생략하지 말고", fake.calls[0][1])
         self.assertGreaterEqual(answer["elapsed_seconds"], 0)
 
     def test_multi_step_prompt_keeps_numbered_sources_and_bounded_context(self):
