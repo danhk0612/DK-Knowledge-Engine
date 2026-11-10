@@ -16,7 +16,7 @@ class BuilderLicenseTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "licenses"
             result = module.collect(output)
-            self.assertEqual(set(result), {"pypdf", "python-docx", "lxml"})
+            self.assertEqual(set(result), {"pypdf", "python-docx", "lxml", "typing_extensions"})
             for package, paths in result.items():
                 with self.subTest(package=package):
                     self.assertTrue(paths)

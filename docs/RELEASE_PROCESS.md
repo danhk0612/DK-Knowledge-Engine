@@ -6,7 +6,7 @@
 
 1. `main`의 T12 Windows GUI 통합 워크플로가 **성공**했는지 확인합니다. 관리자/사용자 통합 ZIP 두 파일이 같은 실행 결과에 존재해야 합니다. 빌드 ZIP의 DB는 인공 샘플만 사용합니다.
 2. 관리자의 문서 폴더 추가/교체/삭제 및 Client 검색/출처 검증 결과를 확인합니다. CI 성공이 실제 Windows 모든 환경의 동작을 보장하지 않습니다.
-3. 바이너리 서명 부재/SmartScreen, 모델 라이선스, PyInstaller 번들에 포함된 라이브러리/하위 의존성의 고지 의무를 확인합니다. 관리자 ZIP의 `licenses/builder/`에 pypdf, python-docx, lxml 원문이 실제 포함됐는지 확인합니다. `THIRD_PARTY_NOTICES.md`는 확인 목록이지 완전한 법적 검토를 의미하지 않습니다.
+3. 바이너리 서명 부재/SmartScreen, 모델 라이선스, PyInstaller 번들에 포함된 라이브러리/하위 의존성의 고지 의무를 확인합니다. 관리자 ZIP의 `licenses/builder/`에 pypdf, python-docx, lxml, typing_extensions 원문이 실제 포함됐는지 확인합니다. `THIRD_PARTY_NOTICES.md`는 확인 목록이지 완전한 법적 검토를 의미하지 않습니다.
 4. Release에 비공개 원본문서, 고객 이름, 계정 정보, 내부 DB가 섞이지 않았는지 확인합니다. Client ZIP의 지식 DB는 인공 샘플이며 고객용 정식 DB가 아닙니다.
 
 ## 2. GitHub Actions에서 초안 Release 만들기

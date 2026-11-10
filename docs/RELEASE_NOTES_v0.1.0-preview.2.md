@@ -4,7 +4,7 @@ Windows 10/11 x64를 위한 **오프라인 문서 검색 및 로컬 AI 도움말
 
 ## preview.1 대비 배포 개선
 
-- 관리자 ZIP에 빌드에 사용한 **pypdf, python-docx, lxml의 실제 배포 라이선스 원문**을 버전별로 `licenses/builder/`에 포함합니다. 해당 파일이 없으면 패키지 빌드를 실패 처리합니다.
+- 관리자 ZIP에 빌드에 사용한 **pypdf, python-docx, lxml, typing_extensions의 실제 배포 라이선스 원문**을 버전별로 `licenses/builder/`에 포함합니다. 해당 파일이 없으면 패키지 빌드를 실패 처리합니다.
 - 관리자 안내 문서의 단계 번호 및 제작 AI/스캔 PDF OCR 선택 기능 설명을 정정했습니다.
 - 기능·DB 스키마·모델 버전은 이전 Preview와 동일합니다.
 

@@ -310,7 +310,7 @@ jobs:
               if (-not (Test-Path (Join-Path $admin $item))) { throw "Missing Admin notice: $item" }
             }
             $licenses = Join-Path $admin 'licenses\builder'
-            foreach ($dependency in @('pypdf', 'python-docx', 'lxml')) {
+            foreach ($dependency in @('pypdf', 'python-docx', 'lxml', 'typing_extensions')) {
               $folder = @(Get-ChildItem -LiteralPath $licenses -Directory | Where-Object {
                 $_.Name.StartsWith($dependency + '-')
               })

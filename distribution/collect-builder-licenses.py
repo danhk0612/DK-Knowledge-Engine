@@ -10,7 +10,7 @@ import importlib.metadata as metadata
 import shutil
 from pathlib import Path
 
-DEPENDENCIES = ("pypdf", "python-docx", "lxml")
+DEPENDENCIES = ("pypdf", "python-docx", "lxml", "typing_extensions")
 LICENSE_NAMES = ("license", "copying", "notice")
 
 
