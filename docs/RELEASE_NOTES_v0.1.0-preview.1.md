@@ -1,28 +1,38 @@
 # DK Knowledge Engine v0.1.0-preview.1
 
-Windows x64에서 실행하는 **오프라인 AI 도움말 엔진의 첫 사전 배포판**입니다. 별도 설치 관리자 없이 압축 해제 후 실행합니다.
+Windows 10/11 x64를 위한 **오프라인 문서 검색 및 로컬 AI 도움말 프로그램의 첫 사전 배포판**입니다. 설치 관리자가 없는 포터블 ZIP으로 제공되며, **디지털 서명이 없는 Preview**입니다.
 
-## 파일 선택
+## 포함 파일
 
-- `DK-Knowledge-Engine-Admin-Win-x64-v0.1.0-preview.1.zip` — 제작자 전용. 문서 등록·교체·삭제, 지식 DB 재생성, Client 패키지 제작.
-- `DK-Knowledge-Engine-Client-Win-x64-v0.1.0-preview.1.zip` — 최종 사용자 전용. 로컬 CPU AI 답변·문서 검색·출처 표시. **이 파일의 지식 DB는 인공 샘플 문서로 만들어졌습니다.** 실제 고객 자료를 배포하려면 제작자가 Admin에서 새 Client ZIP을 생성해야 합니다.
-- `SHA256SUMS.txt` — ZIP 두 개의 SHA-256 체크섬.
+- `DK-Knowledge-Engine-Admin-Win-x64-v0.1.0-preview.1.zip` — 제작자용. 원본문서 관리, 지식 DB 제작, 별도 사용자 ZIP 생성 기능과 Builder·기본 모델·엔진 템플릿을 포함합니다.
+- `DK-Knowledge-Engine-Client-Win-x64-v0.1.0-preview.1.zip` — 사용자용. 기본 Qwen3 1.7B CPU 모델, localhost API, 문서 검색, 출처 표시, 지식 DB 갱신 기능을 포함합니다.
+- `SHA256SUMS.txt` — 위 두 ZIP의 파일 무결성 확인용 SHA-256입니다.
 
-## 주요 기능
+**주의:** 이 Preview의 사용자 ZIP에 포함된 `knowledge.db`는 CI가 생성한 **합성 샘플 문서 DB**입니다. 실제 고객 문서 또는 업무용 지식 DB가 들어 있지 않습니다. 사용자에게 실제 설명서를 제공하려면 관리자에서 승인된 원본문서로 새 DB와 사용자 ZIP을 제작하세요.
 
-- PDF/DOCX/TXT/MD를 기존 폴더 구조와 관계없이 지식 DB로 색인
-- 문서 추가 시 관리자 원본 폴더로 자동 복사, 기존 문서의 교체·삭제
-- 원본 문서·DB·엔진·출력 경로의 기본값 자동 지정 및 Windows 탐색기 바로 열기
-- 같은 사용자 패키지 출력 폴더 재사용(생성 파일 교체, 그 외 파일 유지)
-- 자체 포함 Client/Admin WPF GUI, 로컬 검색 API, Qwen3 1.7B CPU 추론
-- Client ZIP에 관리자 실행 파일·원본문서·색인 도구를 포함하지 않음
+## 관리자(Admin) 기능
 
-## 한계 및 주의
+- PDF/DOCX/TXT/MD를 임의의 원본 폴더에서 관리하고, 문서를 추가하면 관리 폴더에 복사하며 기존 문서 교체·삭제를 지원합니다.
+- 원본문서·지식 DB·엔진·출력 위치의 기본 경로를 자동 입력하고, 폴더별 Windows 탐색기 열기 버튼을 제공합니다.
+- DB 재생성 시 선택적 PDF 레이아웃 보존, 스캔 PDF용 오프라인 OCR, 문서별 추출 품질 보고서를 지원합니다. OCR을 사용하려면 **제작 PC에 Tesseract·Poppler를 별도로 설치**해야 합니다.
+- **선택 기능:** 제작 전용 고성능 로컬 GGUF 또는 localhost 모델 서버로 검색용 질문·용어를 사전 생성할 수 있습니다. 이 제작 모델은 Client로 전달하지 않습니다.
+- **선택 기능:** 경량 임베딩 GGUF로 원본문서의 벡터를 제작 PC에서 생성하고, 호환되는 같은 모델을 사용자 ZIP에 별도 포함할 수 있습니다.
+- 사용자 AI 답변용 GGUF는 제작/임베딩 모델과 독립적으로 지정할 수 있습니다. 기본값은 Qwen3입니다.
 
-- **preview / 비서명 ZIP**: Windows Defender SmartScreen 및 일부 조직의 실행 제한이 발생할 수 있습니다. 보안 경고를 무조건 우회하지 마세요.
-- Windows 10/11 x64 일반 사용자 환경의 광범위한 호환성, 실제 고객 문서의 정답성, 브라우저 사내 HTTPS→localhost 연동은 별도 현장 검증 대상입니다.
-- 기본 GGUF는 Qwen3 1.7B Q4_K_M, CPU용 llama.cpp 기반입니다. 사용자 PC에 GPU가 없어도 동작하도록 구성했으나 성능은 하드웨어에 따라 달라집니다.
-- ZIP은 **설치 프로그램이 아니며 자동 업데이트가 없습니다.**
-- 모델·Python 라이브러리 등 제3자 소프트웨어는 각 라이선스를 따릅니다. 외부 공개 전 포함된 모든 라이선스/NOTICE 확인이 필요합니다.
+## 사용자(Client) 기능 및 경량화
 
-사용법: [관리자 안내](https://github.com/danhk0612/DK-Knowledge-Engine/blob/main/docs/ADMIN_QUICKSTART.md) · [사용자 안내](https://github.com/danhk0612/DK-Knowledge-Engine/blob/main/docs/CLIENT_QUICKSTART.md) · [배포 검증/제한](https://github.com/danhk0612/DK-Knowledge-Engine/blob/main/docs/RELEASE_PROCESS.md)
+- 별도 Python·Docker·.NET SDK·인터넷 연결 없이 로컬 CPU에서 기본 모델을 실행할 수 있습니다.
+- SQLite FTS5 검색, 한국어 복합어 공백 보정, 제작자가 미리 생성한 검색 표현 색인과 원본문서 출처 표시를 지원합니다.
+- 문서 근거를 활용한 단계별 답변을 제공하며, 근거가 없으면 추측 답변을 제한하도록 설정되어 있습니다. **AI 답변의 사실성을 보장하는 것은 아닙니다.**
+- 기본 사용자 ZIP에는 의미 검색용 GGUF/실행 파일을 포함하지 않습니다. 관리자가 벡터 DB를 제작했더라도 **기본 Client용 DB 사본에서는 사용하지 않는 임베딩 벡터를 제거·압축**합니다.
+- 관리자가 의미 검색을 선택해 별도 사용자 ZIP을 제작하면, 같은 임베딩 모델의 SHA-256 일치·색인 완성도를 검사한 뒤 필요 모델을 추가합니다. 일반 키워드 검색에서 근거가 없을 때만 쿼리 임베딩을 수행합니다.
+
+## 검증과 제한
+
+- Windows GUI·기본 CPU Qwen3·독립형 Admin/Client 패키징·PDF/DOCX/TXT/MD 합성 문서 색인·기본/의미 검색 패키지 분리를 GitHub Actions에서 검증했습니다.
+- 별도의 실제 모델 시험에서 **TwinSunsLLC multilingual-e5-small Q8_0 (384차원)** 모델과 `llama.cpp v0.8.0` Windows CPU 실행을 확인했습니다. **이 임베딩 GGUF는 기본 Client ZIP에 포함되지 않습니다.** [검증 모델 안내](https://github.com/danhk0612/DK-Knowledge-Engine/blob/main/docs/T19_OPTIONAL_SEMANTIC_SEARCH.md)
+- 실제 고객 PDF의 정답률·OCR 품질, 대규모 문서 성능, 모든 Windows PC의 작동, 실제 배포 환경의 SmartScreen·조직 정책·내부망 브라우저 제약은 별도 현장 검증 대상입니다.
+- ZIP은 설치 프로그램이 아니며 자동 온라인 업데이트를 제공하지 않습니다. 선택한 추가 GGUF의 라이선스와 재배포 권한은 배포자가 확인해야 합니다.
+- 비서명 Preview이므로 공식 Release의 SHA-256과 다운로드 출처를 확인하고, 보안 경고를 무조건 우회하지 마세요.
+
+사용법: [관리자 안내](https://github.com/danhk0612/DK-Knowledge-Engine/blob/main/docs/ADMIN_QUICKSTART.md) · [사용자 안내](https://github.com/danhk0612/DK-Knowledge-Engine/blob/main/docs/CLIENT_QUICKSTART.md) · [배포 검수 절차](https://github.com/danhk0612/DK-Knowledge-Engine/blob/main/docs/RELEASE_PROCESS.md)
