@@ -81,7 +81,7 @@ try {
     $settingsTab.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
     $portInput = Wait-ForElement $window ([System.Windows.Automation.AutomationElement]::AutomationIdProperty) 'SettingsPortBox'
     $portInput.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue('28766')
-    $save = Wait-ForElement $window ([System.Windows.Automation.AutomationElement]::NameProperty) '포트 저장'
+    $save = Wait-ForElement $window ([System.Windows.Automation.AutomationElement]::AutomationIdProperty) 'SavePortButton'
     $save.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
 
     $settingsFile = Join-Path $root 'config/settings.json'
