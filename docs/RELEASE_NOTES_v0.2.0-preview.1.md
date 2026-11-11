@@ -34,4 +34,4 @@ Windows 10/11 x64에서 Docker·Python 설치·인터넷 접속 없이 기본 Qw
 - 추가 GGUF·OCR 구성 요소·고객 문서의 사용 및 재배포 권한은 개별 검토가 필요합니다.
 - DB 업데이트 전에 Client의 제품 ID를 확인하고, 중요 데이터의 별도 백업을 유지하세요. **온라인 자동 업데이트 기능은 제공하지 않습니다.**
 
-참고: [Admin 안내](ADMIN_QUICKSTART.md) · [Client 안내](CLIENT_QUICKSTART.md) · [v0.2.0 배포 검수표](V020_RELEASE_READINESS.md) · [기존 Draft 제작 절차](RELEASE_PROCESS.md)
+참고: [Admin 안내](https://github.com/danhk0612/DK-Knowledge-Engine/blob/main/docs/ADMIN_QUICKSTART.md) · [Client 안내](https://github.com/danhk0612/DK-Knowledge-Engine/blob/main/docs/CLIENT_QUICKSTART.md) · [v0.2.0 배포 검수표](https://github.com/danhk0612/DK-Knowledge-Engine/blob/main/docs/V020_RELEASE_READINESS.md) · [기존 Draft 제작 절차](https://github.com/danhk0612/DK-Knowledge-Engine/blob/main/docs/RELEASE_PROCESS.md)
