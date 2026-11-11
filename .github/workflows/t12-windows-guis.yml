@@ -105,13 +105,34 @@ jobs:
           [IO.File]::WriteAllText((Join-Path $boot 'package-info.json'),
             '{"product_id":"example-program","product_name":"Example","product_version":"1.0.0","app_name":"Icon Startup Test","icon_file":"assets/app.ico"}')
           [IO.File]::WriteAllText((Join-Path $boot 'config\settings.json'), '{"port":8765}')
+          # Distinguish invalid post-publish icon changes from a Windows
+          # Actions runner that cannot launch any WPF window in session 0.
+          $baselineExe = Join-Path $boot 'DK-Knowledge-Client-baseline.exe'
+          Copy-Item -LiteralPath $source -Destination $baselineExe
+          $baseline = Start-Process -FilePath $baselineExe -WorkingDirectory $boot -PassThru
+          try {
+            Start-Sleep -Seconds 4
+            $baselineExited = $baseline.HasExited
+            $baselineExitCode = if ($baselineExited) { $baseline.ExitCode } else { $null }
+          } finally {
+            if (-not $baseline.HasExited) { Stop-Process -Id $baseline.Id -Force }
+            $baseline.Dispose()
+          }
           $app = Start-Process -FilePath $appExe -WorkingDirectory $boot -PassThru
           try {
-            Start-Sleep -Seconds 5
-            if ($app.HasExited) { throw 'Icon-edited Client GUI terminated at startup' }
+            Start-Sleep -Seconds 4
+            $editedExited = $app.HasExited
+            $editedExitCode = if ($editedExited) { $app.ExitCode } else { $null }
           } finally {
             if (-not $app.HasExited) { Stop-Process -Id $app.Id -Force }
             $app.Dispose()
+          }
+          Write-Output "BASELINE_EXITED=$baselineExited CODE=$baselineExitCode EDITED_EXITED=$editedExited CODE=$editedExitCode"
+          if ($baselineExited) {
+            throw "Unmodified Client GUI failed to start in Windows runner. Exit=$baselineExitCode"
+          }
+          if ($editedExited) {
+            throw "Icon-edited Client GUI terminated at startup. Exit=$editedExitCode"
           }
           Write-Output 'V020_ICON_RESOURCE_AND_GUI_STARTUP_SMOKE_OK'
       - name: Parse client packaging PowerShell
