@@ -35,7 +35,7 @@ public static class DKIconResources {
             for(int i=0;i<count;i++){
                 byte[] group=reader.ReadBytes(12);
                 if(group.Length!=12)throw new EndOfStreamException();
-                uint length=reader.ReadUInt32();
+                uint length=BitConverter.ToUInt32(group,8);
                 uint offset=reader.ReadUInt32();
                 if(length==0||length>16*1024*1024||offset>ico.Length||length>ico.Length-offset)
                     throw new InvalidDataException("Invalid ICO entry");
