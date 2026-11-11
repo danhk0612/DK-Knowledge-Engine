@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Windows;
+using System.Windows.Media.Imaging;
 using DKKnowledgeShared;
 using Microsoft.Win32;
 
@@ -55,6 +56,7 @@ public partial class MainWindow : Window
             }
         }
         RefreshDocuments();
+        Loaded += (_, _) => RefreshPackageIconPreview();
         Loaded += DetectPythonOnLoaded;
     }
 
@@ -127,6 +129,48 @@ public partial class MainWindow : Window
     {
         ProductIdBox.Text = GenerateProductId(ProductNameBox.Text);
         ProductInfoStatus.Text = "새 ID로 변경했습니다. 기존 DB가 있다면 다시 생성해야 합니다.";
+    }
+
+    private void AuthorModeChanged(object sender, RoutedEventArgs e)
+    {
+        if (AuthorServerPanel is null || AuthorGgufPanel is null) return;
+        var server = AuthorModeServer?.IsChecked == true;
+        AuthorServerPanel.Visibility = server ? Visibility.Visible : Visibility.Collapsed;
+        AuthorGgufPanel.Visibility = server ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private void RefreshPackageIconPreview()
+    {
+        var chosen = PackageIconPathBox.Text.Trim();
+        string path;
+        if (chosen.Length > 0 && chosen != "기본 제공 아이콘")
+            path = chosen;
+        else if (_bundled)
+            path = Path.Combine(_appRoot, "assets", "client.ico");
+        else
+            path = Path.Combine(RepoBox.Text.Trim(), "assets", "generated", "client.ico");
+        PackageIconPreview.Source = File.Exists(path)
+            ? BitmapFrame.Create(new Uri(Path.GetFullPath(path)), BitmapCreateOptions.None, BitmapCacheOption.OnLoad)
+            : null;
+    }
+
+    private void ChoosePackageIconClick(object sender, RoutedEventArgs e)
+    {
+        var picker = new OpenFileDialog
+        {
+            Title = "Client 프로그램 아이콘 선택",
+            Filter = "아이콘 또는 PNG (*.ico;*.png)|*.ico;*.png",
+            CheckFileExists = true
+        };
+        if (picker.ShowDialog(this) != true) return;
+        PackageIconPathBox.Text = picker.FileName;
+        RefreshPackageIconPreview();
+    }
+
+    private void ClearPackageIconClick(object sender, RoutedEventArgs e)
+    {
+        PackageIconPathBox.Text = "기본 제공 아이콘";
+        RefreshPackageIconPreview();
     }
 
     private async void DetectPythonOnLoaded(object sender, RoutedEventArgs e)
@@ -439,8 +483,10 @@ public partial class MainWindow : Window
             if (AuthorEnrichmentBox.IsChecked == true)
             {
                 var endpoint = AuthorEndpointBox.Text.Trim();
-                if (!string.IsNullOrEmpty(endpoint))
+                if (AuthorModeServer.IsChecked == true)
                 {
+                    if (string.IsNullOrWhiteSpace(endpoint))
+                        throw new ArgumentException("로컬 AI 서버 주소를 입력하세요.");
                     builderArgs.AddRange(new[] { "--author-endpoint", endpoint,
                         "--author-endpoint-model", AuthorEndpointModelBox.Text.Trim() });
                 }
@@ -575,8 +621,15 @@ public partial class MainWindow : Window
                 "-ProductId", ProductIdBox.Text.Trim(),
                 "-ProductName", ProductNameBox.Text.Trim(),
                 "-ProductVersion", ProductVersionBox.Text.Trim(),
+                "-AppName", PackageAppNameBox.Text.Trim(),
                 "-PromptMode", promptMode
             };
+            var selectedIcon = PackageIconPathBox.Text.Trim();
+            if (selectedIcon.Length > 0 && selectedIcon != "기본 제공 아이콘")
+            {
+                args.Add("-IconFile");
+                args.Add(selectedIcon);
+            }
             if (selectedModel.Length > 0)
             {
                 args.Add("-ModelFile");
