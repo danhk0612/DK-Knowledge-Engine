@@ -6,7 +6,7 @@
 
 1. 제작자에게 받은 `DK-Knowledge-Engine-Client-Win-x64*.zip`을 다운로드해 원하는 폴더에 압축 해제합니다.
 2. `DK-Knowledge-Engine-Client/DK-Knowledge-Client.exe`를 실행합니다.
-3. 프로그램에서 로컬 엔진을 시작한 뒤 **문서 검색** 또는 **AI 질문**을 사용합니다.
+3. 프로그램에서 로컬 엔진을 시작한 뒤 **문서 검색** 또는 **AI 질문**을 사용합니다. 제품 ID와 버전은 관리자 패키지 제작 시 고정되어 있어 사용자가 입력하지 않습니다.
 4. 답변에 표시되는 출처를 함께 확인하세요. 답변은 제공된 지식 DB에 포함된 자료 범위에 제한됩니다.
 
 기본 통신은 이 PC의 `127.0.0.1:8765`를 사용합니다. 다른 프로그램에서 이미 해당 포트를 사용 중이라면 충돌할 수 있습니다. 설정은 `config/settings.json`에 있으며, 오프라인 기본 패키지는 CPU 추론을 사용합니다.
@@ -25,7 +25,7 @@
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Verify-AIHelp.ps1
 ```
 
-제작자가 검증된 새 `knowledge.db`를 배포했다면 실행 중인 엔진을 종료한 후 다음을 수행합니다.
+제작자가 **동일한 제품 ID의** 검증된 새 `knowledge.db`를 배포했다면 실행 중인 엔진을 종료한 후 다음을 수행합니다. 다른 제품의 지식 DB는 적용할 수 없습니다.
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Update-Knowledge.ps1 -SourceDb "D:\updates\knowledge.db" -ExpectedSha256 "64자리_SHA256"
