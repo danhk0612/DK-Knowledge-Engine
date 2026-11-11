@@ -50,6 +50,17 @@ try {
     }
     Copy-Item -LiteralPath $builderFolder -Destination (Join-Path $package 'tools\builder') -Recurse
     Copy-Item -LiteralPath (Join-Path $repo 'distribution\Build-Client-Package.ps1') -Destination (Join-Path $package 'tools\Build-Client-Package.ps1')
+    Copy-Item -LiteralPath (Join-Path $repo 'distribution\Set-Exe-Icon.ps1') -Destination (Join-Path $package 'tools\Set-Exe-Icon.ps1')
+    Copy-Item -LiteralPath (Join-Path $repo 'assets\Generate-Icon.ps1') -Destination (Join-Path $package 'tools\Generate-Icon.ps1')
+    New-Item -ItemType Directory -Path (Join-Path $package 'assets') -Force | Out-Null
+    foreach ($kind in @('admin','client')) {
+        $defaultIcon = Join-Path $repo ('assets\generated\' + $kind + '.ico')
+        if (-not (Test-Path -LiteralPath $defaultIcon -PathType Leaf)) {
+            throw "Missing build-time default icon: $defaultIcon"
+        }
+        Copy-Item -LiteralPath $defaultIcon -Destination (Join-Path $package ('assets\' + $kind + '.ico'))
+    }
+
     Copy-Item -LiteralPath (Join-Path $repo 'distribution\Copy-DotNet-Notices.ps1') -Destination (Join-Path $package 'tools\Copy-DotNet-Notices.ps1')
 
     # Bundle publisher instructions and project notices for the author PC.
