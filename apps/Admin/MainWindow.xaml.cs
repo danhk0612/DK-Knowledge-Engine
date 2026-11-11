@@ -1,6 +1,7 @@
 using System.IO;
 using System.Diagnostics;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using System.Windows;
 using DKKnowledgeShared;
 using Microsoft.Win32;
@@ -11,6 +12,7 @@ public partial class MainWindow : Window
 {
     private readonly string _appRoot = AppContext.BaseDirectory;
     private readonly bool _bundled;
+    private readonly string _productInfoFile;
 
     public MainWindow()
     {
@@ -23,6 +25,8 @@ public partial class MainWindow : Window
         SourceBox.Text = Path.Combine(dataRoot, "sources");
         DbBox.Text = Path.Combine(dataRoot, "knowledge.db");
         PackageOutputBox.Text = Path.Combine(dataRoot, "client-packages");
+        _productInfoFile = Path.Combine(dataRoot, "admin-product.json");
+        LoadProductInfo();
         Directory.CreateDirectory(SourceBox.Text);
         if (_bundled)
         {
@@ -52,6 +56,77 @@ public partial class MainWindow : Window
         }
         RefreshDocuments();
         Loaded += DetectPythonOnLoaded;
+    }
+
+    private static string GenerateProductId(string productName)
+    {
+        var slug = Regex.Replace(productName.Trim().ToLowerInvariant(), "[^a-z0-9]+", "-").Trim('-');
+        return slug.Length > 0 ? slug[..Math.Min(slug.Length, 48)] :
+            "product-" + Guid.NewGuid().ToString("N")[..10];
+    }
+
+    private void LoadProductInfo()
+    {
+        if (File.Exists(_productInfoFile))
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(_productInfoFile));
+            ProductNameBox.Text = doc.RootElement.GetProperty("product_name").GetString() ?? "";
+            ProductVersionBox.Text = doc.RootElement.GetProperty("product_version").GetString() ?? "";
+            ProductIdBox.Text = doc.RootElement.GetProperty("product_id").GetString() ?? "";
+        }
+        else
+        {
+            ProductNameBox.Text = "DK 테스트 프로그램";
+            ProductVersionBox.Text = "1.0.0";
+            ProductIdBox.Text = GenerateProductId(ProductNameBox.Text);
+            SaveProductInfo();
+        }
+        SyncProductInfo();
+    }
+
+    private void SyncProductInfo()
+    {
+        ManageProductBox.Text = ProductIdBox.Text.Trim();
+        ProductBox.Text = ProductIdBox.Text.Trim();
+        VersionBox.Text = ProductVersionBox.Text.Trim();
+        ProductInfoStatus.Text = "현재 제품 ID: " + ProductIdBox.Text.Trim();
+    }
+
+    private void SaveProductInfo()
+    {
+        var name = ProductNameBox.Text.Trim();
+        var id = ProductIdBox.Text.Trim();
+        var version = ProductVersionBox.Text.Trim();
+        if (name.Length == 0)
+            throw new ArgumentException("제품명을 입력하세요.");
+        if (!Regex.IsMatch(id, @"\A[a-z0-9][a-z0-9._-]{0,79}\z"))
+            throw new ArgumentException("제품 ID는 소문자 영문·숫자로 시작하고 영문·숫자·점·밑줄·하이픈만 사용할 수 있습니다.");
+        if (!Regex.IsMatch(version, @"\A\d+(?:\.\d+)+\z"))
+            throw new ArgumentException("제품 버전은 1.0.0과 같은 숫자·점 형식이어야 합니다.");
+        var info = JsonSerializer.Serialize(new
+        {
+            product_id = id, product_name = name, product_version = version
+        }, new JsonSerializerOptions { WriteIndented = true });
+        var temp = _productInfoFile + ".tmp";
+        File.WriteAllText(temp, info);
+        File.Move(temp, _productInfoFile, overwrite: true);
+        SyncProductInfo();
+    }
+
+    private void SaveProductInfoClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            SaveProductInfo();
+            StatusText.Text = "제품 정보 저장 완료";
+        }
+        catch (Exception error) { StatusText.Text = "제품 정보 저장 실패: " + error.Message; }
+    }
+
+    private void GenerateProductIdClick(object sender, RoutedEventArgs e)
+    {
+        ProductIdBox.Text = GenerateProductId(ProductNameBox.Text);
+        ProductInfoStatus.Text = "새 ID로 변경했습니다. 기존 DB가 있다면 다시 생성해야 합니다.";
     }
 
     private async void DetectPythonOnLoaded(object sender, RoutedEventArgs e)
@@ -342,12 +417,13 @@ public partial class MainWindow : Window
     private async void BuildDbClick(object sender, RoutedEventArgs e) =>
         await ExecuteAsync(async () =>
         {
+            SaveProductInfo();
             if (!_bundled) ValidateRepository();
             if (!Directory.Exists(SourceBox.Text.Trim()))
                 throw new DirectoryNotFoundException("원본 문서 폴더를 찾을 수 없습니다.");
             if (string.IsNullOrWhiteSpace(DbBox.Text))
                 throw new ArgumentException("DB 경로를 입력하세요.");
-            var defaultProductId = ManageProductBox.Text.Trim();
+            var defaultProductId = ProductIdBox.Text.Trim();
             if (string.IsNullOrWhiteSpace(defaultProductId))
                 throw new ArgumentException("최상위·일반 폴더 문서에 적용할 제품 ID를 입력하세요.");
             StatusText.Text = "지식 DB 재생성 중...";
@@ -469,6 +545,7 @@ public partial class MainWindow : Window
     private async void PackageClick(object sender, RoutedEventArgs e) =>
         await ExecuteAsync(async () =>
         {
+            SaveProductInfo();
             if (!_bundled) ValidateRepository();
             if (!Directory.Exists(EngineBox.Text.Trim()))
                 throw new DirectoryNotFoundException("기본 엔진 패키지 폴더를 찾을 수 없습니다.");
@@ -495,6 +572,9 @@ public partial class MainWindow : Window
                 "-EnginePackage", EngineBox.Text.Trim(),
                 "-KnowledgeDb", DbBox.Text.Trim(),
                 "-OutputDir", PackageOutputBox.Text.Trim(),
+                "-ProductId", ProductIdBox.Text.Trim(),
+                "-ProductName", ProductNameBox.Text.Trim(),
+                "-ProductVersion", ProductVersionBox.Text.Trim(),
                 "-PromptMode", promptMode
             };
             if (selectedModel.Length > 0)
