@@ -3,6 +3,11 @@ param(
     [Parameter(Mandatory=$true)] [string]$EnginePackage,
     [Parameter(Mandatory=$true)] [string]$KnowledgeDb,
     [Parameter(Mandatory=$true)] [string]$OutputDir,
+    [Parameter(Mandatory=$true)] [ValidatePattern('^[a-z0-9][a-z0-9._-]{0,79}$')] [string]$ProductId,
+    [Parameter(Mandatory=$true)] [ValidateNotNullOrEmpty()] [string]$ProductName,
+    [Parameter(Mandatory=$true)] [ValidatePattern('^\d+(\.\d+)+$')] [string]$ProductVersion,
+    [string]$AppName = 'DK Knowledge Client',
+
     [string]$ClientExe,
     [string]$ModelFile,
     [ValidateSet('raw_chatml','qwen3','jinja')] [string]$PromptMode = 'raw_chatml',
@@ -107,6 +112,11 @@ try {
     Copy-Item -LiteralPath $db -Destination $packagedDb -Force
     $packagedHash = (Get-FileHash -LiteralPath $packagedDb -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($packagedHash -ne $dbHash) { throw 'Copied knowledge DB SHA-256 mismatch' }
+    # Scope the packaged copy. Never alter the author's knowledge database.
+    & (Join-Path $package 'engine\DK-Knowledge-API.exe') --scope-product-id $ProductId
+    if ($LASTEXITCODE -ne 0) { throw 'Client product isolation failed: rebuild the DB with the selected product ID' }
+    $packagedHash = (Get-FileHash -LiteralPath $packagedDb -Algorithm SHA256).Hash.ToLowerInvariant()
+
     if ([string]::IsNullOrWhiteSpace($EmbeddingModelFile)) {
         # T19 vectors are unnecessary in the default FTS5 Client. Compact only
         # this isolated package copy; the selected source DB is never modified.
@@ -114,7 +124,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw 'Client DB vector compaction failed' }
         $packagedHash = (Get-FileHash -LiteralPath $packagedDb -Algorithm SHA256).Hash.ToLowerInvariant()
     }
-    $dbInfoText = & (Join-Path $package 'engine\DK-Knowledge-API.exe') --verify-db $packagedDb
+    $dbInfoText = & (Join-Path $package 'engine\DK-Knowledge-API.exe') --verify-db $packagedDb --verify-product-id $ProductId
     if ($LASTEXITCODE -ne 0) { throw 'Selected knowledge DB failed schema / integrity verification' }
     $dbInfo = $dbInfoText | ConvertFrom-Json
     $embeddingHash = $null
@@ -214,7 +224,21 @@ try {
     }
     if ($LASTEXITCODE -ne 0) { throw 'Client .NET redistribution notice collection failed' }
 
+    if ([string]::IsNullOrWhiteSpace($ProductName) -or [string]::IsNullOrWhiteSpace($AppName)) {
+        throw 'Product name and application name cannot be empty'
+    }
+    $productInfoPath = Join-Path $package 'package-info.json'
+    $productInfo = [ordered]@{
+        product_id = $ProductId
+        product_name = $ProductName.Trim()
+        product_version = $ProductVersion
+        app_name = $AppName.Trim()
+    }
+    [IO.File]::WriteAllText($productInfoPath, ($productInfo | ConvertTo-Json -Depth 4),
+        (New-Object System.Text.UTF8Encoding($false)))
+
     $manifestPath = Join-Path $package 'manifest.json'
+
     $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
     if ($modelRelative) {
         foreach ($property in @($manifest.immutable_files.PSObject.Properties)) {
@@ -235,7 +259,11 @@ try {
         $manifest.immutable_files | Add-Member -NotePropertyName $embeddingRelative -NotePropertyValue $embeddingHash -Force
         $manifest | Add-Member -NotePropertyName embedding_model_sha256 -NotePropertyValue $embeddingHash -Force
     }
+    $manifest.immutable_files | Add-Member -NotePropertyName 'package-info.json' -NotePropertyValue (
+        (Get-FileHash -LiteralPath $productInfoPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    ) -Force
     $guiHash = (Get-FileHash -LiteralPath (Join-Path $package 'DK-Knowledge-Client.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
+
     $manifest.immutable_files | Add-Member -NotePropertyName 'DK-Knowledge-Client.exe' -NotePropertyValue $guiHash -Force
     foreach ($name in @('LICENSE', 'README.md', 'THIRD_PARTY_NOTICES.md')) {
         $noticeHash = (Get-FileHash -LiteralPath (Join-Path $package $name) -Algorithm SHA256).Hash.ToLowerInvariant()

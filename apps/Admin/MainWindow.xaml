@@ -17,7 +17,35 @@
       </StackPanel>
     </Border>
     <TabControl Grid.Row="1" Margin="0,16,0,0">
-      <TabItem Header="문서 · 지식 DB">
+      <TabItem Header="1. 제품 정보">
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel Margin="22" MaxWidth="600" HorizontalAlignment="Left">
+            <TextBlock Text="배포할 제품 정보" FontSize="20" FontWeight="SemiBold"/>
+            <TextBlock Text="이 정보를 한 번 지정하면 DB 제작과 사용자 패키지에 동일하게 적용합니다."
+                       Foreground="#566273" Margin="0,8,0,20" TextWrapping="Wrap"/>
+            <TextBlock Text="제품명" FontWeight="SemiBold"/>
+            <TextBox x:Name="ProductNameBox" Padding="9" Margin="0,6,0,18"/>
+            <TextBlock Text="제품 버전" FontWeight="SemiBold"/>
+            <TextBox x:Name="ProductVersionBox" Padding="9" Margin="0,6,0,4"/>
+            <TextBlock Text="예: 1.0.0 (숫자와 점만 사용, 검색 시 문서의 적용 버전을 판단합니다.)"
+                       Foreground="#566273" Margin="0,0,0,18" TextWrapping="Wrap"/>
+            <Expander Header="고급 설정 · 내부 제품 ID" Margin="0,0,0,18">
+              <StackPanel Margin="8">
+                <TextBlock Text="문서와 지식 DB를 구분하는 내부 식별자입니다. 변경하면 DB를 다시 만들어야 합니다."
+                           TextWrapping="Wrap" Foreground="#566273" Margin="0,0,0,8"/>
+                <TextBox x:Name="ProductIdBox" Padding="8" Margin="0,0,0,8"/>
+                <Button Content="제품 ID 새로 생성" Click="GenerateProductIdClick"
+                        HorizontalAlignment="Left" Padding="14,7"/>
+              </StackPanel>
+            </Expander>
+            <Button Content="제품 정보 저장" Click="SaveProductInfoClick" Padding="18,9"
+                    HorizontalAlignment="Left"/>
+            <TextBlock x:Name="ProductInfoStatus" Margin="0,14,0,0"
+                       Foreground="#566273" TextWrapping="Wrap"/>
+          </StackPanel>
+        </ScrollViewer>
+      </TabItem>
+      <TabItem Header="2. 문서 · 지식 DB">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
         <Grid Margin="16">
           <Grid.RowDefinitions>
@@ -55,7 +83,7 @@
             <TextBlock Text="원본 폴더의 모든 문서 등록·교체·삭제 (DB 반영은 재생성 버튼)" FontWeight="SemiBold"/>
             <DockPanel Margin="0,6,0,8">
               <TextBlock Text="일반 폴더 문서 제품 ID" VerticalAlignment="Center" Margin="0,0,10,0"/>
-              <TextBox x:Name="ManageProductBox" Text="manual-test" Width="220" Padding="6"/>
+              <TextBox x:Name="ManageProductBox" IsReadOnly="True" Width="220" Padding="6" ToolTip="제품 정보 화면에서 관리합니다."/>
               <Button Content="문서 추가" ToolTip="선택 파일을 원본 문서 폴더 최상위에 복사" Padding="12,6" Margin="10,0,0,0" Click="AddDocumentClick"/>
               <Button Content="목록 새로고침" Padding="12,6" Margin="10,0,0,0" Click="RefreshDocumentsClick"/>
             </DockPanel>
@@ -150,47 +178,7 @@
         </Grid>
         </ScrollViewer>
       </TabItem>
-      <TabItem Header="AI 답변 시험">
-        <Grid Margin="16">
-          <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-          </Grid.RowDefinitions>
-          <Grid Grid.Row="0">
-            <Grid.ColumnDefinitions>
-              <ColumnDefinition Width="2*"/>
-              <ColumnDefinition Width="*"/>
-              <ColumnDefinition Width="*"/>
-            </Grid.ColumnDefinitions>
-            <StackPanel Margin="0,0,10,12">
-              <TextBlock Text="제품 ID"/>
-              <TextBox x:Name="ProductBox" Padding="8" Text="manual-test"/>
-            </StackPanel>
-            <StackPanel Grid.Column="1" Margin="0,0,10,12">
-              <TextBlock Text="제품 버전 (선택)"/>
-              <TextBox x:Name="VersionBox" Padding="8"/>
-            </StackPanel>
-            <StackPanel Grid.Column="2" Margin="0,0,0,12">
-              <TextBlock Text="API 포트"/>
-              <TextBox x:Name="PortBox" Padding="8" Text="8765"/>
-            </StackPanel>
-          </Grid>
-          <TextBlock Grid.Row="1" Text="질문" FontWeight="SemiBold"/>
-          <TextBox x:Name="QuestionBox" Grid.Row="2" Margin="0,6,0,12"
-                   Text="수신기와 CRT의 IP 주소 대역은 어떻게 설정해야 하나요?"
-                   MinHeight="75" Padding="8" TextWrapping="Wrap" AcceptsReturn="True"/>
-          <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,12">
-            <Button Content="AI 답변 시험" Padding="18,8" Click="TestChatClick"/>
-            <Button Content="문서 검색 시험" Padding="18,8" Margin="10,0,0,0" Click="TestSearchClick"/>
-          </StackPanel>
-          <TextBox x:Name="TestLog" Grid.Row="4" IsReadOnly="True"
-                   TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Padding="12"/>
-        </Grid>
-      </TabItem>
-      <TabItem Header="사용자 패키지 제작">
+      <TabItem Header="3. 사용자 패키지 제작">
         <ScrollViewer VerticalScrollBarVisibility="Auto">
         <StackPanel Margin="16">
           <TextBlock Text="사용자 전용 패키지 만들기" FontSize="18" FontWeight="SemiBold"/>
@@ -240,6 +228,46 @@
                      Margin="0,16,0,0" TextWrapping="Wrap" Foreground="#566273"/>
         </StackPanel>
         </ScrollViewer>
+      </TabItem>
+      <TabItem Header="4. 검증">
+        <Grid Margin="16">
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+          <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="2*"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <StackPanel Margin="0,0,10,12">
+              <TextBlock Text="제품 ID"/>
+              <TextBox x:Name="ProductBox" Padding="8" IsReadOnly="True"/>
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="0,0,10,12">
+              <TextBlock Text="제품 버전 (제품 정보에서 지정)"/>
+              <TextBox x:Name="VersionBox" Padding="8" IsReadOnly="True"/>
+            </StackPanel>
+            <StackPanel Grid.Column="2" Margin="0,0,0,12">
+              <TextBlock Text="API 포트"/>
+              <TextBox x:Name="PortBox" Padding="8" Text="8765"/>
+            </StackPanel>
+          </Grid>
+          <TextBlock Grid.Row="1" Text="질문" FontWeight="SemiBold"/>
+          <TextBox x:Name="QuestionBox" Grid.Row="2" Margin="0,6,0,12"
+                   Text="수신기와 CRT의 IP 주소 대역은 어떻게 설정해야 하나요?"
+                   MinHeight="75" Padding="8" TextWrapping="Wrap" AcceptsReturn="True"/>
+          <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,12">
+            <Button Content="AI 답변 시험" Padding="18,8" Click="TestChatClick"/>
+            <Button Content="문서 검색 시험" Padding="18,8" Margin="10,0,0,0" Click="TestSearchClick"/>
+          </StackPanel>
+          <TextBox x:Name="TestLog" Grid.Row="4" IsReadOnly="True"
+                   TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" Padding="12"/>
+        </Grid>
       </TabItem>
     </TabControl>
     <TextBlock x:Name="StatusText" Grid.Row="2" Padding="6,12,0,0" Text="준비"

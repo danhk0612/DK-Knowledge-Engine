@@ -59,7 +59,21 @@ if ($expected -notmatch '^[0-9a-f]{64}$' -or $actual -ne $expected) {
 }
 
 $engine = Join-Path $Root 'engine\DK-Knowledge-API.exe'
-& $engine --verify-db $db
+$productInfoPath = Join-Path $Root 'package-info.json'
+if (Test-Path -LiteralPath $productInfoPath -PathType Leaf) {
+    if (-not $manifest.immutable_files.PSObject.Properties['package-info.json']) {
+        throw 'Client package information is not covered by the manifest'
+    }
+    $product = Get-Content -LiteralPath $productInfoPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ([string]$product.product_id -cnotmatch '^[a-z0-9][a-z0-9._-]{0,79}$' -or
+        [string]$product.product_version -cnotmatch '^\d+(\.\d+)+$' -or
+        [string]::IsNullOrWhiteSpace([string]$product.product_name)) {
+        throw 'Invalid Client product metadata'
+    }
+    & $engine --verify-db $db --verify-product-id $product.product_id
+} else {
+    & $engine --verify-db $db
+}
 if ($LASTEXITCODE -ne 0) {
     throw 'Knowledge DB schema / SQLite integrity verification failed'
 }

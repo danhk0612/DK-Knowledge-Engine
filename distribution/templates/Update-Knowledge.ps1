@@ -136,7 +136,13 @@ try {
     if ($actual -ne $ExpectedSha256) {
         throw 'Incoming knowledge database SHA-256 mismatch'
     }
+    $productInfoPath = Join-Path $root 'package-info.json'
+if (Test-Path -LiteralPath $productInfoPath -PathType Leaf) {
+    $product = Get-Content -LiteralPath $productInfoPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    & $engine --verify-db $temporary --verify-product-id $product.product_id
+} else {
     & $engine --verify-db $temporary
+}
     if ($LASTEXITCODE -ne 0) {
         throw 'Incoming knowledge database failed schema / integrity verification'
     }

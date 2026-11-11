@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sqlite3
 import sys
 from contextlib import closing
@@ -73,6 +74,57 @@ def verify_database(database: Path) -> dict:
                 ),
             }
         return result
+
+
+def verify_product_database(database: Path, product_id: str) -> dict:
+    """Verify that a client knowledge DB contains only its assigned product."""
+    if not isinstance(product_id, str) or not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,79}", product_id):
+        raise ValueError("Invalid product ID")
+    result = verify_database(database)
+    with closing(sqlite3.connect(database.resolve().as_uri() + "?mode=ro", uri=True)) as db:
+        product_counts = dict(db.execute(
+            "SELECT product_id, COUNT(*) FROM documents GROUP BY product_id"
+        ).fetchall())
+        if set(product_counts) != {product_id}:
+            raise ValueError("Knowledge DB contains another product or has no documents")
+        if db.execute(
+            "SELECT COUNT(*) FROM help_rules WHERE product_id != ?", (product_id,)
+        ).fetchone()[0]:
+            raise ValueError("Knowledge DB contains rules for another product")
+    result["product_id"] = product_id
+    return result
+
+
+def scope_product_database(database: Path, product_id: str) -> dict:
+    """Remove other products from a *packaging copy*, preserving FTS and optional vectors."""
+    # Verify BEFORE changing anything, including that the desired product exists.
+    verify_database(database)
+    if not isinstance(product_id, str) or not re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,79}", product_id):
+        raise ValueError("Invalid product ID")
+    with closing(sqlite3.connect(database)) as db:
+        db.execute("PRAGMA foreign_keys=ON")
+        if not db.execute(
+            "SELECT 1 FROM documents WHERE product_id=? LIMIT 1", (product_id,)
+        ).fetchone():
+            raise ValueError("Selected product has no documents; rebuild DB with this product ID")
+        with db:
+            db.execute(
+                "DELETE FROM help_rules WHERE product_id != ?", (product_id,)
+            )
+            # Cascades delete chunks, search hints and semantic vectors, via existing triggers.
+            db.execute("DELETE FROM documents WHERE product_id != ?", (product_id,))
+            db.execute("INSERT INTO chunks_fts(chunks_fts) VALUES('integrity-check')")
+            if db.execute(
+                "SELECT 1 FROM sqlite_master WHERE name='chunk_search_hints_fts'"
+            ).fetchone():
+                db.execute(
+                    "INSERT INTO chunk_search_hints_fts(chunk_search_hints_fts) "
+                    "VALUES('integrity-check')"
+                )
+            if db.execute("PRAGMA foreign_key_check").fetchone():
+                raise ValueError("Product isolation would violate foreign keys")
+        db.execute("VACUUM")
+    return verify_product_database(database, product_id)
 
 
 def compact_without_embeddings(database: Path) -> dict:
@@ -192,9 +244,26 @@ def run(argv: list[str] | None = None, *, root: Path | None = None) -> int:
     parser.add_argument("--verify-db", type=Path, help="Validate a knowledge DB without starting the server")
     parser.add_argument("--compact-no-embeddings", action="store_true",
                         help="Remove optional vector index from this package's DB copy")
+    parser.add_argument("--scope-product-id", help="Keep only this product in the package DB copy")
+    parser.add_argument("--verify-product-id", help="Require the verified DB to contain one product")
     args = parser.parse_args(argv)
     if args.verify_db is not None and args.compact_no_embeddings:
         parser.error("Use only one database maintenance action")
+    if args.scope_product_id and (args.verify_db is not None or args.compact_no_embeddings):
+        parser.error("Product isolation cannot be combined with other maintenance actions")
+    if args.verify_product_id and args.verify_db is None:
+        parser.error("--verify-product-id requires --verify-db")
+    if args.scope_product_id:
+        # Never accept an arbitrary path for a mutating action.
+        base = root if root is not None else package_root()
+        try:
+            print(json.dumps(scope_product_database(
+                base / "knowledge" / "knowledge.db", args.scope_product_id
+            )))
+            return 0
+        except (OSError, sqlite3.Error, ValueError) as exc:
+            print(f"Packaged DB product isolation failed: {exc}", file=sys.stderr)
+            return 1
     if args.compact_no_embeddings:
         # Do not accept a caller-provided file path: this command may only
         # alter the already copied DB inside the engine's own package root.
@@ -208,7 +277,9 @@ def run(argv: list[str] | None = None, *, root: Path | None = None) -> int:
             return 1
     if args.verify_db is not None:
         try:
-            print(json.dumps(verify_database(args.verify_db), ensure_ascii=False))
+            report = (verify_product_database(args.verify_db, args.verify_product_id)
+                      if args.verify_product_id else verify_database(args.verify_db))
+            print(json.dumps(report, ensure_ascii=False))
             return 0
         except (OSError, sqlite3.Error, ValueError) as exc:
             print(f"Knowledge DB verification failed: {exc}", file=sys.stderr)
