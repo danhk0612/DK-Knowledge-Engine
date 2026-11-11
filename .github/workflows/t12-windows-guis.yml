@@ -14,6 +14,7 @@ on:
       - '.github/workflows/t12-windows-guis.yml'
       - 'tests/v020_client_gui_smoke.ps1'
       - 'tests/v020_client_engine_gui_smoke.ps1'
+      - 'tests/v020_multiformat_search_smoke.ps1'
       - 'tests/Prepare-Windows-Field-QA.ps1'
       - 'docs/RELEASE_NOTES_*'
   push:
@@ -30,6 +31,7 @@ on:
       - '.github/workflows/t12-windows-guis.yml'
       - 'tests/v020_client_gui_smoke.ps1'
       - 'tests/v020_client_engine_gui_smoke.ps1'
+      - 'tests/v020_multiformat_search_smoke.ps1'
       - 'tests/Prepare-Windows-Field-QA.ps1'
       - 'docs/RELEASE_NOTES_*'
   workflow_dispatch:
@@ -567,6 +569,11 @@ jobs:
             $env:PATH = $previousPath
           }
           Write-Output 'T13_STANDALONE_ADMIN_CLIENT_PACKAGE_OK'
+      - name: Verify real offline Client search and sources for PDF DOCX TXT and MD
+        shell: pwsh
+        run: |
+          & .\tests\v020_multiformat_search_smoke.ps1 -ClientRoot '.\t13-generated-client\DK-Knowledge-Engine-Client'
+          if ($LASTEXITCODE -ne 0) { throw 'Multiformat packaged Client search verification failed' }
       - name: Upload standalone authoring workstation ZIP (not Release)
         uses: actions/upload-artifact@v4
         with:
