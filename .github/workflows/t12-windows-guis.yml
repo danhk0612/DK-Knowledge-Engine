@@ -354,7 +354,7 @@ jobs:
               if ($texts.Count -lt 1) { throw "Builder license text missing: $dependency" }
             }
             Write-Output 'T23_BUILDER_LICENSE_TEXTS_INCLUDED'
-            & $ps -NoProfile -ExecutionPolicy Bypass -File $script -EnginePackage $engine -KnowledgeDb $db -ClientExe $clientGui -OutputDir '.\t13-generated-client' -ProductId 'default' -ProductName 'Standalone Example' -ProductVersion '1.0.0'
+            & $ps -NoProfile -ExecutionPolicy Bypass -File $script -EnginePackage $engine -KnowledgeDb $db -ClientExe $clientGui -OutputDir '.\t13-generated-client' -ProductId 'manual-test' -ProductName 'Standalone Example' -ProductVersion '1.0.0'
             if ($LASTEXITCODE -ne 0) { throw 'Standalone Admin failed to make Client package' }
             $client = '.\t13-generated-client\DK-Knowledge-Engine-Client'
             if (Test-Path (Join-Path $client 'DK-Knowledge-Admin.exe')) { throw 'Admin EXE leaked to Client' }
