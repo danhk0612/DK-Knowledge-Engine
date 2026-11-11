@@ -131,7 +131,7 @@
             <TextBlock x:Name="PortText" Margin="0,8,0,12" Foreground="#64748B"/>
             <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
               <TextBox x:Name="SettingsPortBox" Width="115" Padding="10"/>
-              <Button Content="포트 저장" Padding="17,9" Margin="10,0,0,0" Click="SavePortClick"/>
+              <Button x:Name="SavePortButton" Content="포트 저장" Padding="17,9" Margin="10,0,0,0" Click="SavePortClick"/>
               <TextBlock Text="기본 8765 · 서버는 127.0.0.1만 사용"
                          VerticalAlignment="Center" Margin="12,0,0,0" Foreground="#64748B"/>
             </StackPanel>
