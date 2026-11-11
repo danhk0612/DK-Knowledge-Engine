@@ -63,6 +63,7 @@
 - [선택형 경량 임베딩 의미 검색](docs/T19_OPTIONAL_SEMANTIC_SEARCH.md)
 - [관리자 통합 문서 관리](docs/T13_ADMIN_GUI.md)
 - [Windows 시험용 패키지 확인](docs/WINDOWS_TRIAL.md)
+- [v0.2.0 Admin·Client Windows 실기 검증](docs/V020_WINDOWS_FIELD_QA.md)
 - [사전 배포판 기록](docs/RELEASE_NOTES_v0.1.0-preview.4.md) / [Release 제작](docs/RELEASE_PROCESS.md)
 - [구현 단계 및 검증 기록](TASKS.md)
 

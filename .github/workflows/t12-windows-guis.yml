@@ -251,7 +251,7 @@ jobs:
           # claiming a different architecture is compatible.
           $selected = Join-Path $base 'models\selected-test.gguf'
           Copy-Item -LiteralPath (Join-Path $base 'models\Qwen3-1.7B-Q4_K_M.gguf') -Destination $selected
-          & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $db -OutputDir '.\client-package-output' -ModelFile $selected -PromptMode 'jinja' -ProductId 'example-program' -ProductName 'Example Program' -ProductVersion '2.0.0'
+          & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $db -OutputDir '.\client-package-output' -ModelFile $selected -PromptMode 'jinja' -ProductId 'example-program' -ProductName 'Example Program' -ProductVersion '2.0.0' -IconFile '.\assets\generated\admin.ico' -AppName 'Example Help Client'
           if ($LASTEXITCODE -ne 0) { throw 'Repeated build with selected model failed' }
           $generated = '.\client-package-output\DK-Knowledge-Engine-Client'
           $modelConfig = Get-Content (Join-Path $generated 'config\settings.json') -Raw | ConvertFrom-Json
@@ -270,6 +270,15 @@ jobs:
           }
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $generated 'Verify-AIHelp.ps1') -Root $generated
           if ($LASTEXITCODE -ne 0) { throw 'Selected model Client integrity verification failed' }
+          $finalProduct = Get-Content -LiteralPath (Join-Path $generated 'package-info.json') -Raw | ConvertFrom-Json
+          if ($finalProduct.app_name -ne 'Example Help Client') {
+            throw 'Branded Client app name was not retained in final ZIP'
+          }
+          $brandedIconHash = (Get-FileHash '.\assets\generated\admin.ico' -Algorithm SHA256).Hash
+          $finalIconHash = (Get-FileHash (Join-Path $generated 'assets\app.ico') -Algorithm SHA256).Hash
+          if ($brandedIconHash -ne $finalIconHash) {
+            throw 'Final Client ZIP did not retain the selected custom icon'
+          }
           if ((Get-Content -LiteralPath $note -Raw).Trim() -ne 'author-notes') { throw 'Unrelated output file was lost' }
           $zip = '.\client-package-output\DK-Knowledge-Engine-Client-Win-x64.zip'
           $zipContents = & tar.exe -tf $zip
@@ -285,6 +294,47 @@ jobs:
             $app.Dispose()
           }
           Write-Output 'T12_CLIENT_ONLY_MULTIFILE_PACKAGE_OK'
+      - name: Reject altered Client runtime DLL and restore valid package
+        shell: pwsh
+        run: |
+          $package = (Resolve-Path '.\client-package-output\DK-Knowledge-Engine-Client').Path
+          $dll = (Resolve-Path (Join-Path $package 'coreclr.dll')).Path
+          $before = (Get-FileHash -LiteralPath $dll -Algorithm SHA256).Hash
+          # The manifest must reject changed app-host runtime bytes, even if all
+          # other files, product metadata, and knowledge DB are intact.
+          $stream = [IO.File]::Open($dll, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite)
+          try {
+            $first = $stream.ReadByte()
+            if ($first -lt 0) { throw 'Empty runtime DLL' }
+            $stream.Position = 0
+            $stream.WriteByte([byte]($first -bxor 1))
+          } finally { $stream.Dispose() }
+          try {
+            $verify = Join-Path $package 'Verify-AIHelp.ps1'
+            $out = Join-Path $env:RUNNER_TEMP 'tampered-verify.stdout.txt'
+            $err = Join-Path $env:RUNNER_TEMP 'tampered-verify.stderr.txt'
+            $check = Start-Process -FilePath 'powershell.exe' -ArgumentList @(
+              '-NoProfile','-ExecutionPolicy','Bypass','-File',
+              ('"' + $verify + '"'),'-Root',('"' + $package + '"')
+            ) -Wait -PassThru -RedirectStandardOutput $out -RedirectStandardError $err
+            if ($check.ExitCode -eq 0) { throw 'Tampered Client runtime was mistakenly accepted' }
+            $failure = Get-Content -LiteralPath $err -Raw
+            if ($failure -notmatch 'Package SHA-256 mismatch: coreclr.dll') {
+              throw 'Runtime tampering was rejected for an unexpected reason'
+            }
+          } finally {
+            $stream = [IO.File]::Open($dll, [IO.FileMode]::Open, [IO.FileAccess]::ReadWrite)
+            try {
+              $stream.Position = 0
+              $stream.WriteByte([byte]$first)
+            } finally { $stream.Dispose() }
+          }
+          if ((Get-FileHash -LiteralPath $dll -Algorithm SHA256).Hash -ne $before) {
+            throw 'Runtime DLL could not be restored byte-for-byte'
+          }
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $package 'Verify-AIHelp.ps1') -Root $package
+          if ($LASTEXITCODE -ne 0) { throw 'Restored Client failed normal verification' }
+          Write-Output 'T12_CLIENT_RUNTIME_TAMPER_REJECTED'
       - name: Upload client-only integrated trial ZIP (not a Release)
         uses: actions/upload-artifact@v4
         with:
