@@ -5,7 +5,7 @@
 ## 시작하기
 
 1. 제작자에게 받은 `DK-Knowledge-Engine-Client-Win-x64*.zip`을 다운로드해 원하는 폴더에 압축 해제합니다.
-2. `DK-Knowledge-Engine-Client/DK-Knowledge-Client.exe`를 실행합니다.
+2. `DK-Knowledge-Engine-Client/DK-Knowledge-Client.exe`를 실행합니다. **EXE만 다른 폴더로 옮기지 마세요.** 같은 폴더의 DLL, `*.deps.json`, `*.runtimeconfig.json`은 실행에 필요한 자체 포함 .NET 파일입니다. ZIP 폴더 전체를 유지해야 하며 별도 .NET 설치는 필요하지 않습니다.
 3. 프로그램에서 로컬 엔진을 시작한 뒤 **문서 검색** 또는 **AI 질문**을 사용합니다. 제품 ID와 버전은 관리자 패키지 제작 시 고정되어 있어 사용자가 입력하지 않습니다.
 4. 답변에 표시되는 출처를 함께 확인하세요. 답변은 제공된 지식 DB에 포함된 자료 범위에 제한됩니다.
 
@@ -13,7 +13,7 @@
 
 ## 포함 / 미포함
 
-포함: Client GUI, 로컬 API 엔진, llama.cpp 실행 파일, Qwen3 1.7B GGUF 모델, 설정, 지식 DB, 검증·DB 갱신 스크립트, 라이선스 고지.
+포함: Client GUI EXE와 .NET 자체 포함 실행 DLL, 로컬 API 엔진, llama.cpp 실행 파일, Qwen3 1.7B GGUF 모델, 설정, 지식 DB, 검증·DB 갱신 스크립트, 라이선스 고지.
 
 미포함: 제작자용 관리자 EXE, 문서 등록/색인 도구, 원본 PDF/DOCX/TXT/MD, 설치 관리자, 자동 온라인 업데이트.
 

@@ -69,6 +69,16 @@ if (Test-Path -LiteralPath $productInfoPath -PathType Leaf) {
         -not $manifest.immutable_files.PSObject.Properties['assets/app.ico']) {
         throw 'Client icon path is missing or not protected by the manifest'
     }
+    # New v0.2 Client packages are self-contained *multi-file* WPF apps.
+    # Every required runtime dependency must also be in immutable_files.
+    foreach ($clientFile in @('DK-Knowledge-Client.exe',
+        'DK-Knowledge-Client.deps.json','DK-Knowledge-Client.runtimeconfig.json',
+        'coreclr.dll','hostfxr.dll','PresentationFramework.dll')) {
+        if (-not $manifest.immutable_files.PSObject.Properties[$clientFile] -or
+            -not (Test-Path -LiteralPath (Join-Path $Root $clientFile) -PathType Leaf)) {
+            throw "Self-contained Client dependency is missing or not verified: $clientFile"
+        }
+    }
     if ([string]$product.product_id -cnotmatch '^[a-z0-9][a-z0-9._-]{0,79}$' -or
         [string]$product.product_version -cnotmatch '^\d+(\.\d+)+$' -or
         [string]::IsNullOrWhiteSpace([string]$product.product_name)) {

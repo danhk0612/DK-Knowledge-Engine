@@ -28,7 +28,7 @@ New-Item -ItemType Directory -Path (Join-Path $package 'workspace\sources') -For
 try {
     & dotnet publish (Join-Path $repo 'apps\Admin\DKKnowledgeAdmin.csproj') -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $adminPublish
     if ($LASTEXITCODE -ne 0) { throw 'Admin WPF publish failed' }
-    & dotnet publish (Join-Path $repo 'apps\Client\DKKnowledgeClient.csproj') -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $clientPublish
+    & dotnet publish (Join-Path $repo 'apps\Client\DKKnowledgeClient.csproj') -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o $clientPublish
     if ($LASTEXITCODE -ne 0) { throw 'Client WPF publish failed' }
 
     $adminGui = Join-Path $adminPublish 'DK-Knowledge-Admin.exe'
@@ -39,7 +39,29 @@ try {
         }
     }
     Copy-Item -LiteralPath $adminGui -Destination (Join-Path $package 'DK-Knowledge-Admin.exe')
-    Copy-Item -LiteralPath $clientGui -Destination (Join-Path $package 'client\DK-Knowledge-Client.exe')
+    # Portable Admin must carry ALL Client runtime dependencies. The target
+    # authoring PC has neither .NET SDK nor a separate .NET runtime.
+    foreach ($required in @('DK-Knowledge-Client.deps.json',
+        'DK-Knowledge-Client.runtimeconfig.json','coreclr.dll',
+        'hostfxr.dll','PresentationFramework.dll')) {
+        if (-not (Test-Path -LiteralPath (Join-Path $clientPublish $required) -PathType Leaf)) {
+            throw "Client runtime dependency missing from publish: $required"
+        }
+    }
+    foreach ($file in @(Get-ChildItem -LiteralPath $clientPublish -File -Recurse)) {
+        $relative = $file.FullName.Substring($clientPublish.Length).TrimStart('\','/').Replace('\','/')
+        if ($file.Extension -ine '.dll' -and
+            $relative -cnotin @('DK-Knowledge-Client.exe','DK-Knowledge-Client.deps.json',
+                'DK-Knowledge-Client.runtimeconfig.json')) {
+            continue
+        }
+        if ($relative -match '(?i)(^|/)(DK-Knowledge-Admin|DK-Knowledge-Builder)') {
+            throw "Unrelated executable or assembly in Client GUI publish: $relative"
+        }
+        $target = Join-Path $package ('client\' + $relative.Replace('/', [IO.Path]::DirectorySeparatorChar))
+        New-Item -ItemType Directory -Path (Split-Path -Parent $target) -Force | Out-Null
+        Copy-Item -LiteralPath $file.FullName -Destination $target -Force
+    }
 
     # PyInstaller embeds CPython and the Builder's PDF/DOCX dependencies.
     & $Python -m PyInstaller --noconfirm --clean --onedir --console --name DK-Knowledge-Builder --paths $repo --collect-all pypdf --collect-all docx --distpath $builderDist --workpath (Join-Path $work 'py-work') --specpath (Join-Path $work 'py-spec') (Join-Path $repo 'distribution\builder_entry.py')
