@@ -14,11 +14,30 @@ public partial class MainWindow : Window
     private readonly string _root = AppContext.BaseDirectory.TrimEnd(
         Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
     private readonly LocalApiClient _api;
+    private readonly string _productId;
+    private readonly string _productVersion;
     private Process? _ownedEngine;
 
     public MainWindow()
     {
         InitializeComponent();
+        var productFile = Path.Combine(_root, "package-info.json");
+        if (!File.Exists(productFile))
+            throw new FileNotFoundException("사용자 패키지의 제품 정보가 없습니다.", productFile);
+        using (var info = JsonDocument.Parse(File.ReadAllText(productFile)))
+        {
+            var data = info.RootElement;
+            _productId = data.GetProperty("product_id").GetString() ?? "";
+            _productVersion = data.GetProperty("product_version").GetString() ?? "";
+            var productName = data.GetProperty("product_name").GetString() ?? "";
+            var appName = data.GetProperty("app_name").GetString() ?? "";
+            if (string.IsNullOrWhiteSpace(_productId) || string.IsNullOrWhiteSpace(_productVersion) ||
+                string.IsNullOrWhiteSpace(productName) || string.IsNullOrWhiteSpace(appName))
+                throw new InvalidDataException("사용자 패키지의 제품 정보가 잘못되었습니다.");
+            Title = appName;
+            AppTitleText.Text = appName;
+            ProductInfoText.Text = productName + " · " + _productVersion;
+        }
         var settingsFile = Path.Combine(_root, "config", "settings.json");
         var port = 8765;
         if (File.Exists(settingsFile))
@@ -30,9 +49,6 @@ public partial class MainWindow : Window
         PortText.Text = $"API 주소: http://127.0.0.1:{port}";
         EngineStatusText.Text = "상태 확인을 눌러 엔진 연결 여부를 확인하세요.";
     }
-
-    private static string? Version(string input) =>
-        string.IsNullOrWhiteSpace(input) ? null : input.Trim();
 
     private async Task ExecuteAsync(Func<Task> action)
     {
@@ -124,16 +140,16 @@ public partial class MainWindow : Window
         });
 
     private string[] InputValues() =>
-        [ProductIdBox.Text.Trim(), QuestionBox.Text.Trim()];
+        [_productId, QuestionBox.Text.Trim()];
 
     private async void AskClick(object sender, RoutedEventArgs e) =>
         await ExecuteAsync(async () =>
         {
             var input = InputValues();
             if (input.Any(string.IsNullOrWhiteSpace))
-                throw new ArgumentException("제품 ID와 질문을 입력하세요.");
+                throw new ArgumentException("질문을 입력하세요.");
             StatusText.Text = "AI 답변 생성 중...";
-            var answer = await _api.ChatAsync(input[0], Version(VersionBox.Text), input[1]);
+            var answer = await _api.ChatAsync(input[0], _productVersion, input[1]);
             var sources = answer.GetProperty("sources").EnumerateArray()
                 .Select(s => s.GetProperty("source_path").GetString() +
                     (s.TryGetProperty("page_from", out var p) && p.ValueKind == JsonValueKind.Number
@@ -149,7 +165,7 @@ public partial class MainWindow : Window
         {
             var input = InputValues();
             if (input.Any(string.IsNullOrWhiteSpace))
-                throw new ArgumentException("제품 ID와 검색어를 입력하세요.");
+                throw new ArgumentException("검색어를 입력하세요.");
             StatusText.Text = "문서 검색 중...";
             var response = await _api.SearchAsync(input[0], Version(VersionBox.Text), input[1]);
             var lines = response.GetProperty("results").EnumerateArray()
