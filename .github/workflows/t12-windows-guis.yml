@@ -171,6 +171,10 @@ jobs:
         run: |
           $base = (Resolve-Path '.\base-extracted\DK-Knowledge-Engine-Win-x64').Path
           $db = Join-Path $base 'knowledge\knowledge.db'
+          # The client-package job only publishes Client; Admin's default
+          # icon is not generated implicitly in this independent Windows job.
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File '.\assets\Generate-Icon.ps1' -Kind admin -Output '.\assets\generated\admin.ico'
+          if ($LASTEXITCODE -ne 0) { throw 'Custom test ICO creation failed' }
           # Inject unlisted authoring files to prove they are never shipped.
           Set-Content -LiteralPath (Join-Path $base 'DK-Knowledge-Admin.exe') -Value 'test-only sentinel'
           New-Item -ItemType Directory -Path (Join-Path $base 'builder') | Out-Null
