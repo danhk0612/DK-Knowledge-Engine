@@ -63,9 +63,9 @@ foreach ($n in $sizes) {
 $file = [IO.File]::Create([IO.Path]::GetFullPath($Output))
 $writer = [IO.BinaryWriter]::new($file)
 try {
-    $writer.Write([ushort]0)
-    $writer.Write([ushort]1)
-    $writer.Write([ushort]$images.Count)
+    $writer.Write([uint16]0)
+    $writer.Write([uint16]1)
+    $writer.Write([uint16]$images.Count)
     $offset = 6 + 16 * $images.Count
     for ($i=0;$i -lt $images.Count;$i++) {
         $size = $sizes[$i]
@@ -73,8 +73,8 @@ try {
         $writer.Write([byte]$(if ($size -eq 256) {0} else {$size}))
         $writer.Write([byte]0)
         $writer.Write([byte]0)
-        $writer.Write([ushort]1)
-        $writer.Write([ushort]32)
+        $writer.Write([uint16]1)
+        $writer.Write([uint16]32)
         $writer.Write([uint32]$images[$i].Length)
         $writer.Write([uint32]$offset)
         $offset += $images[$i].Length
