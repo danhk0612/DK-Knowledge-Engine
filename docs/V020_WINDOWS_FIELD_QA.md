@@ -2,6 +2,20 @@
 
 > **시험용 ZIP 기준**입니다. 실제 고객 문서가 아니라 GitHub Actions가 포함한 예제 지식 DB를 대상으로 검사합니다. 자동 CI 검증과 달리 Windows 알림 영역·사용자 입력·화면 표시를 실제 PC에서 확인하는 절차입니다. 모든 검사를 마치기 전에는 정식 배포로 판단하지 않습니다.
 
+## Windows 시험용 패키지 자동 준비 (권장)
+
+다음 작업은 **Windows PowerShell 5.1**에서 실행합니다. GitHub CLI(`gh`) 로그인과 Git이 필요하고, 실행 중에는 GitHub에서 ZIP을 내려받기 위해 인터넷을 사용합니다. **패키지 실행 자체는 오프라인**입니다.
+
+```powershell
+gh repo clone danhk0612/DK-Knowledge-Engine -- --branch feature/v020-batched-admin-client
+cd .\DK-Knowledge-Engine
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Prepare-Windows-Field-QA.ps1 -RunId 42964843944
+```
+
+스크립트는 **실제 T12 전체 성공 여부와 Git 커밋을 확인**하고, Admin·Client ZIP을 다운로드해 서로 다른 폴더에 압축 해제한 뒤 엔진 및 Client 패키지의 SHA-256 무결성을 검사합니다. `DK-Knowledge-Engine-v020-FieldQA\FIELD_QA_RESULT.md`에는 Windows 버전·테스트 커밋·수동 확인 항목을 기록합니다. **프로그램을 자동 실행하거나 실사용 문서를 수정하지 않습니다.** 기존 출력 폴더가 있으면 덮어쓰지 않고 중단합니다.
+
+> 이 스크립트는 시험용 준비를 돕는 도구이며, 실제 PC의 트레이 조작과 답변 품질은 자동 합격 처리하지 않습니다. 실행 전 스크립트를 검토하고, 조직의 PowerShell 실행 정책을 위반하지 마세요. GitHub Actions 아티팩트는 7일 보관이므로 만료 시 새로 성공한 T12의 run ID를 입력해야 합니다.
+
 ## 1. 동일 커밋의 시험용 ZIP 준비
 
 1. [T12 Windows GUIs 실행 기록](https://github.com/danhk0612/DK-Knowledge-Engine/actions/workflows/t12-windows-guis.yml)에서 **PR #41 브랜치 `feature/v020-batched-admin-client`의 가장 최근 성공 실행**을 선택합니다. `head SHA`를 기록합니다.
