@@ -34,6 +34,12 @@ Get-Content (Join-Path $client "package-info.json") -Raw | ConvertFrom-Json |
 
 예상 결과: `PACKAGE_VERIFY_OK`. 인공 샘플 제품 ID는 `example-program`, 버전은 `2.0.0`입니다. 최신 T12 시험용 Client는 사용자 지정 앱 이름 `Example Help Client`와 사용자 지정 아이콘을 테스트하도록 생성합니다. 앱 이름과 아이콘은 사용자 제품마다 변경할 수 있습니다.
 
+## Windows CI에서 이미 자동 확인하는 화면 동작
+
+`tests/v020_client_gui_smoke.ps1`은 다중 파일 Client EXE를 실제로 시작하고 Windows UI Automation을 사용해 **프로그램명 표시 → 설정 탭 포트 변경·저장 → API 도구 URL 갱신 → X 버튼 창 숨김과 프로세스 유지**를 시험합니다. GitHub Actions의 T12 `gui-build` 작업에서 실행합니다.
+
+이 검증은 Windows CI 실행 환경에서만 수행한 것이며, 아래 항목의 **사용자 PC 실기 확인을 대체하지 않습니다.** 특히 트레이 아이콘 표시·우클릭 메뉴, 실제 DB 업데이트 및 자동 엔진 재시작, 사내 보안 정책은 사용자 환경에서 별도로 검사해야 합니다.
+
 ## 3. Client 화면·엔진·트레이 수동 확인
 
 | 순서 | 동작 | 합격 기준 |
