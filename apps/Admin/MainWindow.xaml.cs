@@ -26,8 +26,8 @@ public partial class MainWindow : Window
         DbBox.Text = Path.Combine(dataRoot, "knowledge.db");
         PackageOutputBox.Text = Path.Combine(dataRoot, "client-packages");
         _productInfoFile = Path.Combine(dataRoot, "admin-product.json");
-        LoadProductInfo();
         Directory.CreateDirectory(SourceBox.Text);
+        LoadProductInfo();
         if (_bundled)
         {
             DeveloperRepoPanel.Visibility = Visibility.Collapsed;
