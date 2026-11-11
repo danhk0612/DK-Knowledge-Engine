@@ -167,7 +167,7 @@ public partial class MainWindow : Window
             if (input.Any(string.IsNullOrWhiteSpace))
                 throw new ArgumentException("검색어를 입력하세요.");
             StatusText.Text = "문서 검색 중...";
-            var response = await _api.SearchAsync(input[0], Version(VersionBox.Text), input[1]);
+            var response = await _api.SearchAsync(input[0], _productVersion, input[1]);
             var lines = response.GetProperty("results").EnumerateArray()
                 .Select(s => s.GetProperty("title").GetString() + "\n" +
                     s.GetProperty("excerpt").GetString() + "\n" +
