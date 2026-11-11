@@ -113,8 +113,8 @@
             <TextBox x:Name="DbPathBox" Padding="10"/>
           </DockPanel>
           <StackPanel Orientation="Horizontal">
-            <Button Content="DB 업데이트" Padding="18,10" Click="ApplyDbClick"/>
-            <Button Content="이전 DB 복구" Padding="18,10" Margin="10,0,0,0" Click="RollbackDbClick"/>
+            <Button x:Name="ApplyDbButton" Content="DB 업데이트" Padding="18,10" Click="ApplyDbClick"/>
+            <Button x:Name="RollbackDbButton" Content="이전 DB 복구" Padding="18,10" Margin="10,0,0,0" Click="RollbackDbClick"/>
             <Button Content="무결성 검사" Padding="18,10" Margin="10,0,0,0" Click="VerifyClick"/>
           </StackPanel>
           <TextBlock Text="이 프로그램이 시작한 엔진은 업데이트 전에 자동으로 중지하고, 업데이트 성공 후 다시 시작합니다. 외부에서 실행한 엔진은 중지하지 않습니다."
@@ -136,8 +136,8 @@
                          VerticalAlignment="Center" Margin="12,0,0,0" Foreground="#64748B"/>
             </StackPanel>
             <StackPanel Orientation="Horizontal">
-              <Button Content="엔진 시작" Padding="17,9" Click="StartEngineClick"/>
-              <Button Content="엔진 중지" Padding="17,9" Margin="10,0,0,0" Click="StopEngineClick"/>
+              <Button x:Name="StartEngineButton" Content="엔진 시작" Padding="17,9" Click="StartEngineClick"/>
+              <Button x:Name="StopEngineButton" Content="엔진 중지" Padding="17,9" Margin="10,0,0,0" Click="StopEngineClick"/>
               <Button Content="상태 확인" Padding="17,9" Margin="10,0,0,0" Click="HealthClick"/>
             </StackPanel>
             <TextBlock x:Name="EngineStatusText" Margin="0,16,0,0" TextWrapping="Wrap"/>
