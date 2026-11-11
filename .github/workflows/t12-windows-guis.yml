@@ -95,7 +95,25 @@ jobs:
               throw 'EXE icon resource did not replace the icon seen by Windows'
             }
           } finally { $before.Dispose(); $after.Dispose() }
-          Write-Output 'V020_ICON_RESOURCE_SMOKE_OK'
+          # Run the icon-modified .NET single-file executable, not just inspect
+          # PE resources. It must survive startup without the .NET SDK installed.
+          $boot = Join-Path $env:RUNNER_TEMP 'icon-client-startup'
+          New-Item -ItemType Directory -Path (Join-Path $boot 'assets'),(Join-Path $boot 'config') -Force | Out-Null
+          $appExe = Join-Path $boot 'DK-Knowledge-Client.exe'
+          Copy-Item -LiteralPath $patched -Destination $appExe
+          Copy-Item -LiteralPath '.\assets\generated\admin.ico' -Destination (Join-Path $boot 'assets\app.ico')
+          [IO.File]::WriteAllText((Join-Path $boot 'package-info.json'),
+            '{"product_id":"example-program","product_name":"Example","product_version":"1.0.0","app_name":"Icon Startup Test","icon_file":"assets/app.ico"}')
+          [IO.File]::WriteAllText((Join-Path $boot 'config\settings.json'), '{"port":8765}')
+          $app = Start-Process -FilePath $appExe -WorkingDirectory $boot -PassThru
+          try {
+            Start-Sleep -Seconds 5
+            if ($app.HasExited) { throw 'Icon-edited Client GUI terminated at startup' }
+          } finally {
+            if (-not $app.HasExited) { Stop-Process -Id $app.Id -Force }
+            $app.Dispose()
+          }
+          Write-Output 'V020_ICON_RESOURCE_AND_GUI_STARTUP_SMOKE_OK'
       - name: Parse client packaging PowerShell
         shell: pwsh
         run: |
