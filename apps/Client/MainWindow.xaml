@@ -15,8 +15,7 @@
       <DockPanel LastChildFill="True">
         <Border Background="#E8F5F3" CornerRadius="12" Width="56" Height="56" DockPanel.Dock="Left"
                 Margin="0,0,15,0">
-          <TextBlock Text="?" HorizontalAlignment="Center" VerticalAlignment="Center"
-                     FontSize="27" FontWeight="Bold" Foreground="#0F766E"/>
+          <Image x:Name="HeaderAppIcon" Width="45" Height="45"/>
         </Border>
         <TextBlock x:Name="HeaderEngineStatusText" DockPanel.Dock="Right"
                    Text="엔진 연결 대기" VerticalAlignment="Center"
