@@ -572,8 +572,8 @@ jobs:
       - name: Verify real offline Client search and sources for PDF DOCX TXT and MD
         shell: pwsh
         run: |
+          # PowerShell script throws on failures; it does not set LASTEXITCODE.
           & .\tests\v020_multiformat_search_smoke.ps1 -ClientRoot '.\t13-generated-client\DK-Knowledge-Engine-Client'
-          if ($LASTEXITCODE -ne 0) { throw 'Multiformat packaged Client search verification failed' }
       - name: Upload standalone authoring workstation ZIP (not Release)
         uses: actions/upload-artifact@v4
         with:
