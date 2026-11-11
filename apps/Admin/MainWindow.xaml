@@ -151,7 +151,7 @@
             </DockPanel>
             <StackPanel Orientation="Horizontal" Margin="0,0,0,9">
               <TextBlock Text="제작용 프롬프트" VerticalAlignment="Center" Margin="0,0,8,0"/>
-              <ComboBox x:Name="AuthorPromptBox" Width="132" SelectedIndex="0">
+              <ComboBox x:Name="AuthorPromptBox" Width="132" SelectedIndex="0" ToolTip="raw_chatml: ChatML 토큰을 직접 구성 / qwen3: Qwen3 모델 템플릿 + 추론 출력 끄기 / jinja: GGUF에 내장된 채팅 템플릿 사용">
                 <ComboBoxItem Content="raw_chatml"/>
                 <ComboBoxItem Content="qwen3"/>
                 <ComboBoxItem Content="jinja"/>
@@ -178,7 +178,7 @@
             </DockPanel>
             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
               <TextBlock Text="임베딩 프로필" VerticalAlignment="Center" Margin="0,0,8,0"/>
-              <ComboBox x:Name="EmbeddingProfileBox" Width="144" SelectedIndex="0">
+              <ComboBox x:Name="EmbeddingProfileBox" Width="144" SelectedIndex="0" ToolTip="generic: 별도 접두어 없음 / e5: query: 및 passage: 접두어를 사용하는 E5 계열 임베딩 모델용">
                 <ComboBoxItem Content="generic"/>
                 <ComboBoxItem Content="e5"/>
               </ComboBox>
@@ -243,7 +243,7 @@
           </DockPanel>
           <StackPanel Orientation="Horizontal" Margin="0,0,0,7">
             <TextBlock Text="프롬프트 형식" VerticalAlignment="Center" Margin="0,0,10,0"/>
-            <ComboBox x:Name="PackagePromptModeBox" Width="160" SelectedIndex="0">
+            <ComboBox x:Name="PackagePromptModeBox" Width="160" SelectedIndex="0" ToolTip="raw_chatml: ChatML 직접 구성 / qwen3: Qwen3 템플릿과 추론 끄기 / jinja: 모델 GGUF에 내장된 채팅 템플릿 사용">
               <ComboBoxItem Content="raw_chatml"/>
               <ComboBoxItem Content="qwen3"/>
               <ComboBoxItem Content="jinja"/>
