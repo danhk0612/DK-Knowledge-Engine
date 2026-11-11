@@ -65,6 +65,10 @@ if (Test-Path -LiteralPath $productInfoPath -PathType Leaf) {
         throw 'Client package information is not covered by the manifest'
     }
     $product = Get-Content -LiteralPath $productInfoPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($product.icon_file -ne 'assets/app.ico' -or
+        -not $manifest.immutable_files.PSObject.Properties['assets/app.ico']) {
+        throw 'Client icon path is missing or not protected by the manifest'
+    }
     if ([string]$product.product_id -cnotmatch '^[a-z0-9][a-z0-9._-]{0,79}$' -or
         [string]$product.product_version -cnotmatch '^\d+(\.\d+)+$' -or
         [string]::IsNullOrWhiteSpace([string]$product.product_name)) {
