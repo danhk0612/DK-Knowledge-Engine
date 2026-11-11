@@ -6,3 +6,6 @@ __pycache__/
 *.db-journal
 *.db-wal
 *.db-shm
+
+# Generated icon binaries (built from the checked-in source script)
+assets/generated/
