@@ -7,6 +7,9 @@ on:
       - 'llm/**'
       - 'distribution/Build-Client-Package.ps1'
       - 'distribution/Build-Admin-Package.ps1'
+      - 'distribution/Set-Exe-Icon.ps1'
+      - 'distribution/templates/Verify-AIHelp.ps1'
+      - 'assets/**'
       - 'distribution/builder_entry.py'
       - '.github/workflows/t12-windows-guis.yml'
       - 'docs/RELEASE_NOTES_*'
@@ -17,6 +20,9 @@ on:
       - 'llm/**'
       - 'distribution/Build-Client-Package.ps1'
       - 'distribution/Build-Admin-Package.ps1'
+      - 'distribution/Set-Exe-Icon.ps1'
+      - 'distribution/templates/Verify-AIHelp.ps1'
+      - 'assets/**'
       - 'distribution/builder_entry.py'
       - '.github/workflows/t12-windows-guis.yml'
       - 'docs/RELEASE_NOTES_*'
@@ -51,90 +57,68 @@ jobs:
       - name: Publish self-contained client GUI only
         shell: pwsh
         run: |
-          dotnet publish apps/Client/DKKnowledgeClient.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o .\client-gui
+          dotnet publish apps/Client/DKKnowledgeClient.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o .\client-gui
           if ($LASTEXITCODE -ne 0) { throw 'Client publishing failed' }
           if (-not (Test-Path '.\client-gui\DK-Knowledge-Client.exe')) { throw 'Missing Client EXE' }
+          foreach ($required in @('coreclr.dll','hostfxr.dll','PresentationFramework.dll','DK-Knowledge-Client.deps.json','DK-Knowledge-Client.runtimeconfig.json')) {
+            if (-not (Test-Path (Join-Path '.\client-gui' $required))) { throw "Missing Client runtime: $required" }
+          }
           if (Get-ChildItem '.\client-gui' -Recurse -File | Where-Object { $_.Name -match 'Admin|Builder' }) {
             throw 'Admin or Builder content leaked into client GUI output'
           }
-      - name: Required icon resource smoke on .NET single-file Client
+      - name: Verify multi-file EXE icon replacement and startup
         shell: pwsh
         run: |
           foreach ($kind in @('admin','client')) {
             $ico = Join-Path '.\assets\generated' ($kind + '.ico')
-            if (-not (Test-Path -LiteralPath $ico -PathType Leaf)) { throw "Missing $kind icon" }
             $bytes = [IO.File]::ReadAllBytes((Resolve-Path $ico).Path)
-            if ($bytes.Length -lt 256 -or [BitConverter]::ToUInt16($bytes,4) -ne 4) {
-              throw "Invalid multi-resolution $kind ICO"
-            }
+            if ($bytes.Length -lt 256 -or [BitConverter]::ToUInt16($bytes,4) -ne 4) { throw "Invalid ICO: $kind" }
           }
-          $source = (Resolve-Path '.\client-gui\DK-Knowledge-Client.exe').Path
-          $patched = Join-Path $env:RUNNER_TEMP 'client-icon-smoke.exe'
-          Copy-Item -LiteralPath $source -Destination $patched
-          $original = (Get-FileHash -LiteralPath $patched -Algorithm SHA256).Hash
-          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File '.\distribution\Set-Exe-Icon.ps1' -Exe $patched -Icon '.\assets\generated\admin.ico'
-          if ($LASTEXITCODE -ne 0) { throw 'PE icon update failed' }
-          if ((Get-FileHash -LiteralPath $patched -Algorithm SHA256).Hash -eq $original) {
-            throw 'EXE icon operation made no change'
+          $work = Join-Path $env:RUNNER_TEMP 'multi-file-icon-test'
+          $original = Join-Path $work 'baseline'
+          $modified = Join-Path $work 'patched'
+          foreach ($folder in @($original,$modified)) {
+            New-Item -ItemType Directory -Path $folder -Force | Out-Null
+            Copy-Item -Path '.\client-gui\*' -Destination $folder -Recurse -Force
+            New-Item -ItemType Directory -Path (Join-Path $folder 'assets'),(Join-Path $folder 'config') -Force | Out-Null
+            Copy-Item -LiteralPath '.\assets\generated\admin.ico' -Destination (Join-Path $folder 'assets\app.ico')
+            [IO.File]::WriteAllText((Join-Path $folder 'package-info.json'),
+              '{"product_id":"example-program","product_name":"Example","product_version":"1.0.0","app_name":"Icon Startup Test","icon_file":"assets/app.ico"}')
+            [IO.File]::WriteAllText((Join-Path $folder 'config\settings.json'), '{"port":8765}')
+          }
+          $src = Join-Path $original 'DK-Knowledge-Client.exe'
+          $exe = Join-Path $modified 'DK-Knowledge-Client.exe'
+          $oldHash = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File '.\distribution\Set-Exe-Icon.ps1' -Exe $exe -Icon '.\assets\generated\admin.ico'
+          if ($LASTEXITCODE -ne 0 -or (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash -eq $oldHash) {
+            throw 'Client EXE icon was not modified'
           }
           Add-Type -AssemblyName System.Drawing
-          $before = [System.Drawing.Icon]::ExtractAssociatedIcon($source)
-          $after = [System.Drawing.Icon]::ExtractAssociatedIcon($patched)
-          if ($null -eq $before -or $null -eq $after) { throw 'Windows could not extract EXE icon' }
+          $before = [System.Drawing.Icon]::ExtractAssociatedIcon((Resolve-Path $src).Path)
+          $after = [System.Drawing.Icon]::ExtractAssociatedIcon((Resolve-Path $exe).Path)
+          if ($null -eq $before -or $null -eq $after) { throw 'Windows EXE icons are missing' }
           try {
-            $first = Join-Path $env:RUNNER_TEMP 'original-icon.png'
-            $second = Join-Path $env:RUNNER_TEMP 'updated-icon.png'
-            $bmp1 = $before.ToBitmap()
-            $bmp2 = $after.ToBitmap()
+            $img1=$before.ToBitmap(); $img2=$after.ToBitmap()
             try {
-              $bmp1.Save($first, [System.Drawing.Imaging.ImageFormat]::Png)
-              $bmp2.Save($second, [System.Drawing.Imaging.ImageFormat]::Png)
-            } finally { $bmp1.Dispose(); $bmp2.Dispose() }
-            if ((Get-FileHash $first -Algorithm SHA256).Hash -eq
-                (Get-FileHash $second -Algorithm SHA256).Hash) {
-              throw 'EXE icon resource did not replace the icon seen by Windows'
-            }
+              $a=Join-Path $work 'before.png'; $b=Join-Path $work 'after.png'
+              $img1.Save($a, [System.Drawing.Imaging.ImageFormat]::Png)
+              $img2.Save($b, [System.Drawing.Imaging.ImageFormat]::Png)
+              if ((Get-FileHash $a -Algorithm SHA256).Hash -eq (Get-FileHash $b -Algorithm SHA256).Hash) {
+                throw 'Windows shell icon was not changed'
+              }
+            } finally { $img1.Dispose(); $img2.Dispose() }
           } finally { $before.Dispose(); $after.Dispose() }
-          # Run the icon-modified .NET single-file executable, not just inspect
-          # PE resources. It must survive startup without the .NET SDK installed.
-          $boot = Join-Path $env:RUNNER_TEMP 'icon-client-startup'
-          New-Item -ItemType Directory -Path (Join-Path $boot 'assets'),(Join-Path $boot 'config') -Force | Out-Null
-          $appExe = Join-Path $boot 'DK-Knowledge-Client.exe'
-          Copy-Item -LiteralPath $patched -Destination $appExe
-          Copy-Item -LiteralPath '.\assets\generated\admin.ico' -Destination (Join-Path $boot 'assets\app.ico')
-          [IO.File]::WriteAllText((Join-Path $boot 'package-info.json'),
-            '{"product_id":"example-program","product_name":"Example","product_version":"1.0.0","app_name":"Icon Startup Test","icon_file":"assets/app.ico"}')
-          [IO.File]::WriteAllText((Join-Path $boot 'config\settings.json'), '{"port":8765}')
-          # Distinguish invalid post-publish icon changes from a Windows
-          # Actions runner that cannot launch any WPF window in session 0.
-          $baselineExe = Join-Path $boot 'DK-Knowledge-Client-baseline.exe'
-          Copy-Item -LiteralPath $source -Destination $baselineExe
-          $baseline = Start-Process -FilePath $baselineExe -WorkingDirectory $boot -PassThru
-          try {
-            Start-Sleep -Seconds 4
-            $baselineExited = $baseline.HasExited
-            $baselineExitCode = if ($baselineExited) { $baseline.ExitCode } else { $null }
-          } finally {
-            if (-not $baseline.HasExited) { Stop-Process -Id $baseline.Id -Force }
-            $baseline.Dispose()
+          foreach ($folder in @($original,$modified)) {
+            $app=Start-Process -FilePath (Join-Path $folder 'DK-Knowledge-Client.exe') -WorkingDirectory $folder -PassThru
+            try {
+              Start-Sleep -Seconds 4
+              if ($app.HasExited) { throw "Client terminated at startup in $folder with exit code $($app.ExitCode)" }
+            } finally {
+              if (-not $app.HasExited) { Stop-Process -Id $app.Id -Force }
+              $app.Dispose()
+            }
           }
-          $app = Start-Process -FilePath $appExe -WorkingDirectory $boot -PassThru
-          try {
-            Start-Sleep -Seconds 4
-            $editedExited = $app.HasExited
-            $editedExitCode = if ($editedExited) { $app.ExitCode } else { $null }
-          } finally {
-            if (-not $app.HasExited) { Stop-Process -Id $app.Id -Force }
-            $app.Dispose()
-          }
-          Write-Output "BASELINE_EXITED=$baselineExited CODE=$baselineExitCode EDITED_EXITED=$editedExited CODE=$editedExitCode"
-          if ($baselineExited) {
-            throw "Unmodified Client GUI failed to start in Windows runner. Exit=$baselineExitCode"
-          }
-          if ($editedExited) {
-            throw "Icon-edited Client GUI terminated at startup. Exit=$editedExitCode"
-          }
-          Write-Output 'V020_ICON_RESOURCE_AND_GUI_STARTUP_SMOKE_OK'
+          Write-Output 'V020_MULTIFILE_BRANDED_GUI_STARTUP_OK'
       - name: Parse client packaging PowerShell
         shell: pwsh
         run: |
@@ -152,11 +136,11 @@ jobs:
           path: admin-gui/DK-Knowledge-Admin.exe
           if-no-files-found: error
           retention-days: 7
-      - name: Upload standalone GUI test executable (not an integrated release)
+      - name: Upload full multi-file Client GUI test payload (not an integrated release)
         uses: actions/upload-artifact@v4
         with:
           name: DK-Knowledge-Client-GUI-test
-          path: client-gui/DK-Knowledge-Client.exe
+          path: client-gui/
           if-no-files-found: error
           retention-days: 7
 
@@ -197,7 +181,7 @@ jobs:
           try {
             Start-Sleep -Seconds 2
             if ($unrelatedApi.HasExited) { throw 'Unrelated test API exited before Client assembly' }
-            & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $db -OutputDir '.\client-package-output' -ProductId 'example-program' -ProductName 'Example Program' -ProductVersion '2.0.0'
+            & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $db -OutputDir '.\client-package-output' -ProductId 'example-program' -ProductName 'Example Program' -ProductVersion '2.0.0' -AppName 'Example Help Client' -IconFile '.\assets\generated\admin.ico'
             if ($LASTEXITCODE -ne 0) { throw 'Client package assembly failed' }
             if ($unrelatedApi.HasExited) { throw 'Client package creation interrupted the unrelated API' }
           }
@@ -211,8 +195,25 @@ jobs:
           $package = '.\client-package-output\DK-Knowledge-Engine-Client'
           if (-not (Test-Path (Join-Path $package 'DK-Knowledge-Client.exe'))) { throw 'Client EXE missing' }
           $identity = Get-Content -LiteralPath (Join-Path $package 'package-info.json') -Raw | ConvertFrom-Json
-          if ($identity.product_id -ne 'example-program' -or $identity.product_version -ne '2.0.0') {
+          if ($identity.product_id -ne 'example-program' -or $identity.product_version -ne '2.0.0' -or $identity.app_name -ne 'Example Help Client') {
             throw 'Client product identity is missing or incorrect'
+          }
+          $clientManifest = Get-Content -LiteralPath (Join-Path $package 'manifest.json') -Raw | ConvertFrom-Json
+          foreach ($runtime in @('coreclr.dll','hostfxr.dll','PresentationFramework.dll',
+            'DK-Knowledge-Client.deps.json','DK-Knowledge-Client.runtimeconfig.json')) {
+            $file = Join-Path $package $runtime
+            if (-not (Test-Path -LiteralPath $file -PathType Leaf) -or
+                -not $clientManifest.immutable_files.PSObject.Properties[$runtime]) {
+              throw "Client dependency missing/untracked: $runtime"
+            }
+            if ($clientManifest.immutable_files.PSObject.Properties[$runtime].Value -ne
+                (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant()) {
+              throw "Client dependency hash incorrect: $runtime"
+            }
+          }
+          if ((Get-FileHash '.\assets\generated\admin.ico' -Algorithm SHA256).Hash -ne
+              (Get-FileHash (Join-Path $package 'assets\app.ico') -Algorithm SHA256).Hash) {
+            throw 'Selected Client ICO not present in ZIP'
           }
           $scoped = & (Join-Path $package 'engine\DK-Knowledge-API.exe') --verify-db (Join-Path $package 'knowledge\knowledge.db') --verify-product-id 'example-program' | ConvertFrom-Json
           if ($LASTEXITCODE -ne 0 -or $scoped.documents -lt 1) { throw 'Client DB is not product-scoped' }
@@ -269,7 +270,17 @@ jobs:
           $zip = '.\client-package-output\DK-Knowledge-Engine-Client-Win-x64.zip'
           $zipContents = & tar.exe -tf $zip
           if ($zipContents -match 'keep-local.txt') { throw 'Unrelated local file leaked into Client ZIP' }
-          Write-Output 'T12_CLIENT_ONLY_PACKAGE_OK'
+          # Startup of the fully assembled Client, not only dotnet publish.
+          $exe = (Resolve-Path (Join-Path $generated 'DK-Knowledge-Client.exe')).Path
+          $app = Start-Process -FilePath $exe -WorkingDirectory (Resolve-Path $generated).Path -PassThru
+          try {
+            Start-Sleep -Seconds 4
+            if ($app.HasExited) { throw "Generated Client terminated (exit $($app.ExitCode))" }
+          } finally {
+            if (-not $app.HasExited) { Stop-Process -Id $app.Id -Force }
+            $app.Dispose()
+          }
+          Write-Output 'T12_CLIENT_ONLY_MULTIFILE_PACKAGE_OK'
       - name: Upload client-only integrated trial ZIP (not a Release)
         uses: actions/upload-artifact@v4
         with:
@@ -405,6 +416,12 @@ jobs:
             $script = Join-Path $admin 'tools\Build-Client-Package.ps1'
             $engine = Join-Path $admin 'engine-template'
             $clientGui = Join-Path $admin 'client\DK-Knowledge-Client.exe'
+            foreach ($runtime in @('coreclr.dll','hostfxr.dll','PresentationFramework.dll',
+              'DK-Knowledge-Client.deps.json','DK-Knowledge-Client.runtimeconfig.json')) {
+              if (-not (Test-Path -LiteralPath (Join-Path $admin ('client\' + $runtime)) -PathType Leaf)) {
+                throw "SDK-free Admin has no Client dependency: $runtime"
+              }
+            }
             foreach ($item in @('README.md','LICENSE','THIRD_PARTY_NOTICES.md','docs/CLIENT_QUICKSTART.md')) {
               if (-not (Test-Path (Join-Path $admin $item))) { throw "Missing Admin notice: $item" }
             }
@@ -432,10 +449,24 @@ jobs:
               if ($texts.Count -lt 1) { throw "Builder license text missing: $dependency" }
             }
             Write-Output 'T23_BUILDER_LICENSE_TEXTS_INCLUDED'
-            & $ps -NoProfile -ExecutionPolicy Bypass -File $script -EnginePackage $engine -KnowledgeDb $db -ClientExe $clientGui -OutputDir '.\t13-generated-client' -ProductId 'manual-test' -ProductName 'Standalone Example' -ProductVersion '1.0.0'
+            & $ps -NoProfile -ExecutionPolicy Bypass -File $script -EnginePackage $engine -KnowledgeDb $db -ClientExe $clientGui -OutputDir '.\t13-generated-client' -ProductId 'manual-test' -ProductName 'Standalone Example' -ProductVersion '1.0.0' -IconFile (Join-Path $admin 'assets\admin.ico') -AppName 'Offline Branded Help'
             if ($LASTEXITCODE -ne 0) { throw 'Standalone Admin failed to make Client package' }
             $client = '.\t13-generated-client\DK-Knowledge-Engine-Client'
             if (Test-Path (Join-Path $client 'DK-Knowledge-Admin.exe')) { throw 'Admin EXE leaked to Client' }
+            $product = Get-Content -LiteralPath (Join-Path $client 'package-info.json') -Raw | ConvertFrom-Json
+            if ($product.app_name -ne 'Offline Branded Help') { throw 'Standalone Client app name not saved' }
+            if ((Get-FileHash (Join-Path $client 'assets\app.ico') -Algorithm SHA256).Hash -ne
+                (Get-FileHash (Join-Path $admin 'assets\admin.ico') -Algorithm SHA256).Hash) {
+              throw 'Standalone Client selected icon was not applied'
+            }
+            $manifest = Get-Content -LiteralPath (Join-Path $client 'manifest.json') -Raw | ConvertFrom-Json
+            foreach ($runtime in @('coreclr.dll','hostfxr.dll','PresentationFramework.dll',
+              'DK-Knowledge-Client.deps.json','DK-Knowledge-Client.runtimeconfig.json')) {
+              if (-not (Test-Path -LiteralPath (Join-Path $client $runtime) -PathType Leaf) -or
+                  -not $manifest.immutable_files.PSObject.Properties[$runtime]) {
+                throw "Standalone Client dependency missing/untracked: $runtime"
+              }
+            }
             foreach ($name in @('NET_LIBRARY_LICENSE.html','WINDOWS_SDK_LICENSE.html','NET_RUNTIME_THIRD-PARTY-NOTICES.txt')) {
               $adminNotice = Join-Path $admin ('licenses\dotnet\' + $name)
               $clientNotice = Join-Path $client ('licenses\dotnet\' + $name)
