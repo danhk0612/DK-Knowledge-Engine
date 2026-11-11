@@ -9,7 +9,7 @@
 ```powershell
 gh repo clone danhk0612/DK-Knowledge-Engine -- --branch feature/v020-batched-admin-client
 cd .\DK-Knowledge-Engine
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\tests\Prepare-Windows-Field-QA.ps1 -RunId 42964843944
+powershell.exe -NoProfile -File .\tests\Prepare-Windows-Field-QA.ps1 -RunId 42964843944
 ```
 
 스크립트는 **실제 T12 전체 성공 여부와 Git 커밋을 확인**하고, Admin·Client ZIP을 다운로드해 서로 다른 폴더에 압축 해제한 뒤 엔진 및 Client 패키지의 SHA-256 무결성을 검사합니다. `DK-Knowledge-Engine-v020-FieldQA\FIELD_QA_RESULT.md`에는 Windows 버전·테스트 커밋·수동 확인 항목을 기록합니다. **프로그램을 자동 실행하거나 실사용 문서를 수정하지 않습니다.** 기존 출력 폴더가 있으면 덮어쓰지 않고 중단합니다.
