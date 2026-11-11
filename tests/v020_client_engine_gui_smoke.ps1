@@ -15,8 +15,21 @@ foreach ($required in @($exe,$settingsFile,$knowledge)) {
 }
 $originalSettings = [IO.File]::ReadAllBytes($settingsFile)
 $originalDbHash = (Get-FileHash -LiteralPath $knowledge -Algorithm SHA256).Hash
+# A different product-scoped document exercises actual changed search content.
+$fixtureSource = Join-Path $env:RUNNER_TEMP ('v020-source-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $fixtureSource -Force | Out-Null
 $tempDb = Join-Path $env:RUNNER_TEMP ('v020-update-' + [guid]::NewGuid().ToString('N') + '.db')
-Copy-Item -LiteralPath $knowledge -Destination $tempDb -Force
+$marker = 'v020uniquereleasenotesmarker'
+[IO.File]::WriteAllText((Join-Path $fixtureSource 'release-notes.md'),
+    "# Updated manual`n`nThe installation procedure now includes $marker to identify the new document version.`n",
+    (New-Object System.Text.UTF8Encoding($false)))
+& python -m builder.knowledge_builder --source $fixtureSource --database $tempDb --default-product-id 'example-program' --rebuild
+if ($LASTEXITCODE -ne 0) { throw 'Cannot build the changed product-specific fixture DB' }
+& $apiExe --verify-db $tempDb --verify-product-id 'example-program'
+if ($LASTEXITCODE -ne 0) { throw 'Changed fixture DB failed product identity verification' }
+if ((Get-FileHash -LiteralPath $tempDb -Algorithm SHA256).Hash -eq $originalDbHash) {
+    throw 'DB fixture content did not actually change'
+}
 $port = 28769
 $baseUrl = "http://127.0.0.1:$port"
 $originalPort = (Get-Content -LiteralPath $settingsFile -Raw | ConvertFrom-Json).port
@@ -53,6 +66,15 @@ function Invoke-Button([System.Windows.Automation.AutomationElement]$Window, [st
 function Select-Tab([System.Windows.Automation.AutomationElement]$Window, [string]$Id) {
     $item = Find-Element $Window $Id
     $item.GetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern).Select()
+}
+function Find-ReleaseMarker {
+    $payload = @{
+        product_id = 'example-program'
+        version = '2.0.0'
+        query = $marker
+    } | ConvertTo-Json -Compress
+    $response = Invoke-RestMethod -Uri "$baseUrl/search" -Method Post -ContentType 'application/json' -Body $payload -TimeoutSec 15
+    return @($response.results | Where-Object { $_ -and $_.source_path -eq 'release-notes.md' })
 }
 function Wait-Health([bool]$Ready, [int]$Seconds = 35) {
     $deadline = [DateTime]::UtcNow.AddSeconds($Seconds)
@@ -102,6 +124,9 @@ try {
     Invoke-Button $window 'StartEngineButton'
     Wait-Health $true
     $firstPid = Wait-ApiPid 0
+    if (@(Find-ReleaseMarker).Count -ne 0) {
+        throw 'Unique release-note search result was already present before DB update'
+    }
     Write-Output "V020_GUI_ENGINE_STARTED pid=$firstPid"
 
     Select-Tab $window 'KnowledgeTab'
@@ -126,7 +151,15 @@ try {
     if ((Get-FileHash -LiteralPath $backup -Algorithm SHA256).Hash -ne $originalDbHash) {
         throw 'GUI DB update backup is not the original knowledge database'
     }
-    Write-Output "V020_GUI_DB_APPLY_RESTART_OK pid=$updated"
+    if ((Get-FileHash -LiteralPath $knowledge -Algorithm SHA256).Hash -ne
+        (Get-FileHash -LiteralPath $tempDb -Algorithm SHA256).Hash) {
+        throw 'Installed database differs from the changed source document database'
+    }
+    $found = @(Find-ReleaseMarker)
+    if ($found.Count -lt 1) {
+        throw 'Updated manual content is not returned by the running Client search API'
+    }
+    Write-Output "V020_GUI_DB_APPLY_RESTART_OK pid=$updated SEARCH_MARKER_FOUND"
 
     Invoke-Button $window 'RollbackDbButton'
     $rolledBack = Wait-ApiPid $updated 65
@@ -137,7 +170,10 @@ try {
     if (Test-Path -LiteralPath $journal -PathType Leaf) {
         throw 'GUI rollback left a pending recovery journal'
     }
-    Write-Output "V020_GUI_DB_ROLLBACK_RESTART_OK pid=$rolledBack"
+    if (@(Find-ReleaseMarker).Count -ne 0) {
+        throw 'Search API still returns the updated manual after rollback'
+    }
+    Write-Output "V020_GUI_DB_ROLLBACK_RESTART_OK pid=$rolledBack SEARCH_MARKER_REMOVED"
 
     Select-Tab $window 'SettingsTab'
     Invoke-Button $window 'StopEngineButton'
@@ -159,4 +195,5 @@ finally {
     if ($ownedApi -ne 0) { Stop-Process -Id $ownedApi -Force }
     [IO.File]::WriteAllBytes($settingsFile, $originalSettings)
     if (Test-Path -LiteralPath $tempDb) { Remove-Item -LiteralPath $tempDb -Force }
+    if (Test-Path -LiteralPath $fixtureSource) { Remove-Item -LiteralPath $fixtureSource -Recurse -Force }
 }
