@@ -165,7 +165,7 @@ public partial class MainWindow : Window
         var request = (endpoint == "health" ? "GET " : "POST ") +
             ApiUrlText.Text + (endpoint == "health" ? "" :
             "\nContent-Type: application/json\n\n" + ApiRequestBox.Text);
-        Clipboard.SetText(request);
+        System.Windows.Clipboard.SetText(request);
         ApiStatusText.Text = "요청 복사 완료";
     }
 
@@ -350,7 +350,7 @@ public partial class MainWindow : Window
 
     private void ChooseDbClick(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFileDialog
+        var dialog = new Microsoft.Win32.OpenFileDialog
         {
             Filter = "SQLite 지식 DB (*.db)|*.db|모든 파일 (*.*)|*.*",
             CheckFileExists = true
