@@ -38,7 +38,9 @@ Get-Content (Join-Path $client "package-info.json") -Raw | ConvertFrom-Json |
 
 `tests/v020_client_gui_smoke.ps1`은 다중 파일 Client EXE를 실제로 시작하고 Windows UI Automation을 사용해 **프로그램명 표시 → 설정 탭 포트 변경·저장 → API 도구 URL 갱신 → X 버튼 창 숨김과 프로세스 유지**를 시험합니다. GitHub Actions의 T12 `gui-build` 작업에서 실행합니다.
 
-이 검증은 Windows CI 실행 환경에서만 수행한 것이며, 아래 항목의 **사용자 PC 실기 확인을 대체하지 않습니다.** 특히 트레이 아이콘 표시·우클릭 메뉴, 실제 DB 업데이트 및 자동 엔진 재시작, 사내 보안 정책은 사용자 환경에서 별도로 검사해야 합니다.
+`tests/v020_client_engine_gui_smoke.ps1`은 **최종 Client ZIP 조립 이후** T12 `client-package` 작업에서 실행합니다. 실제 WPF 버튼으로 로컬 엔진을 시작하고, 현재 제품의 DB 사본으로 **DB 업데이트 → 엔진 PID 변경과 재기동 → DB 롤백 → PID 재변경과 재기동 → 엔진 중지**를 확인합니다. 이전 DB의 SHA-256과 복구 결과도 비교합니다. 이 시험은 인공 데이터가 들어 있는 동일 제품 DB 사본을 사용하므로, **서로 다른 버전의 실제 고객 문서 내용이 바뀌는 경우**까지 검증하지는 않습니다.
+
+두 검증 모두 GitHub Actions의 Windows CI에서만 수행한 것이며, 아래 항목의 **사용자 PC 실기 확인을 대체하지 않습니다.** 특히 트레이 아이콘 표시·우클릭 메뉴, 실제 고객 문서의 변경 내용 확인, 사내 보안 정책은 사용자 환경에서 별도로 검사해야 합니다.
 
 ## 3. Client 화면·엔진·트레이 수동 확인
 
