@@ -9,6 +9,7 @@ $ErrorActionPreference = 'Stop'
 Add-Type -TypeDefinition @'
 using System;
 using System.ComponentModel;
+using System.Collections.Generic;
 using System.IO;
 using System.Runtime.InteropServices;
 public static class DKIconResources {
@@ -32,9 +33,13 @@ public static class DKIconResources {
             if(count<1||count>64)throw new InvalidDataException("Unsupported icon count");
             byte[][] images=new byte[count][];
             byte[][] groups=new byte[count][];
+            HashSet<int> sizes = new HashSet<int>();
             for(int i=0;i<count;i++){
                 byte[] group=reader.ReadBytes(12);
                 if(group.Length!=12)throw new EndOfStreamException();
+                int width=group[0]==0?256:group[0];
+                int height=group[1]==0?256:group[1];
+                if(width==height)sizes.Add(width);
                 uint length=BitConverter.ToUInt32(group,8);
                 uint offset=reader.ReadUInt32();
                 if(length==0||length>16*1024*1024||offset>ico.Length||length>ico.Length-offset)
@@ -43,6 +48,9 @@ public static class DKIconResources {
                 Buffer.BlockCopy(ico,(int)offset,images[i],0,(int)length);
                 groups[i]=group;
             }
+            foreach(int required in new int[]{16,32,48,256})
+                if(!sizes.Contains(required))
+                    throw new InvalidDataException("ICO must include 16, 32, 48 and 256 pixel icons");
             byte[] directory;
             using(MemoryStream mem=new MemoryStream())
             using(BinaryWriter writer=new BinaryWriter(mem)){
