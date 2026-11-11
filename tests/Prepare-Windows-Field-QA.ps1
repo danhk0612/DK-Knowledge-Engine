@@ -53,9 +53,9 @@ foreach ($file in @(
         throw "압축 해제된 필수 파일이 없습니다: $file"
     }
 }
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $admin 'engine-template\Verify-AIHelp.ps1') -Root (Join-Path $admin 'engine-template')
+& powershell.exe -NoProfile -File (Join-Path $admin 'engine-template\Verify-AIHelp.ps1') -Root (Join-Path $admin 'engine-template')
 if ($LASTEXITCODE -ne 0) { throw 'Admin에 포함된 엔진 무결성 검증 실패' }
-& powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $client 'Verify-AIHelp.ps1') -Root $client
+& powershell.exe -NoProfile -File (Join-Path $client 'Verify-AIHelp.ps1') -Root $client
 if ($LASTEXITCODE -ne 0) { throw 'Client 패키지 무결성 검증 실패' }
 
 $info = Get-Content -LiteralPath (Join-Path $client 'package-info.json') -Raw -Encoding UTF8 | ConvertFrom-Json
