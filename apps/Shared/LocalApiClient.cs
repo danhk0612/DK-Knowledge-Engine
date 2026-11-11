@@ -46,5 +46,21 @@ public sealed class LocalApiClient : IDisposable
     public Task<JsonElement> ChatAsync(string productId, string? version, string question) =>
         PostAsync("chat", new { product_id = productId, version, question });
 
+    // Used only by the explicit Client API test screen; preserves actual HTTP status.
+    public async Task<(int StatusCode, string Body)> SendJsonAsync(
+        string endpoint, string? jsonBody)
+    {
+        if (endpoint is not ("health" or "search" or "chat" or "event"))
+            throw new ArgumentException("Unsupported API endpoint", nameof(endpoint));
+        using var request = new HttpRequestMessage(
+            endpoint == "health" ? HttpMethod.Get : HttpMethod.Post, endpoint);
+        if (endpoint != "health")
+            request.Content = new StringContent(jsonBody ?? "{}", Encoding.UTF8, "application/json");
+        using var response = await _http.SendAsync(request);
+        var body = await response.Content.ReadAsStringAsync();
+        return ((int)response.StatusCode, body);
+    }
+
+
     public void Dispose() => _http.Dispose();
 }
