@@ -57,6 +57,45 @@ jobs:
           if (Get-ChildItem '.\client-gui' -Recurse -File | Where-Object { $_.Name -match 'Admin|Builder' }) {
             throw 'Admin or Builder content leaked into client GUI output'
           }
+      - name: Required icon resource smoke on .NET single-file Client
+        shell: pwsh
+        run: |
+          foreach ($kind in @('admin','client')) {
+            $ico = Join-Path '.\assets\generated' ($kind + '.ico')
+            if (-not (Test-Path -LiteralPath $ico -PathType Leaf)) { throw "Missing $kind icon" }
+            $bytes = [IO.File]::ReadAllBytes((Resolve-Path $ico).Path)
+            if ($bytes.Length -lt 256 -or [BitConverter]::ToUInt16($bytes,4) -ne 4) {
+              throw "Invalid multi-resolution $kind ICO"
+            }
+          }
+          $source = (Resolve-Path '.\client-gui\DK-Knowledge-Client.exe').Path
+          $patched = Join-Path $env:RUNNER_TEMP 'client-icon-smoke.exe'
+          Copy-Item -LiteralPath $source -Destination $patched
+          $original = (Get-FileHash -LiteralPath $patched -Algorithm SHA256).Hash
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File '.\distribution\Set-Exe-Icon.ps1' -Exe $patched -Icon '.\assets\generated\admin.ico'
+          if ($LASTEXITCODE -ne 0) { throw 'PE icon update failed' }
+          if ((Get-FileHash -LiteralPath $patched -Algorithm SHA256).Hash -eq $original) {
+            throw 'EXE icon operation made no change'
+          }
+          Add-Type -AssemblyName System.Drawing
+          $before = [System.Drawing.Icon]::ExtractAssociatedIcon($source)
+          $after = [System.Drawing.Icon]::ExtractAssociatedIcon($patched)
+          if ($null -eq $before -or $null -eq $after) { throw 'Windows could not extract EXE icon' }
+          try {
+            $first = Join-Path $env:RUNNER_TEMP 'original-icon.png'
+            $second = Join-Path $env:RUNNER_TEMP 'updated-icon.png'
+            $bmp1 = $before.ToBitmap()
+            $bmp2 = $after.ToBitmap()
+            try {
+              $bmp1.Save($first, [System.Drawing.Imaging.ImageFormat]::Png)
+              $bmp2.Save($second, [System.Drawing.Imaging.ImageFormat]::Png)
+            } finally { $bmp1.Dispose(); $bmp2.Dispose() }
+            if ((Get-FileHash $first -Algorithm SHA256).Hash -eq
+                (Get-FileHash $second -Algorithm SHA256).Hash) {
+              throw 'EXE icon resource did not replace the icon seen by Windows'
+            }
+          } finally { $before.Dispose(); $after.Dispose() }
+          Write-Output 'V020_ICON_RESOURCE_SMOKE_OK'
       - name: Parse client packaging PowerShell
         shell: pwsh
         run: |
