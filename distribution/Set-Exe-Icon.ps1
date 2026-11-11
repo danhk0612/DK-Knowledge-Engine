@@ -75,5 +75,9 @@ $exePath = (Resolve-Path -LiteralPath $Exe -ErrorAction Stop).Path
 $iconPath = (Resolve-Path -LiteralPath $Icon -ErrorAction Stop).Path
 if ([IO.Path]::GetExtension($exePath) -ine '.exe') { throw 'Expected an EXE file' }
 if ([IO.Path]::GetExtension($iconPath) -ine '.ico') { throw 'Expected an ICO file' }
+$signature = Get-AuthenticodeSignature -LiteralPath $exePath
+if ($null -ne $signature.SignerCertificate) {
+    throw 'A signed executable must not be modified. Apply the icon before code signing.'
+}
 [DKIconResources]::Apply($exePath,$iconPath)
 Write-Output 'EXE_ICON_UPDATED'
