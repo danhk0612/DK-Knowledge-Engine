@@ -13,6 +13,7 @@ on:
       - 'distribution/builder_entry.py'
       - '.github/workflows/t12-windows-guis.yml'
       - 'tests/v020_client_gui_smoke.ps1'
+      - 'tests/v020_client_engine_gui_smoke.ps1'
       - 'docs/RELEASE_NOTES_*'
   push:
     branches: [main]
@@ -27,6 +28,7 @@ on:
       - 'distribution/builder_entry.py'
       - '.github/workflows/t12-windows-guis.yml'
       - 'tests/v020_client_gui_smoke.ps1'
+      - 'tests/v020_client_engine_gui_smoke.ps1'
       - 'docs/RELEASE_NOTES_*'
   workflow_dispatch:
 
@@ -351,6 +353,11 @@ jobs:
           retention-days: 7
           compression-level: 0
 
+      - name: Exercise packaged Client GUI engine lifecycle, DB apply and rollback
+        shell: pwsh
+        run: |
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File '.\tests\v020_client_engine_gui_smoke.ps1' -PackageRoot '.\client-package-output\DK-Knowledge-Engine-Client'
+          if ($LASTEXITCODE -ne 0) { throw 'Client GUI engine and knowledge maintenance smoke failed' }
       - name: Confirm optional semantic package and default lightweight package are isolated
         shell: pwsh
         env:
