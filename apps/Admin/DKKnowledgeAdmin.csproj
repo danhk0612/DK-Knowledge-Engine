@@ -5,9 +5,14 @@
     <UseWPF>true</UseWPF>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <ApplicationIcon>../../assets/generated/admin.ico</ApplicationIcon>
     <AssemblyName>DK-Knowledge-Admin</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <Resource Include="../../assets/generated/admin.ico" Link="Assets/admin.ico" />
     <Compile Include="../Shared/LocalApiClient.cs" Link="Shared/LocalApiClient.cs" />
   </ItemGroup>
+  <Target Name="GenerateDefaultAdminIcon" BeforeTargets="PrepareForBuild">
+    <Exec Command="powershell.exe -NoProfile -ExecutionPolicy Bypass -File &quot;$(MSBuildProjectDirectory)\..\..\assets\Generate-Icon.ps1&quot; -Kind admin -Output &quot;$(MSBuildProjectDirectory)\..\..\assets\generated\admin.ico&quot;" />
+  </Target>
 </Project>
