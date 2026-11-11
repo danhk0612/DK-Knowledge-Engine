@@ -70,6 +70,7 @@ public partial class MainWindow : Window
         var absoluteIcon = Path.Combine(_root, "assets", "app.ico");
         Icon = BitmapFrame.Create(
             new Uri(absoluteIcon), BitmapCreateOptions.None, BitmapCacheOption.OnLoad);
+        HeaderAppIcon.Source = Icon;
         ConfigureTray(absoluteIcon);
         RefreshApiExample();
     }
