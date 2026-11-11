@@ -119,7 +119,7 @@ jobs:
           try {
             Start-Sleep -Seconds 2
             if ($unrelatedApi.HasExited) { throw 'Unrelated test API exited before Client assembly' }
-            & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $db -OutputDir '.\client-package-output'
+            & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $db -OutputDir '.\client-package-output' -ProductId 'example-program' -ProductName 'Example Program' -ProductVersion '2.0.0'
             if ($LASTEXITCODE -ne 0) { throw 'Client package assembly failed' }
             if ($unrelatedApi.HasExited) { throw 'Client package creation interrupted the unrelated API' }
           }
@@ -132,6 +132,13 @@ jobs:
           }
           $package = '.\client-package-output\DK-Knowledge-Engine-Client'
           if (-not (Test-Path (Join-Path $package 'DK-Knowledge-Client.exe'))) { throw 'Client EXE missing' }
+          $identity = Get-Content -LiteralPath (Join-Path $package 'package-info.json') -Raw | ConvertFrom-Json
+          if ($identity.product_id -ne 'example-program' -or $identity.product_version -ne '2.0.0') {
+            throw 'Client product identity is missing or incorrect'
+          }
+          $scoped = & (Join-Path $package 'engine\DK-Knowledge-API.exe') --verify-db (Join-Path $package 'knowledge\knowledge.db') --verify-product-id 'example-program' | ConvertFrom-Json
+          if ($LASTEXITCODE -ne 0 -or $scoped.documents -lt 1) { throw 'Client DB is not product-scoped' }
+
           if (Test-Path (Join-Path $package 'DK-Knowledge-Admin.exe')) { throw 'Admin EXE shipped' }
           if (Test-Path (Join-Path $package 'builder')) { throw 'Builder shipped' }
           foreach ($item in @('README.md','LICENSE','THIRD_PARTY_NOTICES.md')) {
@@ -161,7 +168,7 @@ jobs:
           # claiming a different architecture is compatible.
           $selected = Join-Path $base 'models\selected-test.gguf'
           Copy-Item -LiteralPath (Join-Path $base 'models\Qwen3-1.7B-Q4_K_M.gguf') -Destination $selected
-          & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $db -OutputDir '.\client-package-output' -ModelFile $selected -PromptMode 'jinja'
+          & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $db -OutputDir '.\client-package-output' -ModelFile $selected -PromptMode 'jinja' -ProductId 'example-program' -ProductName 'Example Program' -ProductVersion '2.0.0'
           if ($LASTEXITCODE -ne 0) { throw 'Repeated build with selected model failed' }
           $generated = '.\client-package-output\DK-Knowledge-Engine-Client'
           $modelConfig = Get-Content (Join-Path $generated 'config\settings.json') -Raw | ConvertFrom-Json
@@ -212,7 +219,7 @@ jobs:
           $authorHash = (Get-FileHash -LiteralPath $syntheticDb -Algorithm SHA256).Hash
           # Building a default Client from an author DB containing vectors must
           # strip only its packaged DB copy, not the author DB or original chunks.
-          & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $syntheticDb -OutputDir '.\lightweight-vector-output'
+          & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $syntheticDb -OutputDir '.\lightweight-vector-output' -ProductId 'example-program' -ProductName 'Example Program' -ProductVersion '2.0.0'
           if ($LASTEXITCODE -ne 0) { throw 'Vector-free default package build failed' }
           $light = '.\lightweight-vector-output\DK-Knowledge-Engine-Client'
           $compactDb = Join-Path $light 'knowledge\knowledge.db'
@@ -230,7 +237,7 @@ jobs:
           & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $light 'Verify-AIHelp.ps1') -Root $light
           if ($LASTEXITCODE -ne 0) { throw 'Compacted Client integrity check failed' }
           Write-Output 'T22_VECTOR_FREE_CLIENT_COPY_OK'
-          & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $syntheticDb -OutputDir '.\semantic-test-output' -EmbeddingModelFile $fakeModel
+          & .\distribution\Build-Client-Package.ps1 -EnginePackage $base -KnowledgeDb $syntheticDb -OutputDir '.\semantic-test-output' -EmbeddingModelFile $fakeModel -ProductId 'example-program' -ProductName 'Example Program' -ProductVersion '2.0.0'
           if ($LASTEXITCODE -ne 0) { throw 'Optional semantic package creation failed' }
           $semantic = '.\semantic-test-output\DK-Knowledge-Engine-Client'
           if (-not (Test-Path (Join-Path $semantic 'runtime\llama-embedding.exe'))) {
@@ -347,7 +354,7 @@ jobs:
               if ($texts.Count -lt 1) { throw "Builder license text missing: $dependency" }
             }
             Write-Output 'T23_BUILDER_LICENSE_TEXTS_INCLUDED'
-            & $ps -NoProfile -ExecutionPolicy Bypass -File $script -EnginePackage $engine -KnowledgeDb $db -ClientExe $clientGui -OutputDir '.\t13-generated-client'
+            & $ps -NoProfile -ExecutionPolicy Bypass -File $script -EnginePackage $engine -KnowledgeDb $db -ClientExe $clientGui -OutputDir '.\t13-generated-client' -ProductId 'default' -ProductName 'Standalone Example' -ProductVersion '1.0.0'
             if ($LASTEXITCODE -ne 0) { throw 'Standalone Admin failed to make Client package' }
             $client = '.\t13-generated-client\DK-Knowledge-Engine-Client'
             if (Test-Path (Join-Path $client 'DK-Knowledge-Admin.exe')) { throw 'Admin EXE leaked to Client' }
