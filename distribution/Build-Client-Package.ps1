@@ -7,6 +7,7 @@ param(
     [Parameter(Mandatory=$true)] [ValidateNotNullOrEmpty()] [string]$ProductName,
     [Parameter(Mandatory=$true)] [ValidatePattern('^\d+(\.\d+)+$')] [string]$ProductVersion,
     [string]$AppName = 'DK Knowledge Client',
+    [string]$IconFile,
 
     [string]$ClientExe,
     [string]$ModelFile,
@@ -195,7 +196,45 @@ try {
         [IO.Path]::GetExtension($gui) -ne '.exe') {
         throw 'Client GUI executable not found'
     }
-    Copy-Item -LiteralPath $gui -Destination (Join-Path $package 'DK-Knowledge-Client.exe')
+    $packagedGui = Join-Path $package 'DK-Knowledge-Client.exe'
+    Copy-Item -LiteralPath $gui -Destination $packagedGui
+    $iconDir = Join-Path $package 'assets'
+    New-Item -ItemType Directory -Path $iconDir -Force | Out-Null
+    $packageIcon = Join-Path $iconDir 'app.ico'
+    $defaultIcon = Join-Path $repo 'assets\client.ico'
+    if (-not (Test-Path -LiteralPath $defaultIcon -PathType Leaf)) {
+        $defaultIcon = Join-Path $repo 'assets\generated\client.ico'
+    }
+    $iconGenerator = Join-Path $repo 'assets\Generate-Icon.ps1'
+    if (-not (Test-Path -LiteralPath $iconGenerator)) {
+        $iconGenerator = Join-Path $repo 'tools\Generate-Icon.ps1'
+    }
+    $iconPatcher = Join-Path $PSScriptRoot 'Set-Exe-Icon.ps1'
+    if (-not (Test-Path -LiteralPath $iconPatcher -PathType Leaf)) {
+        throw 'Offline EXE icon editor is not included'
+    }
+    if ([string]::IsNullOrWhiteSpace($IconFile)) {
+        if (-not (Test-Path -LiteralPath $defaultIcon -PathType Leaf)) {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $iconGenerator -Kind client -Output $packageIcon
+            if ($LASTEXITCODE -ne 0) { throw 'Default icon generation failed' }
+        } else {
+            Copy-Item -LiteralPath $defaultIcon -Destination $packageIcon
+        }
+    } else {
+        $selectedIcon = (Resolve-Path -LiteralPath $IconFile -ErrorAction Stop).Path
+        if ([IO.Path]::GetExtension($selectedIcon) -ieq '.ico') {
+            Copy-Item -LiteralPath $selectedIcon -Destination $packageIcon
+        } elseif ([IO.Path]::GetExtension($selectedIcon) -ieq '.png') {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $iconGenerator -Kind png -SourcePng $selectedIcon -Output $packageIcon
+            if ($LASTEXITCODE -ne 0) { throw 'Custom PNG icon conversion failed' }
+        } else {
+            throw 'Only .ico and .png files are supported for package icons'
+        }
+    }
+    # Make changes to the staged EXE COPY before checksumming or signing.
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $iconPatcher -Exe $packagedGui -Icon $packageIcon
+    if ($LASTEXITCODE -ne 0) { throw 'Client EXE icon resource replacement failed' }
+
 
     # In developer mode $repo is the source tree. In standalone Admin mode
     # it resolves to the authoring bundle, which carries the same notices.
@@ -233,6 +272,7 @@ try {
         product_name = $ProductName.Trim()
         product_version = $ProductVersion
         app_name = $AppName.Trim()
+        icon_file = 'assets/app.ico'
     }
     [IO.File]::WriteAllText($productInfoPath, ($productInfo | ConvertTo-Json -Depth 4),
         (New-Object System.Text.UTF8Encoding($false)))
@@ -259,6 +299,9 @@ try {
         $manifest.immutable_files | Add-Member -NotePropertyName $embeddingRelative -NotePropertyValue $embeddingHash -Force
         $manifest | Add-Member -NotePropertyName embedding_model_sha256 -NotePropertyValue $embeddingHash -Force
     }
+    $manifest.immutable_files | Add-Member -NotePropertyName 'assets/app.ico' -NotePropertyValue (
+        (Get-FileHash -LiteralPath $packageIcon -Algorithm SHA256).Hash.ToLowerInvariant()
+    ) -Force
     $manifest.immutable_files | Add-Member -NotePropertyName 'package-info.json' -NotePropertyValue (
         (Get-FileHash -LiteralPath $productInfoPath -Algorithm SHA256).Hash.ToLowerInvariant()
     ) -Force
