@@ -46,7 +46,7 @@ class SearchTests(unittest.TestCase):
             db.execute("INSERT INTO schema_info VALUES ('schema_version', '1')")
 
     def doc(self, doc_id, product="app-a", start=None, end=None,
-            text="설치 오류 해결 안내", title="Manual", page=2):
+            text="설치 오류 해결 안내", title="Manual", page=2, section="Troubleshooting"):
         with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("INSERT INTO documents VALUES (?,?,?,?,?,?,?,?,?,?)",
                        (doc_id, product, title, f"{product}/manuals/{doc_id}.md",
@@ -54,9 +54,9 @@ class SearchTests(unittest.TestCase):
             cur = db.execute("""INSERT INTO chunks
                 (chunk_id, document_id, section_title, content, page_from, page_to, sequence)
                 VALUES (?,?,?,?,?,?,?)""",
-                (f"{doc_id}:000001", doc_id, "Troubleshooting", text, page, page, 1))
+                (f"{doc_id}:000001", doc_id, section, text, page, page, 1))
             db.execute("INSERT INTO chunks_fts(rowid, section_title, content) VALUES (?,?,?)",
-                       (cur.lastrowid, "Troubleshooting", text))
+                       (cur.lastrowid, section, text))
 
     def rule(self, rule_id, doc_id, *, event=None, error=None, screen=None,
              start=None, end=None):
@@ -137,6 +137,23 @@ class SearchTests(unittest.TestCase):
         # Precise terminology still finds its actual source.
         hits = self.docs("수신기 프로그램 적용하기")
         self.assertEqual([hit["document_id"] for hit in hits], ["receiver"])
+
+    def test_question_filler_keeps_role_and_action_terms(self):
+        self.doc("restricted", text="일반사용자는 회로시험을 실행할 수 없습니다.")
+        self.doc("unrelated", text="관리자는 화면 설정을 변경할 수 있습니다.")
+        hits = self.docs("일반사용자가 회로시험 가능한가요?")
+        self.assertEqual([hit["document_id"] for hit in hits], ["restricted"])
+
+    def test_body_matches_win_over_generic_heading_and_heading_only_is_not_evidence(self):
+        self.doc("heading", section="회로시험 시뮬레이션 차이",
+                 text="회로시험 안내 사항입니다.")
+        self.doc("body", section="기능 비교",
+                 text="회로시험은 경종이 동작하며 시뮬레이션은 실제 수신기 출력을 발생시키지 않습니다.")
+        hits = self.docs("회로시험과 시뮬레이션의 차이는?")
+        self.assertEqual([hit["document_id"] for hit in hits][:2], ["body", "heading"])
+        self.doc("heading_only", section="일반사용자 회로시험",
+                 text="기능 설명은 다음 절을 참조합니다.")
+        self.assertEqual(self.docs("일반사용자가 회로시험 가능한가요?"), [])
 
     def test_korean_particles_and_prefix_without_substring_false_positives(self):
         self.doc("setup", text="수신기와 CRT의 IP 주소 대역이 같습니다. 설치하기를 진행합니다.")
