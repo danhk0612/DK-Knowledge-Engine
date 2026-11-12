@@ -166,6 +166,83 @@ class GroundedAnswerTests(unittest.TestCase):
             self.assertFalse(incorrect["grounded"])
             self.assertEqual(incorrect["answer"], NO_DOCUMENT_ANSWER)
 
+    def test_permission_table_opposite_answers_are_not_grounded(self):
+        # A generic row/column matrix, never customer manual text.
+        mock_hits = [{
+            "document_id": "policy", "chunk_id": "policy:1",
+            "source_path": "manuals/permissions.md", "page_from": 9,
+            "excerpt": (
+                "권한표\n"
+                "기능             관리자        일반사용자\n"
+                "문서열람             O             O\n"
+                "설정변경             O             X\n"
+            ),
+        }]
+        fake = FakeGenerator("일반사용자도 설정변경이 가능합니다. [1]")
+        with patch("llm.local_llm.search_documents", return_value=mock_hits):
+            question = "일반사용자가 설정변경 가능한가요?"
+            wrong = answer_from_knowledge(
+                self.db, product_id="app-one", question=question, generator=fake,
+            )
+            self.assertFalse(wrong["grounded"])
+            self.assertEqual(wrong["answer"], NO_DOCUMENT_ANSWER)
+
+            fake.answer = "일반사용자는 설정변경을 할 수 없습니다. [1]"
+            right = answer_from_knowledge(
+                self.db, product_id="app-one", question=question, generator=fake,
+            )
+            self.assertTrue(right["grounded"])
+
+            fake.answer = "관리자는 설정변경을 할 수 없습니다. [1]"
+            wrong_admin = answer_from_knowledge(
+                self.db, product_id="app-one",
+                question="관리자는 설정변경 권한이 있나요?", generator=fake,
+            )
+            self.assertFalse(wrong_admin["grounded"])
+
+            fake.answer = "일반사용자는 문서열람이 가능합니다. [1]"
+            allowed = answer_from_knowledge(
+                self.db, product_id="app-one",
+                question="일반사용자가 문서열람 가능한가요?", generator=fake,
+            )
+            self.assertTrue(allowed["grounded"])
+            self.assertIn("교차 칸", fake.calls[-1][0])
+
+    def test_mixed_or_unparseable_permission_claim_is_not_misclassified(self):
+        mock_hits = [{
+            "document_id": "policy", "chunk_id": "policy:1",
+            "source_path": "manuals/policy.md", "page_from": None,
+            "excerpt": "기능 | 관리자 | 일반사용자\n설정변경 | O | X",
+        }]
+        fake = FakeGenerator("관리자는 설정변경이 가능하지만 일반사용자는 할 수 없습니다.")
+        with patch("llm.local_llm.search_documents", return_value=mock_hits):
+            result = answer_from_knowledge(
+                self.db, product_id="app-one",
+                question="일반사용자가 설정변경 가능한가요?", generator=fake,
+            )
+            self.assertTrue(result["grounded"])  # Mixed prose requires model review.
+            fake.answer = "일반사용자는 설정변경이 가능합니다."
+            rejected = answer_from_knowledge(
+                self.db, product_id="app-one",
+                question="일반사용자가 설정변경 가능한가요?", generator=fake,
+            )
+            self.assertFalse(rejected["grounded"])
+
+    def test_numeric_source_path_is_not_a_factual_answer(self):
+        mock_hits = [{
+            "document_id": "guide", "chunk_id": "guide:1",
+            "source_path": "archive/port-7777-guide.md", "page_from": 9,
+            "excerpt": "설정에 사용되는 연결 포트는 3308입니다.",
+        }]
+        fake = FakeGenerator("연결 포트는 7777입니다. [1]")
+        with patch("llm.local_llm.search_documents", return_value=mock_hits):
+            answer = answer_from_knowledge(
+                self.db, product_id="app-one", question="연결 포트",
+                generator=fake,
+            )
+        self.assertFalse(answer["grounded"])
+        self.assertEqual(answer["answer"], NO_DOCUMENT_ANSWER)
+
     def test_invalid_request_does_not_call_llm(self):
         fake = FakeGenerator()
         with self.assertRaises(ValueError):
