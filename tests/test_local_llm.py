@@ -256,6 +256,11 @@ class GroundedAnswerTests(unittest.TestCase):
                 question="일반사용자가 설정변경 가능한가요?", generator=fake,
             )
             self.assertTrue(result["grounded"])  # Mixed prose requires model review.
+            another_role = answer_from_knowledge(
+                self.db, product_id="app-one",
+                question="관리자는 설정변경 권한이 있나요?", generator=fake,
+            )
+            self.assertTrue(another_role["grounded"])
             fake.answer = "일반사용자는 설정변경이 가능합니다."
             rejected = answer_from_knowledge(
                 self.db, product_id="app-one",
