@@ -190,6 +190,16 @@ class GroundedAnswerTests(unittest.TestCase):
             )
             self.assertFalse(incorrect["grounded"])
             self.assertEqual(incorrect["answer"], NO_DOCUMENT_ANSWER)
+            fake.answer = "포트는 51입니다. [1]"
+            fake_fact = answer_from_knowledge(
+                self.db, product_id="app-one", question="XLS PDF 저장", generator=fake,
+            )
+            self.assertFalse(fake_fact["grounded"])
+            fake.answer = "저장 기능은 p.51에 있습니다. [1]"
+            real_page = answer_from_knowledge(
+                self.db, product_id="app-one", question="XLS PDF 저장", generator=fake,
+            )
+            self.assertTrue(real_page["grounded"])
 
     def test_permission_table_opposite_answers_are_not_grounded(self):
         # A generic row/column matrix, never customer manual text.
