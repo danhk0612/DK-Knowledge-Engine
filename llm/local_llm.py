@@ -24,10 +24,28 @@ _SYSTEM_PROMPT = (
     "사용자가 짧은 검색어로 물어도 질문에 해당하는 매뉴얼의 실제 값을 직접 답하세요. "
     "코드·포트·버전·파일명 등 정답 값이 매뉴얼에 있으면 정확히 복사해 답변에 포함하고, 문서 위치만 알려주지 마세요. "
     "답변은 한국어로 작성하세요. "
-    "불필요한 추론 과정이나 문서에 없는 원인을 만들어 내지 마세요."
+    "불필요한 추론 과정이나 문서에 없는 원인을 만들어 내지 마세요. "
+    "사용자 유형·권한·조건·예외를 확인하고, 허용과 금지 또는 실제 동작과 모의 동작을 혼동하지 마세요. "
+    "여러 출처를 조합하더라도 각각의 주장은 직접 뒷받침하는 근거가 있어야 합니다."
 )
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 _THINK = re.compile(r"<think>.*?</think>", re.DOTALL)
+_CITATION = re.compile(r"\[(\d+)\]")
+_NUMBER = re.compile(r"(?<![0-9])\d+(?:[.,]\d+)*(?![0-9])")
+_STEP_NUMBER = re.compile(r"(?m)^\s*\d{1,2}[.)]\s+")
+
+
+def _unsupported_numeric_claim(answer: str, evidence: str) -> bool:
+    """Reject invented numeric facts, not numbered steps or source citations."""
+    clean = _STEP_NUMBER.sub("", _CITATION.sub("", answer))
+    supported = set(_NUMBER.findall(evidence))
+    for token in _NUMBER.findall(clean):
+        # A bare 1..9 can be a list/count; only check unambiguous numbers,
+        # decimals, versions and codes to avoid false rejections.
+        if sum(character.isdigit() for character in token) >= 2 and token not in supported:
+            return True
+    return False
+
 
 
 class TextGenerator(Protocol):
@@ -153,6 +171,7 @@ def answer_from_knowledge(
 
     excerpts = []
     sources = []
+    source_evidence = []
     remaining_chars = 4400  # Keep source context bounded on the default 4096-token CPU package.
     for position, hit in enumerate(hits, 1):
         content = hit["excerpt"].strip()
@@ -170,6 +189,7 @@ def answer_from_knowledge(
             "page_from": hit["page_from"],
         })
         excerpts.append(label + "\n" + selected_text)
+        source_evidence.append(selected_text + (" " + str(hit["page_from"]) if hit["page_from"] is not None else ""))
     if not excerpts:
         return {"answer": NO_EVIDENCE, "grounded": False, "sources": []}
     prompt = (
@@ -185,6 +205,14 @@ def answer_from_knowledge(
     elapsed = round(perf_counter() - started, 3)
     if not answer:
         raise RuntimeError("Local LLM returned an empty answer")
+    # A retrieved passage is not proof that the generated claim is supported.
+    # When the model invents a page/port/version/code or references a missing
+    # evidence number, fail closed instead of labeling the reply grounded.
+    cited = [int(number) for number in _CITATION.findall(answer)]
+    if (NO_DOCUMENT_ANSWER in answer
+            or any(number < 1 or number > len(excerpts) for number in cited)
+            or _unsupported_numeric_claim(answer, "\n".join(source_evidence))):
+        answer = NO_DOCUMENT_ANSWER
     return {
         "answer": answer,
         "grounded": answer != NO_DOCUMENT_ANSWER,
