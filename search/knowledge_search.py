@@ -102,7 +102,10 @@ def _query_terms(question: str) -> list[tuple[str, bool]]:
 
 def _term_fts(term: str, prefix: bool) -> str:
     """Quote both the original term and fixed aliases for FTS5."""
-    options = [(term, prefix)] + [(alias, False) for alias in _TERM_ALIASES.get(term, ())]
+    options = [(term, prefix)] + [
+        (alias, bool(_HANGUL.search(alias)) and len(alias) >= 2)
+        for alias in _TERM_ALIASES.get(term, ())
+    ]
     return " OR ".join(
         '"' + word.replace('"', '""') + '"' + ("*" if startswith else "")
         for word, startswith in options
@@ -123,7 +126,10 @@ def _matched_term_count(terms: list[tuple[str, bool]], content: str) -> int:
     return sum(
         any(
             word == term or (prefix and word.startswith(term))
-            or word in _TERM_ALIASES.get(term, ())
+            or any(
+                word == alias or (bool(_HANGUL.search(alias)) and word.startswith(alias))
+                for alias in _TERM_ALIASES.get(term, ())
+            )
             for word in words
         )
         for term, prefix in terms
