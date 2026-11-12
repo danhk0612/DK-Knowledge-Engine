@@ -16,13 +16,12 @@ from search.knowledge_search import QueryEmbedder, search_documents
 
 NO_EVIDENCE = "등록된 문서에서 이 질문을 뒷받침하는 정보를 찾지 못했습니다."
 NO_DOCUMENT_ANSWER = "제공된 근거 문서만으로는 답변을 확인할 수 없습니다."
-_REFUSAL_MARKER = "EVIDENCE_NOT_FOUND"
 _SYSTEM_PROMPT = (
     "제공된 매뉴얼 내용만 사용하세요. 매뉴얼에 없는 정보는 추측하지 마세요. "
     "질문이 절차나 문제 해결이면 필요한 순서를 최대 5단계로 구분하세요. "
     "결론을 뒷받침하는 매뉴얼 근거 번호 [1], [2] 등을 명시하세요. "
-    "근거가 부족하면 설명 없이 EVIDENCE_NOT_FOUND만 출력하세요. "
-    "근거를 찾았다면 실제 답과 근거 번호만 작성하고, 끝에 근거 부족 또는 확인 불가 문장을 덧붙이지 마세요. "
+    "문서 근거가 부족한 질문은 추측하지 말고 답변을 확인할 수 없다고 짧게 답하세요. "
+    "근거가 충분하면 답과 출처 번호만 작성하고 답변 뒤에 거절 문장을 덧붙이지 마세요. "
     "사용자가 짧은 검색어로 물어도 질문에 해당하는 매뉴얼의 실제 값을 직접 답하세요. "
     "코드·포트·버전·파일명 등 정답 값이 매뉴얼에 있으면 정확히 복사해 답변에 포함하고, 문서 위치만 알려주지 마세요. "
     "답변은 한국어로 작성하세요. "
@@ -284,7 +283,8 @@ def answer_from_knowledge(
     # When the model invents a page/port/version/code or references a missing
     # evidence number, fail closed instead of labeling the reply grounded.
     cited = [int(number) for number in _CITATION.findall(answer)]
-    if (NO_DOCUMENT_ANSWER in answer or _REFUSAL_MARKER in answer
+    if (any(phrase in answer for phrase in (
+            NO_DOCUMENT_ANSWER, "확인할 수 없습니다", "답변할 수 없습니다", "답할 수 없습니다"))
             or any(number < 1 or number > len(excerpts) for number in cited)
             or _unsupported_numeric_claim(answer, "\n".join(source_evidence), source_pages)
             or _permission_answer_conflicts(question, answer, source_evidence)):
