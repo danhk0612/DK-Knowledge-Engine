@@ -307,6 +307,14 @@ def search_documents(
             ORDER BY rank ASC, d.source_path ASC, c.sequence ASC
         """, (expression, product_id)).fetchall()
     ranked: list[tuple[int, int, float, dict]] = []
+    # Comparison questions may discuss two concepts on separate PDF pages.
+    # Collect single-concept detail passages for both sides, but never loosen
+    # ordinary multi-term questions or accept only one side of a comparison.
+    comparison = (
+        len(terms) == 2 and limit >= 2
+        and re.search(r"차이|비교|대비|다른\s*점|\bvs\.?\b", query, re.IGNORECASE)
+    )
+    sides: list[list[dict]] = [[], []]
     for row in rows:
         if not _version_applies(requested, row["version_from"], row["version_to"]):
             continue
@@ -316,9 +324,9 @@ def search_documents(
         matched = _matched_term_count(
             terms, (row["section_title"] or "") + " " + row["content"],
         )
-        if body_matches == 0 or matched < minimum_matches:
+        if body_matches == 0:
             continue
-        ranked.append((body_matches, matched, row["rank"], {
+        hit = {
             "document_id": row["document_id"],
             "chunk_id": row["chunk_id"],
             "title": row["title"],
@@ -327,11 +335,26 @@ def search_documents(
             "source_path": row["source_path"],
             "page_from": row["page_from"],
             "page_to": row["page_to"],
-        }))
+        }
+        if comparison and body_matches == 1:
+            for index, term in enumerate(terms):
+                if _matched_term_count([term], row["content"]):
+                    sides[index].append(hit)
+                    break
+        if matched < minimum_matches:
+            continue
+        ranked.append((body_matches, matched, row["rank"], hit))
     # Favor query coverage in the actual passage over repeated/general
     # headings, then combined coverage and FTS5 BM25 rank.
     ranked.sort(key=lambda hit: (-hit[0], -hit[1], hit[2]))
     primary = [hit for _, _, _, hit in ranked[:limit]]
+    if comparison and all(sides):
+        # Put one source covering each side before possible index/TOC pages
+        # that merely mention both names. FTS rank orders each side's hits.
+        details = [group[0] for group in sides]
+        chosen = {hit["chunk_id"] for hit in details}
+        primary = (details + [hit for hit in primary
+                              if hit["chunk_id"] not in chosen])[:limit]
     if not primary:
         # Preserve the established original-text Korean spacing recovery
         # before optional dense or LLM-generated search expansions.
