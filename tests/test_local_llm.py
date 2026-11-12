@@ -140,6 +140,32 @@ class GroundedAnswerTests(unittest.TestCase):
         self.assertFalse(answer["grounded"])
         self.assertEqual(len(answer["sources"]), 1)
 
+    def test_refusal_marker_and_mixed_refusals_fail_closed(self):
+        fake = FakeGenerator("EVIDENCE_NOT_FOUND")
+        result = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="연결 오류 포트는?", generator=fake,
+        )
+        self.assertEqual(result["answer"], NO_DOCUMENT_ANSWER)
+        self.assertFalse(result["grounded"])
+        self.assertIn("EVIDENCE_NOT_FOUND", fake.calls[0][0])
+        self.assertNotIn("제공된 근거 문서만으로는 답변을 확인할 수 없습니다.", fake.calls[0][0])
+
+        fake.answer = "연결 포트는 3308입니다. [1]\\nEVIDENCE_NOT_FOUND"
+        mixed = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="연결 오류 포트는?", generator=fake,
+        )
+        self.assertFalse(mixed["grounded"])
+        self.assertEqual(mixed["answer"], NO_DOCUMENT_ANSWER)
+
+        fake.answer = "연결 포트는 3308입니다. [1]"
+        grounded = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="연결 오류 포트는?", generator=fake,
+        )
+        self.assertTrue(grounded["grounded"])
+
     def test_invented_numeric_fact_is_rejected_not_grounded(self):
         fake = FakeGenerator("연결 포트는 7777입니다. [1]")
         result = answer_from_knowledge(
