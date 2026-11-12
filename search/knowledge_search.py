@@ -243,14 +243,14 @@ def _original_compound_fallback(
                    c.page_from, c.page_to
             FROM chunks c JOIN documents d ON d.document_id = c.document_id
             WHERE d.product_id = ?
-              AND (instr(c.content, ?) > 0 OR instr(coalesce(c.section_title, ''), ?) > 0)
+              AND instr(c.content, ?) > 0
             ORDER BY d.source_path, c.sequence
-        """, (product_id, first, first))
+        """, (product_id, first))
         fallback: list[dict] = []
         for row in candidates:
             if not _version_applies(requested, row["version_from"], row["version_to"]):
                 continue
-            original = (row["section_title"] or "") + "\n" + row["content"]
+            original = row["content"]  # Heading-only fallback is not evidence.
             if not _compound_at_word_start(original, compound):
                 continue
             fallback.append({
