@@ -216,6 +216,25 @@ class SearchTests(unittest.TestCase):
         self.assertEqual([x["document_id"] for x in self.docs("데이터 베이스")], ["combined"])
         self.assertEqual([x["document_id"] for x in self.docs("사용자로그인")], ["split"])
 
+    def test_short_split_compound_reboot_retrieval_without_noise(self):
+        self.doc("restart", text="프로그램을 재 기동 시킬 때에는 상태를 확인합니다.", page=67)
+        self.doc("noise", text="프로그램을 재 확인하고 기동 상태를 점검합니다.")
+        self.doc("other-product", product="app-b",
+                 text="프로그램을 재 기동 시킬 때 확인합니다.")
+        self.assertEqual(
+            [hit["document_id"] for hit in self.docs("재기동")], ["restart"],
+        )
+        self.assertEqual(
+            [hit["document_id"] for hit in self.docs(
+                "프로그램을 재기동해야 하는 경우는?")], ["restart"],
+        )
+        self.assertEqual(
+            self.docs("프로그램을 재기동해야 하는 경우는?", version="1.0"),
+            [hit for hit in self.docs("프로그램을 재기동해야 하는 경우는?")
+             if hit["document_id"] == "restart"],
+        )
+        self.assertEqual(self.docs("기동재"), [])
+
     def test_compound_fallback_honors_document_version(self):
         self.doc("v2", start="2.0", text="데이터베이스 고급 구성")
         self.assertEqual(self.docs("데이터 베이스", version="1.0"), [])
