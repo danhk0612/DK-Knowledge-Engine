@@ -9,3 +9,7 @@ __pycache__/
 
 # Generated icon binaries (built from the checked-in source script)
 assets/generated/
+
+# Local offline Windows test packages (may include private manuals / DBs)
+DK-Knowledge-Engine-v020-RAG-Recheck/
+DK-Knowledge-Engine-v020-FieldQA/
