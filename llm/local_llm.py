@@ -89,15 +89,27 @@ def _permission_answer_conflicts(question: str, answer: str, evidence: list[str]
 
 
 
-def _unsupported_numeric_claim(answer: str, evidence: str) -> bool:
-    """Reject invented numeric facts, not numbered steps or source citations."""
+def _unsupported_numeric_claim(
+    answer: str, evidence: str, pages: set[str],
+) -> bool:
+    """Do not mistake a source filename or page number for factual evidence."""
     clean = _STEP_NUMBER.sub("", _CITATION.sub("", answer))
     supported = set(_NUMBER.findall(evidence))
-    for token in _NUMBER.findall(clean):
+    for match in _NUMBER.finditer(clean):
+        token = match.group()
         # A bare 1..9 can be a list/count; only check unambiguous numbers,
         # decimals, versions and codes to avoid false rejections.
-        if sum(character.isdigit() for character in token) >= 2 and token not in supported:
-            return True
+        if sum(character.isdigit() for character in token) < 2 or token in supported:
+            continue
+        # A page number is evidence only when used explicitly as a page
+        # reference, never as a claimed port, version or quantity.
+        before = clean[max(0, match.start() - 8):match.start()]
+        after = clean[match.end():match.end() + 8]
+        if (token in pages and
+                (re.search(r"(?:p\.|페이지\s*)$", before, re.IGNORECASE)
+                 or re.match(r"\s*(?:쪽|페이지)", after))):
+            continue
+        return True
     return False
 
 
@@ -226,6 +238,7 @@ def answer_from_knowledge(
     excerpts = []
     sources = []
     source_evidence = []
+    source_pages: set[str] = set()
     remaining_chars = 4400  # Keep source context bounded on the default 4096-token CPU package.
     for position, hit in enumerate(hits, 1):
         content = hit["excerpt"].strip()
@@ -243,7 +256,9 @@ def answer_from_knowledge(
             "page_from": hit["page_from"],
         })
         excerpts.append(label + "\n" + selected_text)
-        source_evidence.append(selected_text + ("\n" + str(hit["page_from"]) if hit["page_from"] is not None else ""))
+        source_evidence.append(selected_text)
+        if hit["page_from"] is not None:
+            source_pages.add(str(hit["page_from"]))
     if not excerpts:
         return {"answer": NO_EVIDENCE, "grounded": False, "sources": []}
     prompt = (
@@ -265,7 +280,7 @@ def answer_from_knowledge(
     cited = [int(number) for number in _CITATION.findall(answer)]
     if (NO_DOCUMENT_ANSWER in answer
             or any(number < 1 or number > len(excerpts) for number in cited)
-            or _unsupported_numeric_claim(answer, "\n".join(source_evidence))
+            or _unsupported_numeric_claim(answer, "\n".join(source_evidence), source_pages)
             or _permission_answer_conflicts(question, answer, source_evidence)):
         answer = NO_DOCUMENT_ANSWER
     return {
