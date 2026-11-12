@@ -114,10 +114,12 @@ def _fts_query(question: str) -> str | None:
 
 
 def _matched_term_count(terms: list[tuple[str, bool]], content: str) -> int:
-    """Count distinct *indexed word* matches, not arbitrary substrings."""
+    """Count distinct whole-word or adjacent split-word matches."""
     words = set(_SEARCH_TOKENS.findall(content.casefold()))
     return sum(
         any(word == term or (prefix and word.startswith(term)) for word in words)
+        or (len(term) >= 3 and re.fullmatch(r"[가-힣]+", term) is not None
+            and _compound_at_word_start(content, term))
         for term, prefix in terms
     )
 
@@ -231,10 +233,13 @@ def _original_compound_fallback(
             not all(re.fullmatch(r"[가-힣]{2,}", term) for term, _ in terms)):
         return []
     compound = "".join(term for term, _ in terms)
-    # A single short term is too broad for whitespace-insensitive matching.
-    if len(terms) == 1 and len(compound) < 4:
+    # Two-syllable terms are too broad to reconstruct from whitespace.
+    if len(terms) == 1 and len(compound) < 3:
         return []
     first = terms[0][0][:2]
+    # A three-syllable word can be split 1+2 (재 기동) or 2+1
+    # (재기 동). Either intact two-syllable part is a narrow SQL prefilter.
+    other = compound[1:3] if len(terms) == 1 and len(compound) == 3 else first
     with _database(database) as db:
         candidates = db.execute("""
             SELECT d.document_id, d.title, d.source_path,
@@ -243,9 +248,9 @@ def _original_compound_fallback(
                    c.page_from, c.page_to
             FROM chunks c JOIN documents d ON d.document_id = c.document_id
             WHERE d.product_id = ?
-              AND instr(c.content, ?) > 0
+              AND (instr(c.content, ?) > 0 OR instr(c.content, ?) > 0)
             ORDER BY d.source_path, c.sequence
-        """, (product_id, first))
+        """, (product_id, first, other))
         fallback: list[dict] = []
         for row in candidates:
             if not _version_applies(requested, row["version_from"], row["version_to"]):
