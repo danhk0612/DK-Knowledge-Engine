@@ -18,6 +18,7 @@ $directory = [IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($Output))
 # available frame into a standard Windows ICO instead of rejecting it.
 $sourceIcon = $null
 $sourceImage = $null
+$sourceStream = $null
 if ($Kind -eq 'ico') {
     if (-not $SourceIco -or -not (Test-Path -LiteralPath $SourceIco -PathType Leaf)) {
         throw 'Choose an existing ICO file for a custom icon'
@@ -33,6 +34,9 @@ if ($Kind -eq 'ico') {
         throw 'Invalid Windows ICO directory'
     }
     $present = [System.Collections.Generic.HashSet[int]]::new()
+    $bestArea = -1
+    $bestOffset = 0
+    $bestLength = 0
     for ($i=0; $i -lt $count; $i++) {
         $entry = 6 + 16 * $i
         $width = if ($bytes[$entry] -eq 0) {256} else {[int]$bytes[$entry]}
@@ -42,7 +46,14 @@ if ($Kind -eq 'ico') {
         if ($length -eq 0 -or $length -gt 16MB -or $offset + $length -gt $bytes.Length) {
             throw 'Invalid Windows ICO image entry'
         }
-        if ($width -eq $height) { [void]$present.Add($width) }
+        if ($width -eq $height) {
+            [void]$present.Add($width)
+            if ($width * $height -gt $bestArea) {
+                $bestArea = $width * $height
+                $bestOffset = [int]$offset
+                $bestLength = [int]$length
+            }
+        }
     }
     $requiredSizes = @(16,32,48,256)
     if (@($requiredSizes | Where-Object { -not $present.Contains($_) }).Count -eq 0) {
@@ -50,8 +61,25 @@ if ($Kind -eq 'ico') {
         Write-Output ('ICON_READY ' + [IO.Path]::GetFullPath($Output))
         return
     }
-    $sourceIcon = [System.Drawing.Icon]::new($sourcePath, [System.Drawing.Size]::new(256,256))
-    $sourceImage = $sourceIcon.ToBitmap()
+    if ($bestLength -lt 1) { throw 'ICO has no square image frame' }
+    # Many modern ICO files store PNG frames. System.Drawing.Icon.ToBitmap()
+    # fails on some valid PNG-backed ICOs under Windows PowerShell 5.1.
+    # Decode the largest embedded PNG directly; keep GDI for legacy DIB ICO.
+    $isPng = $bestLength -ge 8
+    $signature = [byte[]]@(137,80,78,71,13,10,26,10)
+    for ($j=0; $isPng -and $j -lt $signature.Length; $j++) {
+        if ($bytes[$bestOffset + $j] -ne $signature[$j]) { $isPng = $false }
+    }
+    if ($isPng) {
+        $frame = [byte[]]::new($bestLength)
+        [Array]::Copy($bytes,$bestOffset,$frame,0,$bestLength)
+        $sourceStream = [IO.MemoryStream]::new($frame)
+        $sourceImage = [System.Drawing.Image]::FromStream($sourceStream)
+    }
+    else {
+        $sourceIcon = [System.Drawing.Icon]::new($sourcePath, [System.Drawing.Size]::new(256,256))
+        $sourceImage = $sourceIcon.ToBitmap()
+    }
 }
 $images = [System.Collections.Generic.List[byte[]]]::new()
 $sizes = @(16,32,48,256)
@@ -127,5 +155,6 @@ try {
     $writer.Dispose()
     if ($null -ne $sourceImage) { $sourceImage.Dispose() }
     if ($null -ne $sourceIcon) { $sourceIcon.Dispose() }
+    if ($null -ne $sourceStream) { $sourceStream.Dispose() }
 }
 Write-Output ('ICON_READY ' + [IO.Path]::GetFullPath($Output))
