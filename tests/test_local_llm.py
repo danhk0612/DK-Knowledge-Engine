@@ -107,6 +107,31 @@ class GroundedAnswerTests(unittest.TestCase):
         self.assertIn("9999", fake.calls[0][1])
         self.assertNotIn("3308", fake.calls[0][1])
 
+    def test_split_page_comparison_includes_both_detail_sources(self):
+        manuals = self.root / "app-one" / "manuals"
+        (manuals / "index.md").write_text(
+            "목차: 회로시험 39, 시뮬레이션 40", encoding="utf-8",
+        )
+        (manuals / "trial.md").write_text(
+            "회로시험은 실제 출력 신호가 나갑니다.", encoding="utf-8",
+        )
+        (manuals / "simulation.md").write_text(
+            "시뮬레이션은 실제 출력 신호가 나가지 않습니다.", encoding="utf-8",
+        )
+        build(self.root, self.db, rebuild=True)
+        fake = FakeGenerator("두 기능은 실제 출력 여부가 다릅니다. [1] [2]")
+        result = answer_from_knowledge(
+            self.db, product_id="app-one",
+            question="회로시험과 시뮬레이션의 차이는?", generator=fake,
+        )
+        self.assertTrue(result["grounded"])
+        self.assertEqual(
+            [source["source_path"].split("/")[-1] for source in result["sources"][:2]],
+            ["trial.md", "simulation.md"],
+        )
+        self.assertIn("실제 출력 신호가 나갑니다", fake.calls[0][1])
+        self.assertIn("실제 출력 신호가 나가지 않습니다", fake.calls[0][1])
+
     def test_no_document_answer_marks_ungrounded(self):
         fake = FakeGenerator(NO_DOCUMENT_ANSWER)
         answer = answer_from_knowledge(
