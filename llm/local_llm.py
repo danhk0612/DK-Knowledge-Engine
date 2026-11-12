@@ -26,13 +26,67 @@ _SYSTEM_PROMPT = (
     "답변은 한국어로 작성하세요. "
     "불필요한 추론 과정이나 문서에 없는 원인을 만들어 내지 마세요. "
     "사용자 유형·권한·조건·예외를 확인하고, 허용과 금지 또는 실제 동작과 모의 동작을 혼동하지 마세요. "
-    "여러 출처를 조합하더라도 각각의 주장은 직접 뒷받침하는 근거가 있어야 합니다."
+    "여러 출처를 조합하더라도 각각의 주장은 직접 뒷받침하는 근거가 있어야 합니다. "
+    "권한이나 기능을 표로 확인할 때는 질문의 행과 열을 찾아 교차 칸의 기호를 확인하고, "
+    "표의 허용·금지와 정반대로 답하지 마세요."
 )
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 _THINK = re.compile(r"<think>.*?</think>", re.DOTALL)
 _CITATION = re.compile(r"\[(\d+)\]")
 _NUMBER = re.compile(r"(?<![0-9])\d+(?:[.,]\d+)*(?![0-9])")
 _STEP_NUMBER = re.compile(r"(?m)^\s*\d{1,2}[.)]\s+")
+_TABLE_CELLS = re.compile(r"\s{2,}|\s*\|\s*")
+_TABLE_FLAGS = frozenset({"O", "X", "○", "×"})
+_PERMISSION_QUERY = re.compile(r"가능|권한|허용|할\s*수|제한|사용할")
+_NEGATIVE_ANSWER = re.compile(
+    r"할\s*수\s*없|불가능|가능하지\s*않|허용되지|금지|못합니다|"
+    r"권한이\s*없|지원하지\s*않|제한됩니다"
+)
+_POSITIVE_ANSWER = re.compile(
+    r"할\s*수\s*있|가능합니다|가능하다|가능해요|허용됩니다|"
+    r"권한이\s*있|지원합니다"
+)
+
+
+def _permission_answer_conflicts(question: str, answer: str, evidence: list[str]) -> bool:
+    """Reject only an unambiguous O/X permission-table polarity reversal.
+
+    The question must identify a column and a row; inferred permissions from
+    prose, broken table layouts and mixed answers remain outside this check.
+    """
+    if not _PERMISSION_QUERY.search(question):
+        return False
+    negative = bool(_NEGATIVE_ANSWER.search(answer))
+    positive = bool(_POSITIVE_ANSWER.search(answer))
+    if negative == positive:
+        return False
+    polarity = positive
+
+    values: set[bool] = set()
+    for passage in evidence:
+        header: list[str] | None = None
+        for line in passage.splitlines():
+            cells = [c.strip() for c in _TABLE_CELLS.split(line.strip()) if c.strip()]
+            if len(cells) < 3:
+                continue
+            if (any(name in question for name in cells[1:] if len(name) >= 2)
+                    and not all(c in _TABLE_FLAGS for c in cells[1:])):
+                header = cells[1:]
+                continue
+            if not header or len(cells) != len(header) + 1:
+                continue
+            if not all(flag in _TABLE_FLAGS for flag in cells[1:]):
+                continue
+            row_labels = [label.strip() for label in re.split(r"[,/·、]", cells[0])]
+            if not any(label and label in question for label in row_labels):
+                continue
+            for i, name in enumerate(header):
+                if len(name) >= 2 and name in question:
+                    values.add(cells[i + 1] in ("O", "○"))
+    return len(values) == 1 and polarity not in values
+
+
+
 
 
 def _unsupported_numeric_claim(answer: str, evidence: str) -> bool:
@@ -189,7 +243,7 @@ def answer_from_knowledge(
             "page_from": hit["page_from"],
         })
         excerpts.append(label + "\n" + selected_text)
-        source_evidence.append(label + "\n" + selected_text)
+        source_evidence.append(selected_text + ("\n" + str(hit["page_from"]) if hit["page_from"] is not None else ""))
     if not excerpts:
         return {"answer": NO_EVIDENCE, "grounded": False, "sources": []}
     prompt = (
@@ -211,7 +265,8 @@ def answer_from_knowledge(
     cited = [int(number) for number in _CITATION.findall(answer)]
     if (NO_DOCUMENT_ANSWER in answer
             or any(number < 1 or number > len(excerpts) for number in cited)
-            or _unsupported_numeric_claim(answer, "\n".join(source_evidence))):
+            or _unsupported_numeric_claim(answer, "\n".join(source_evidence))
+            or _permission_answer_conflicts(question, answer, source_evidence)):
         answer = NO_DOCUMENT_ANSWER
     return {
         "answer": answer,
