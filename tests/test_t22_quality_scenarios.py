@@ -24,7 +24,7 @@ class QualityScenarioTests(unittest.TestCase):
                 "network.md": "통신장애 발생 시 팝업을 확인한 후 수신기 설정을 점검합니다.",
                 "restart.md": (
                     "구역명, 키 상태값, 동기화, 글자 입력 문제가 발생하면 "
-                    "프로그램 재기동을 확인합니다."
+                    "프로그램을 재 기동 시킬 때 점검합니다."
                 ),
                 "permission.md": (
                     "기능      관리자        일반사용자\n"
