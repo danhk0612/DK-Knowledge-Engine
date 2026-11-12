@@ -138,6 +138,27 @@ class SearchTests(unittest.TestCase):
         hits = self.docs("수신기 프로그램 적용하기")
         self.assertEqual([hit["document_id"] for hit in hits], ["receiver"])
 
+    def test_comparison_collects_distinct_pages_before_table_of_contents(self):
+        # One index page mentions both concepts, but is not detailed evidence.
+        self.doc("toc", text="목차: 회로시험 39, 시뮬레이션 40", page=3)
+        self.doc("trial", text="회로시험은 수신기에 실제 출력 신호를 전달합니다.", page=39)
+        self.doc("simulation", text="시뮬레이션은 실제 수신기 출력을 보내지 않습니다.", page=40)
+        hits = self.docs("회로시험과 시뮬레이션의 차이는?")
+        self.assertEqual([h["document_id"] for h in hits[:2]], ["trial", "simulation"])
+        self.assertEqual([h["page_from"] for h in hits[:2]], [39, 40])
+        self.assertIn("toc", [h["document_id"] for h in hits])
+        self.assertEqual([h["document_id"] for h in self.docs(
+            "회로시험과 시뮬레이션의 차이는?", limit=2,
+        )], ["trial", "simulation"])
+
+    def test_comparison_does_not_accept_only_one_side(self):
+        self.doc("only", text="회로시험은 실제 출력 신호를 전달합니다.")
+        self.assertEqual(self.docs("회로시험과 시뮬레이션의 차이는?"), [])
+        # Non-comparison queries still require multiple concepts in one chunk.
+        self.assertEqual(self.docs("회로시험 시뮬레이션"), [])
+        self.doc("other", product="app-b", text="시뮬레이션은 다른 방식으로 동작합니다.")
+        self.assertEqual(self.docs("회로시험과 시뮬레이션의 차이는?"), [])
+
     def test_question_filler_keeps_role_and_action_terms(self):
         self.doc("restricted", text="일반사용자는 회로시험을 실행할 수 없습니다.")
         self.doc("unrelated", text="관리자는 화면 설정을 변경할 수 있습니다.")
