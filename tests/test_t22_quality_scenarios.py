@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from builder.knowledge_builder import build
+from llm.local_llm import NO_DOCUMENT_ANSWER, answer_from_knowledge
 from search.knowledge_search import search_documents
 
 
@@ -25,7 +26,11 @@ class QualityScenarioTests(unittest.TestCase):
                     "구역명, 키 상태값, 동기화, 글자 입력 문제가 발생하면 "
                     "프로그램 재기동을 확인합니다."
                 ),
-                "permission.md": "일반사용자는 회로시험을 실행할 수 없습니다.",
+                "permission.md": (
+                    "기능      관리자        일반사용자\n"
+                    "기록조회     O             O\n"
+                    "회로시험     O             X"
+                ),
             }
             for filename, passage in passages.items():
                 (root / filename).write_text(passage, encoding="utf-8")
@@ -54,6 +59,28 @@ class QualityScenarioTests(unittest.TestCase):
                 ),
                 [],
             )
+
+            class Generated:
+                def __init__(self, value):
+                    self.value = value
+
+                def generate(self, system, user):
+                    return self.value
+
+            generated = Generated("일반사용자는 회로시험이 가능합니다. [1]")
+            denied = answer_from_knowledge(
+                database, product_id="synthetic",
+                question="일반사용자가 회로시험 가능한가요?", generator=generated,
+            )
+            self.assertFalse(denied["grounded"])
+            self.assertEqual(denied["answer"], NO_DOCUMENT_ANSWER)
+
+            generated.value = "일반사용자는 회로시험을 할 수 없습니다. [1]"
+            correct = answer_from_knowledge(
+                database, product_id="synthetic",
+                question="일반사용자가 회로시험 가능한가요?", generator=generated,
+            )
+            self.assertTrue(correct["grounded"])
 
 
 if __name__ == "__main__":
