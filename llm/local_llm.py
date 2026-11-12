@@ -189,7 +189,7 @@ def answer_from_knowledge(
             "page_from": hit["page_from"],
         })
         excerpts.append(label + "\n" + selected_text)
-        source_evidence.append(selected_text + (" " + str(hit["page_from"]) if hit["page_from"] is not None else ""))
+        source_evidence.append(label + "\n" + selected_text)
     if not excerpts:
         return {"answer": NO_EVIDENCE, "grounded": False, "sources": []}
     prompt = (
