@@ -235,6 +235,22 @@ class GroundedAnswerTests(unittest.TestCase):
             )
             self.assertFalse(wrong_admin["grounded"])
 
+            # "불가능합니다" contains "가능합니다" as a substring. This
+            # must remain an explicitly negative statement, not mixed polarity.
+            fake.answer = "관리자는 설정변경이 불가능합니다. [1]"
+            wrong_negative = answer_from_knowledge(
+                self.db, product_id="app-one",
+                question="관리자는 설정변경 권한이 있나요?", generator=fake,
+            )
+            self.assertFalse(wrong_negative["grounded"])
+
+            fake.answer = "일반사용자는 설정변경이 불가능합니다. [1]"
+            correct_negative = answer_from_knowledge(
+                self.db, product_id="app-one",
+                question="일반사용자가 설정변경 가능한가요?", generator=fake,
+            )
+            self.assertTrue(correct_negative["grounded"])
+
             fake.answer = "일반사용자는 문서열람이 가능합니다. [1]"
             allowed = answer_from_knowledge(
                 self.db, product_id="app-one",
