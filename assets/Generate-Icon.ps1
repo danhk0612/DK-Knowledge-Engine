@@ -1,8 +1,9 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$true)] [string]$Output,
-    [ValidateSet('admin','client','png')] [string]$Kind = 'client',
-    [string]$SourcePng
+    [ValidateSet('admin','client','png','ico')] [string]$Kind = 'client',
+    [string]$SourcePng,
+    [string]$SourceIco
 )
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
@@ -12,6 +13,46 @@ if ($Kind -eq 'png' -and (-not $SourcePng -or
 }
 $directory = [IO.Path]::GetDirectoryName([IO.Path]::GetFullPath($Output))
 [IO.Directory]::CreateDirectory($directory) | Out-Null
+# Preserve already compliant multi-resolution ICOs byte-for-byte. If an
+# otherwise valid user ICO lacks one of the four EXE sizes, render its best
+# available frame into a standard Windows ICO instead of rejecting it.
+$sourceIcon = $null
+$sourceImage = $null
+if ($Kind -eq 'ico') {
+    if (-not $SourceIco -or -not (Test-Path -LiteralPath $SourceIco -PathType Leaf)) {
+        throw 'Choose an existing ICO file for a custom icon'
+    }
+    $sourcePath = (Resolve-Path -LiteralPath $SourceIco).Path
+    $bytes = [IO.File]::ReadAllBytes($sourcePath)
+    if ($bytes.Length -lt 6 -or [BitConverter]::ToUInt16($bytes,0) -ne 0 -or
+        [BitConverter]::ToUInt16($bytes,2) -ne 1) {
+        throw 'Not a valid Windows ICO file'
+    }
+    $count = [int][BitConverter]::ToUInt16($bytes,4)
+    if ($count -lt 1 -or $count -gt 64 -or $bytes.Length -lt 6 + 16 * $count) {
+        throw 'Invalid Windows ICO directory'
+    }
+    $present = [System.Collections.Generic.HashSet[int]]::new()
+    for ($i=0; $i -lt $count; $i++) {
+        $entry = 6 + 16 * $i
+        $width = if ($bytes[$entry] -eq 0) {256} else {[int]$bytes[$entry]}
+        $height = if ($bytes[$entry+1] -eq 0) {256} else {[int]$bytes[$entry+1]}
+        $length = [uint64][BitConverter]::ToUInt32($bytes,$entry+8)
+        $offset = [uint64][BitConverter]::ToUInt32($bytes,$entry+12)
+        if ($length -eq 0 -or $length -gt 16MB -or $offset + $length -gt $bytes.Length) {
+            throw 'Invalid Windows ICO image entry'
+        }
+        if ($width -eq $height) { [void]$present.Add($width) }
+    }
+    $requiredSizes = @(16,32,48,256)
+    if (@($requiredSizes | Where-Object { -not $present.Contains($_) }).Count -eq 0) {
+        Copy-Item -LiteralPath $sourcePath -Destination ([IO.Path]::GetFullPath($Output)) -Force
+        Write-Output ('ICON_READY ' + [IO.Path]::GetFullPath($Output))
+        return
+    }
+    $sourceIcon = [System.Drawing.Icon]::new($sourcePath, [System.Drawing.Size]::new(256,256))
+    $sourceImage = $sourceIcon.ToBitmap()
+}
 $images = [System.Collections.Generic.List[byte[]]]::new()
 $sizes = @(16,32,48,256)
 foreach ($n in $sizes) {
@@ -24,6 +65,8 @@ foreach ($n in $sizes) {
             $source = [System.Drawing.Image]::FromFile((Resolve-Path -LiteralPath $SourcePng).Path)
             try { $g.DrawImage($source,0,0,$n,$n) }
             finally { $source.Dispose() }
+        } elseif ($Kind -eq 'ico') {
+            $g.DrawImage($sourceImage,0,0,$n,$n)
         } else {
             $scale = $n / 256.0
             $g.ScaleTransform([float]$scale,[float]$scale)
@@ -80,5 +123,9 @@ try {
         $offset += $images[$i].Length
     }
     foreach ($png in $images) { $writer.Write($png) }
-} finally { $writer.Dispose() }
+} finally {
+    $writer.Dispose()
+    if ($null -ne $sourceImage) { $sourceImage.Dispose() }
+    if ($null -ne $sourceIcon) { $sourceIcon.Dispose() }
+}
 Write-Output ('ICON_READY ' + [IO.Path]::GetFullPath($Output))
