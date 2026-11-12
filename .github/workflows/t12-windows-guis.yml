@@ -533,16 +533,46 @@ jobs:
               if ($texts.Count -lt 1) { throw "Builder license text missing: $dependency" }
             }
             Write-Output 'T23_BUILDER_LICENSE_TEXTS_INCLUDED'
-            & $ps -NoProfile -ExecutionPolicy Bypass -File $script -EnginePackage $engine -KnowledgeDb $db -ClientExe $clientGui -OutputDir '.\t13-generated-client' -ProductId 'manual-test' -ProductName 'Standalone Example' -ProductVersion '1.0.0' -IconFile (Join-Path $admin 'assets\admin.ico') -AppName 'Offline Branded Help'
+            # A normal user ICO may contain just one 16px image. Build this
+            # exact case from the bundled full-resolution icon and verify the
+            # packaged Admin can normalize it without Python or .NET SDK.
+            $originalIco = [IO.File]::ReadAllBytes((Join-Path $admin 'assets\admin.ico'))
+            $frameBytes = [int][BitConverter]::ToUInt32($originalIco,14)
+            $frameOffset = [int][BitConverter]::ToUInt32($originalIco,18)
+            if ($frameBytes -lt 1 -or $frameOffset + $frameBytes -gt $originalIco.Length) {
+              throw 'Bundled icon has no usable ICO image entry'
+            }
+            $single = [byte[]]::new(22 + $frameBytes)
+            [Array]::Copy($originalIco,0,$single,0,22)
+            $single[4] = 1; $single[5] = 0
+            [BitConverter]::GetBytes([uint32]22).CopyTo($single,18)
+            [Array]::Copy($originalIco,$frameOffset,$single,22,$frameBytes)
+            $singleIcon = Join-Path $admin 'workspace\single-size.ico'
+            [IO.File]::WriteAllBytes($singleIcon,$single)
+            & $ps -NoProfile -ExecutionPolicy Bypass -File $script -EnginePackage $engine -KnowledgeDb $db -ClientExe $clientGui -OutputDir '.\t13-generated-client' -ProductId 'manual-test' -ProductName 'Standalone Example' -ProductVersion '1.0.0' -IconFile $singleIcon -AppName 'Offline Branded Help'
             if ($LASTEXITCODE -ne 0) { throw 'Standalone Admin failed to make Client package' }
             $client = '.\t13-generated-client\DK-Knowledge-Engine-Client'
             if (Test-Path (Join-Path $client 'DK-Knowledge-Admin.exe')) { throw 'Admin EXE leaked to Client' }
             $product = Get-Content -LiteralPath (Join-Path $client 'package-info.json') -Raw | ConvertFrom-Json
             if ($product.app_name -ne 'Offline Branded Help') { throw 'Standalone Client app name not saved' }
-            if ((Get-FileHash (Join-Path $client 'assets\app.ico') -Algorithm SHA256).Hash -ne
-                (Get-FileHash (Join-Path $admin 'assets\admin.ico') -Algorithm SHA256).Hash) {
-              throw 'Standalone Client selected icon was not applied'
+            $generatedIco = [IO.File]::ReadAllBytes((Join-Path $client 'assets\app.ico'))
+            $generatedSizes = [System.Collections.Generic.HashSet[int]]::new()
+            for ($i=0; $i -lt [BitConverter]::ToUInt16($generatedIco,4); $i++) {
+              $entry = 6 + 16 * $i
+              $width = if ($generatedIco[$entry] -eq 0) { 256 } else { [int]$generatedIco[$entry] }
+              $height = if ($generatedIco[$entry+1] -eq 0) { 256 } else { [int]$generatedIco[$entry+1] }
+              if ($width -eq $height) { [void]$generatedSizes.Add($width) }
             }
+            foreach ($required in @(16,32,48,256)) {
+              if (-not $generatedSizes.Contains($required)) {
+                throw "Standalone Client selected single-size ICO was not normalized: missing $required"
+              }
+            }
+            if ((Get-FileHash (Join-Path $client 'assets\app.ico') -Algorithm SHA256).Hash -eq
+                (Get-FileHash $singleIcon -Algorithm SHA256).Hash) {
+              throw 'Single-size ICO was copied unchanged instead of normalized'
+            }
+            Write-Output 'V020_SINGLE_SIZE_CUSTOM_ICO_NORMALIZED_OK'
             $manifest = Get-Content -LiteralPath (Join-Path $client 'manifest.json') -Raw | ConvertFrom-Json
             foreach ($runtime in @('coreclr.dll','hostfxr.dll','PresentationFramework.dll',
               'DK-Knowledge-Client.deps.json','DK-Knowledge-Client.runtimeconfig.json')) {
