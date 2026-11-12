@@ -246,7 +246,9 @@ def answer_from_knowledge(
         raise RuntimeError("Local LLM returned an empty answer")
     return {
         "answer": answer,
-        "grounded": answer != NO_DOCUMENT_ANSWER,
+        # A model may prepend an explanation or append [1] to the exact
+        # abstention sentence; it is still not a source-backed answer.
+        "grounded": NO_DOCUMENT_ANSWER not in answer and NO_EVIDENCE not in answer,
         "sources": sources,
         "elapsed_seconds": elapsed,
     }

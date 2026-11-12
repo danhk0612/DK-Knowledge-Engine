@@ -149,6 +149,18 @@ class GroundedAnswerTests(unittest.TestCase):
         self.assertFalse(answer["grounded"])
         self.assertEqual(len(answer["sources"]), 1)
 
+    def test_explanatory_abstention_is_not_marked_grounded(self):
+        fake = FakeGenerator(
+            "매뉴얼에 명시되지 않았습니다. "
+            + NO_DOCUMENT_ANSWER + " [1]"
+        )
+        answer = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="연결 오류 발생 포트는?", generator=fake,
+        )
+        self.assertFalse(answer["grounded"])
+        self.assertEqual(len(answer["sources"]), 1)
+
     def test_invalid_request_does_not_call_llm(self):
         fake = FakeGenerator()
         with self.assertRaises(ValueError):
