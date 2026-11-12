@@ -11,9 +11,9 @@
 - Repo: `danhk0612/DK-Knowledge-Engine`
 - 검증 브랜치: `fix/grounded-retrieval-20261112`
 - Draft PR: https://github.com/danhk0612/DK-Knowledge-Engine/pull/42
-- 현재 검증 HEAD: `3643569ee55962ef74076d53ef43c987743d9d99`
+- 자동 테스트 검증 기준 **코드 커밋**: `3643569ee55962ef74076d53ef43c987743d9d99` (이후에는 인수인계 문서만 추가)
 - `main`은 본 PR을 아직 병합하지 않았음.
-- HEAD에 대한 GitHub Actions 결과: **T02 / T04 / T09 / T12 / T21 모두 성공**
+- 위 코드 커밋에 대한 GitHub Actions 결과: **T02 / T04 / T09 / T12 / T21 모두 성공**
   - T02: Windows/Ubuntu 각각 121개 단위 테스트
   - T04: 실제 CPU Qwen3 GGUF 추론
   - T09: 기본/선택 모델과 런타임·raw_chatml·실패 시나리오의 Windows 포터블 검사
