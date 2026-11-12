@@ -258,7 +258,10 @@ try {
     } else {
         $selectedIcon = (Resolve-Path -LiteralPath $IconFile -ErrorAction Stop).Path
         if ([IO.Path]::GetExtension($selectedIcon) -ieq '.ico') {
-            Copy-Item -LiteralPath $selectedIcon -Destination $packageIcon
+            # User ICOs often contain only one size. Preserve complete ICOs
+            # unchanged, or fill in the EXE-required 16/32/48/256px frames.
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $iconGenerator -Kind ico -SourceIco $selectedIcon -Output $packageIcon
+            if ($LASTEXITCODE -ne 0) { throw 'Custom ICO icon normalization failed' }
         } elseif ([IO.Path]::GetExtension($selectedIcon) -ieq '.png') {
             & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $iconGenerator -Kind png -SourcePng $selectedIcon -Output $packageIcon
             if ($LASTEXITCODE -ne 0) { throw 'Custom PNG icon conversion failed' }
