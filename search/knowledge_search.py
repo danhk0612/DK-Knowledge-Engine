@@ -20,6 +20,9 @@ _SEARCH_TOKENS = re.compile(r"[^\W_]+", re.UNICODE)
 _QUESTION_FILLER = frozenset({
     "방법", "무엇인가요", "무엇입니까", "어떻게", "알려주세요",
     "해주세요", "하나요", "할까요", "인가요", "경우",
+    "어떤", "무슨", "차이", "차이점", "수", "있나요",
+    "가능한가요", "가능합니까", "가능할까요", "되나요", "되는지",
+    "다른가요", "무엇인지",
 })
 # "프로그램" is a useful subject qualifier in two-term questions
 # ("프로그램 설치" must not match unrelated driver installation).
@@ -293,16 +296,19 @@ def search_documents(
             WHERE chunks_fts MATCH ? AND d.product_id = ?
             ORDER BY rank ASC, d.source_path ASC, c.sequence ASC
         """, (expression, product_id)).fetchall()
-    ranked: list[tuple[int, float, dict]] = []
+    ranked: list[tuple[int, int, float, dict]] = []
     for row in rows:
         if not _version_applies(requested, row["version_from"], row["version_to"]):
             continue
+        # Section headings help recall, but only the original passage is
+        # evidence. Reject heading-only hits and rank body coverage first.
+        body_matches = _matched_term_count(terms, row["content"])
         matched = _matched_term_count(
             terms, (row["section_title"] or "") + " " + row["content"],
         )
-        if matched < minimum_matches:
+        if body_matches == 0 or matched < minimum_matches:
             continue
-        ranked.append((matched, row["rank"], {
+        ranked.append((body_matches, matched, row["rank"], {
             "document_id": row["document_id"],
             "chunk_id": row["chunk_id"],
             "title": row["title"],
@@ -312,10 +318,10 @@ def search_documents(
             "page_from": row["page_from"],
             "page_to": row["page_to"],
         }))
-    # Prefer coverage of distinct query terms before FTS5 BM25 score.
-    # SQL's stable path/sequence ordering remains the tiebreaker.
-    ranked.sort(key=lambda hit: (-hit[0], hit[1]))
-    primary = [hit for _, _, hit in ranked[:limit]]
+    # Favor query coverage in the actual passage over repeated/general
+    # headings, then combined coverage and FTS5 BM25 rank.
+    ranked.sort(key=lambda hit: (-hit[0], -hit[1], hit[2]))
+    primary = [hit for _, _, _, hit in ranked[:limit]]
     if not primary:
         # Preserve the established original-text Korean spacing recovery
         # before optional dense or LLM-generated search expansions.
