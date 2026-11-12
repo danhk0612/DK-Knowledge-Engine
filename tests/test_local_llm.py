@@ -115,6 +115,57 @@ class GroundedAnswerTests(unittest.TestCase):
         self.assertFalse(answer["grounded"])
         self.assertEqual(len(answer["sources"]), 1)
 
+    def test_invented_numeric_fact_is_rejected_not_grounded(self):
+        fake = FakeGenerator("연결 포트는 7777입니다. [1]")
+        result = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="연결 오류 포트", generator=fake,
+        )
+        self.assertEqual(result["answer"], NO_DOCUMENT_ANSWER)
+        self.assertFalse(result["grounded"])
+        self.assertEqual(len(result["sources"]), 1)
+
+        fake.answer = "연결 포트는 3308입니다. [1]"
+        correct = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="연결 오류 포트", generator=fake,
+        )
+        self.assertTrue(correct["grounded"])
+
+    def test_invalid_citation_is_rejected_without_forcing_citations(self):
+        fake = FakeGenerator("포트를 확인합니다. [9]")
+        result = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="연결 오류", generator=fake,
+        )
+        self.assertFalse(result["grounded"])
+        self.assertEqual(result["answer"], NO_DOCUMENT_ANSWER)
+        fake.answer = "포트를 확인합니다."
+        valid = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="연결 오류", generator=fake,
+        )
+        self.assertTrue(valid["grounded"])
+
+    def test_page_number_must_match_retrieved_evidence(self):
+        mock_hits = [{
+            "document_id": "manual", "chunk_id": "manual:1",
+            "source_path": "documents/manual.pdf", "page_from": 51,
+            "excerpt": "XLS와 PDF 형식으로 저장할 수 있습니다.",
+        }]
+        fake = FakeGenerator("저장 기능은 51쪽에서 설명합니다. [1]")
+        with patch("llm.local_llm.search_documents", return_value=mock_hits):
+            correct = answer_from_knowledge(
+                self.db, product_id="app-one", question="XLS PDF 저장", generator=fake,
+            )
+            self.assertTrue(correct["grounded"])
+            fake.answer = "저장 기능은 52쪽에서 설명합니다. [1]"
+            incorrect = answer_from_knowledge(
+                self.db, product_id="app-one", question="XLS PDF 저장", generator=fake,
+            )
+            self.assertFalse(incorrect["grounded"])
+            self.assertEqual(incorrect["answer"], NO_DOCUMENT_ANSWER)
+
     def test_invalid_request_does_not_call_llm(self):
         fake = FakeGenerator()
         with self.assertRaises(ValueError):
