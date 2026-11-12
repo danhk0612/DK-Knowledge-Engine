@@ -85,6 +85,40 @@ class GroundedAnswerTests(unittest.TestCase):
         self.assertIn("최대 5단계", fake.calls[0][0])
         self.assertLess(len(fake.calls[0][1]), 5300)
 
+
+    def test_explicit_ox_permission_table_uses_column_not_model_guess(self):
+        source = self.root / "app-one" / "manuals" / "permissions.md"
+        source.write_text(
+            "사용자별 등급 관리자 현장운영자 방문사용자\n"
+            "장치점검 O O X\n"
+            "정보조회 O O O\n", encoding="utf-8",
+        )
+        build(self.root, self.db, rebuild=True)
+        misleading = FakeGenerator("방문사용자는 장치점검을 사용할 수 있습니다.")
+        result = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="방문사용자는 장치점검을 할 수 있나요?", generator=misleading,
+        )
+        self.assertTrue(result["grounded"])
+        self.assertIn("사용할 수 없습니다", result["answer"])
+        self.assertEqual(result["sources"][0]["source_path"], "app-one/manuals/permissions.md")
+        self.assertEqual(misleading.calls, [])
+
+        allowed = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="현장운영자는 장치점검을 할 수 있나요?", generator=misleading,
+        )
+        self.assertIn("사용할 수 있습니다", allowed["answer"])
+        self.assertEqual(misleading.calls, [])
+
+    def test_no_permission_table_does_not_invent_decision(self):
+        fake = FakeGenerator(NO_DOCUMENT_ANSWER)
+        answer = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="일반사용자는 포트 변경할 수 있나요?", generator=fake,
+        )
+        self.assertFalse(answer["grounded"])
+
     def test_empty_evidence_never_calls_model(self):
         fake = FakeGenerator()
         no_result = answer_from_knowledge(

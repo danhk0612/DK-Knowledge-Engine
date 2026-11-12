@@ -175,6 +175,30 @@ class SearchTests(unittest.TestCase):
         self.assertEqual(self.docs("데이터 베이스", version="1.0"), [])
         self.assertEqual([x["document_id"] for x in self.docs("데이터 베이스", version="2.0")], ["v2"])
 
+
+    def test_comparison_fetches_both_pages_not_contents(self):
+        self.doc("toc", text="목차\n현장시험 page 10\n가상시험 page 11", page=2)
+        self.doc("live", text="현장시험은 실제 출력이 작동합니다. 현장시험 시 신호 전달을 확인합니다.", page=10)
+        self.doc("virtual", text="가상시험은 실제 출력이 작동하지 않습니다. 가상시험은 미리보기 기능입니다.", page=11)
+        hits = self.docs("현장시험과 가상시험의 차이는?")
+        self.assertEqual([h["document_id"] for h in hits], ["live", "virtual"])
+        self.assertEqual([h["page_from"] for h in hits], [10, 11])
+
+    def test_lexical_equivalents_excel_and_restart_without_leaking_products(self):
+        self.doc("export", text="조회 결과를 XLS/PDF 형식으로 다운받을 수 있습니다.", page=21)
+        self.doc("reboot", text="프로그램을 다시 실행하려면 톰캣 재시작을 누르세요.", page=37)
+        self.doc("other", product="app-b", text="XLS/PDF 재시작", page=42)
+        self.assertEqual(
+            [h["document_id"] for h in self.docs("엑셀이나 PDF로 저장할 수 있나요?")],
+            ["export"],
+        )
+        self.assertEqual(
+            [h["document_id"] for h in self.docs("프로그램을 재기동해야 하는 상황은?")],
+            ["reboot"],
+        )
+        # An unrelated, weakly overlapping query still has no evidence.
+        self.assertEqual(self.docs("화면 캡처 방법은?"), [])
+
     def test_updated_and_removed_fts_data(self):
         self.doc("a", text="oldtoken")
         self.assertEqual(len(self.docs("oldtoken")), 1)

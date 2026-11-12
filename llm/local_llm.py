@@ -24,6 +24,8 @@ _SYSTEM_PROMPT = (
     "사용자가 짧은 검색어로 물어도 질문에 해당하는 매뉴얼의 실제 값을 직접 답하세요. "
     "코드·포트·버전·파일명 등 정답 값이 매뉴얼에 있으면 정확히 복사해 답변에 포함하고, 문서 위치만 알려주지 마세요. "
     "답변은 한국어로 작성하세요. "
+    "비교 질문은 각 기능의 근거를 별도로 확인하고, 실제 출력·전달·차단 여부를 혼동하지 마세요. "
+    "권한표는 열 제목과 해당 행을 맞춰 읽으세요. O는 허용, X는 불가이며, 모르면 추측하지 마세요. "
     "불필요한 추론 과정이나 문서에 없는 원인을 만들어 내지 마세요."
 )
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
@@ -127,6 +129,60 @@ class LlamaCli:
         return text
 
 
+def _explicit_table_permission(question: str, hits: list[dict]) -> dict | None:
+    """Answer an explicit O/X permissions row without a small model flipping X.
+
+    Never infer missing cells or roles: require a labeled header, the exact
+    user's role, a matching feature row and exactly one consistent O/X value.
+    This is a narrow safety guard, not a general table understanding system.
+    """
+    if not re.search(r"할\s*수|가능|권한|허용|사용|실행", question):
+        return None
+    matches: list[tuple[str, str, bool, dict]] = []
+    for hit in hits:
+        lines = [line.strip() for line in hit["excerpt"].splitlines() if line.strip()]
+        for header_at, line in enumerate(lines):
+            header = re.search(r"(?:사용자별\s*등급|권한\s*구분|사용자\s*등급)\s+(.+)", line)
+            if not header:
+                continue
+            roles = header.group(1).split()
+            if not 2 <= len(roles) <= 8:
+                continue
+            requested_roles = [(i, role) for i, role in enumerate(roles) if role in question]
+            if len(requested_roles) != 1:
+                continue
+            index, role = requested_roles[0]
+            for row in lines[header_at + 1:header_at + 24]:
+                parts = row.split()
+                if len(parts) <= len(roles):
+                    continue
+                markers = parts[-len(roles):]
+                if any(value not in ("O", "X", "○", "×") for value in markers):
+                    continue
+                features = " ".join(parts[:-len(roles)])
+                for feature in re.split(r"[,，/·]", features):
+                    feature = feature.strip()
+                    if len(feature) >= 2 and feature in question:
+                        allowed = markers[index] in ("O", "○")
+                        matches.append((role, feature, allowed, hit))
+    # Conflicting table rows or multiple feature/role interpretations abstain.
+    if len(matches) != 1:
+        return None
+    role, feature, allowed, hit = matches[0]
+    status = "사용할 수 있습니다" if allowed else "사용할 수 없습니다"
+    return {
+        "answer": f"{role}는 {feature} 기능을 {status}. [1]",
+        "grounded": True,
+        "sources": [{
+            "document_id": hit["document_id"],
+            "chunk_id": hit["chunk_id"],
+            "source_path": hit["source_path"],
+            "page_from": hit["page_from"],
+        }],
+        "elapsed_seconds": 0.0,
+    }
+
+
 def answer_from_knowledge(
     database: str | Path,
     *,
@@ -150,6 +206,9 @@ def answer_from_knowledge(
     )
     if not hits:
         return {"answer": NO_EVIDENCE, "grounded": False, "sources": []}
+    permission = _explicit_table_permission(question, hits)
+    if permission is not None:
+        return permission
 
     excerpts = []
     sources = []
