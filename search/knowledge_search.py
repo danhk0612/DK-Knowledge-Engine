@@ -33,6 +33,11 @@ _KOREAN_PARTICLES = (
     "부터", "까지", "에는", "에도", "보다",
     "은", "는", "을", "를", "이", "가", "의", "와", "과",
 )
+# Conservative Korean predicate endings; avoid matching arbitrary substrings.
+_KOREAN_PREDICATE_ENDINGS = (
+    "하려면", "하는지", "했나요", "했을", "해야", "하면",
+    "하는", "하기", "할",
+)
 _HANGUL = re.compile(r"[가-힣]")
 
 
@@ -81,6 +86,11 @@ def _query_terms(question: str) -> list[tuple[str, bool]]:
             if (token.endswith(particle) and len(token) - len(particle) >= 2
                     and _HANGUL.search(token)):
                 token = token[:-len(particle)]
+                break
+        for ending in _KOREAN_PREDICATE_ENDINGS:
+            if (token.endswith(ending) and len(token) - len(ending) >= 2
+                    and _HANGUL.search(token)):
+                token = token[:-len(ending)]
                 break
         if token in _QUESTION_FILLER:
             continue
