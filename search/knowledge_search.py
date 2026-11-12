@@ -27,10 +27,21 @@ _QUESTION_FILLER = frozenset({
 _GENERIC_CONTEXT_TERMS = frozenset({"프로그램"})
 _KOREAN_PARTICLES = (
     "에서는", "에게는", "으로는", "에서", "에게", "으로",
-    "부터", "까지", "에는", "에도", "보다",
+    "부터", "까지", "에는", "에도", "보다", "이나", "해야", "할", "로",
     "은", "는", "을", "를", "이", "가", "의", "와", "과",
 )
 _HANGUL = re.compile(r"[가-힣]")
+# Narrow, document-independent terminology equivalents. These extend a query
+# but are never treated as additional independent evidence terms.
+_TERM_ALIASES = {
+    "엑셀": ("xls", "xlsx", "excel"),
+    "재기동": ("재시작",),
+    "재시작": ("재기동",),
+}
+_QUESTION_FILLER = _QUESTION_FILLER | frozenset({
+    "차이", "차이점", "비교", "다른점", "있는지", "있나", "있나요",
+    "하는", "상황", "할", "수", "어떤", "되나요",
+})
 
 
 def _version(value: str) -> tuple[int, ...]:
@@ -89,22 +100,38 @@ def _query_terms(question: str) -> list[tuple[str, bool]]:
     return list(terms.items())
 
 
+def _term_fts(term: str, prefix: bool) -> str:
+    """Quote both the original term and fixed aliases for FTS5."""
+    options = [(term, prefix)] + [
+        (alias, bool(_HANGUL.search(alias)) and len(alias) >= 2)
+        for alias in _TERM_ALIASES.get(term, ())
+    ]
+    return " OR ".join(
+        '"' + word.replace('"', '""') + '"' + ("*" if startswith else "")
+        for word, startswith in options
+    )
+
+
 def _fts_query(question: str) -> str | None:
     """Quote user terms to prevent FTS syntax injection; allow safe prefixes."""
     terms = _query_terms(question)
     if not terms:
         return None
-    return " OR ".join(
-        '"' + term.replace('"', '""') + '"' + ("*" if prefix else "")
-        for term, prefix in terms
-    )
+    return " OR ".join("(" + _term_fts(term, prefix) + ")" for term, prefix in terms)
 
 
 def _matched_term_count(terms: list[tuple[str, bool]], content: str) -> int:
     """Count distinct *indexed word* matches, not arbitrary substrings."""
     words = set(_SEARCH_TOKENS.findall(content.casefold()))
     return sum(
-        any(word == term or (prefix and word.startswith(term)) for word in words)
+        any(
+            word == term or (prefix and word.startswith(term))
+            or any(
+                word == alias or (bool(_HANGUL.search(alias)) and word.startswith(alias))
+                for alias in _TERM_ALIASES.get(term, ())
+            )
+            for word in words
+        )
         for term, prefix in terms
     )
 
@@ -255,6 +282,69 @@ def _original_compound_fallback(
         return fallback
 
 
+def _comparison_evidence(
+    database: str | Path, *, product_id: str, query: str,
+    terms: list[tuple[str, bool]], requested: tuple[int, ...] | None,
+) -> list[dict]:
+    """Fetch each side separately when a comparison spans multiple pages.
+
+    Single-chunk co-occurrence tends to select table-of-contents pages.
+    Only apply this to explicit, two-concept comparison questions, preserving
+    the normal two-term evidence guard on all other searches.
+    """
+    if len(terms) != 2 or not re.search(r"차이|비교|다른\s*점", query):
+        return []
+    chosen: list[dict] = []
+    seen: set[str] = set()
+    with _database(database) as db:
+        for term, prefix in terms:
+            rows = db.execute("""
+                SELECT d.document_id, d.title, d.source_path,
+                       d.version_from, d.version_to,
+                       c.chunk_id, c.section_title, c.content,
+                       c.page_from, c.page_to,
+                       bm25(chunks_fts) AS rank
+                FROM chunks_fts
+                JOIN chunks c ON c.id = chunks_fts.rowid
+                JOIN documents d ON d.document_id = c.document_id
+                WHERE chunks_fts MATCH ? AND d.product_id = ?
+                ORDER BY rank ASC, d.source_path ASC, c.sequence ASC
+                LIMIT 80
+            """, (_term_fts(term, prefix), product_id)).fetchall()
+            candidates = []
+            for row in rows:
+                if not _version_applies(requested, row["version_from"], row["version_to"]):
+                    continue
+                content = row["content"]
+                if _matched_term_count([(term, prefix)], content) < 1:
+                    continue
+                is_contents = "목차" in content or (
+                    len(re.findall(r"(?i)\bpage\s*\d+", content)) >= 3
+                )
+                candidates.append((
+                    bool(is_contents),
+                    -min(content.casefold().count(term), 10),
+                    row["rank"],
+                    {
+                        "document_id": row["document_id"],
+                        "chunk_id": row["chunk_id"],
+                        "title": row["title"],
+                        "section_title": row["section_title"],
+                        "excerpt": content,
+                        "source_path": row["source_path"],
+                        "page_from": row["page_from"],
+                        "page_to": row["page_to"],
+                    },
+                ))
+            candidates.sort(key=lambda item: item[:3])
+            for _, _, _, hit in candidates:
+                if hit["chunk_id"] not in seen:
+                    seen.add(hit["chunk_id"])
+                    chosen.append(hit)
+                    break
+    # Only replace default search if BOTH sides have actual evidence.
+    return chosen if len(chosen) == 2 else []
+
 def search_documents(
     database: str | Path, *, product_id: str, query: str,
     version: str | None = None, limit: int = 10,
@@ -312,6 +402,12 @@ def search_documents(
             "page_from": row["page_from"],
             "page_to": row["page_to"],
         }))
+    facets = _comparison_evidence(
+        database, product_id=product_id, query=query,
+        terms=terms, requested=requested,
+    )
+    if facets:
+        return facets[:limit]
     # Prefer coverage of distinct query terms before FTS5 BM25 score.
     # SQL's stable path/sequence ordering remains the tiebreaker.
     ranked.sort(key=lambda hit: (-hit[0], hit[1]))

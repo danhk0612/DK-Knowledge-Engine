@@ -7,6 +7,7 @@ param(
     [Parameter(Mandatory=$true)] [ValidateNotNullOrEmpty()] [string]$ProductName,
     [Parameter(Mandatory=$true)] [ValidatePattern('^\d+(\.\d+)+$')] [string]$ProductVersion,
     [string]$AppName = 'DK Knowledge Client',
+    [string]$IconFile,
 
     [string]$ClientExe,
     [string]$ModelFile,
@@ -187,15 +188,91 @@ try {
         $gui = (Resolve-Path -LiteralPath $ClientExe).Path
     }
     else {
-        & dotnet publish $clientProject -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o $publish
+        # Apphost + self-contained runtime, but NO .NET single-file bundle:
+        # UpdateResourceW can change this EXE without corrupting bundle offsets.
+        & dotnet publish $clientProject -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o $publish
         if ($LASTEXITCODE -ne 0) { throw 'Client UI publish failed' }
         $gui = Join-Path $publish 'DK-Knowledge-Client.exe'
     }
     if (-not (Test-Path -LiteralPath $gui -PathType Leaf) -or
-        [IO.Path]::GetExtension($gui) -ne '.exe') {
-        throw 'Client GUI executable not found'
+        [IO.Path]::GetFileName($gui) -cne 'DK-Knowledge-Client.exe') {
+        throw 'The selected Client EXE must be DK-Knowledge-Client.exe'
     }
-    Copy-Item -LiteralPath $gui -Destination (Join-Path $package 'DK-Knowledge-Client.exe')
+    # An EXE alone is no longer a complete .NET Client. Standalone Admin
+    # receives this same self-contained publish directory, not a single EXE.
+    $guiRoot = (Resolve-Path -LiteralPath (Split-Path -Parent $gui)).Path.TrimEnd('\', '/')
+    $requiredRuntime = @(
+        'DK-Knowledge-Client.exe',
+        'DK-Knowledge-Client.deps.json',
+        'DK-Knowledge-Client.runtimeconfig.json',
+        'hostfxr.dll', 'coreclr.dll', 'PresentationFramework.dll'
+    )
+    foreach ($required in $requiredRuntime) {
+        if (-not (Test-Path -LiteralPath (Join-Path $guiRoot $required) -PathType Leaf)) {
+            throw "Self-contained Client runtime is incomplete: $required"
+        }
+    }
+    $clientRuntimePaths = [System.Collections.Generic.List[string]]::new()
+    foreach ($file in @(Get-ChildItem -LiteralPath $guiRoot -File -Recurse)) {
+        $relative = $file.FullName.Substring($guiRoot.Length).TrimStart('\', '/').Replace('\', '/')
+        # Only files produced by dotnet publish that are needed to execute
+        # the Client: apphost, deps/runtimeconfig, and managed/native DLLs.
+        # Never copy PDBs, unrelated files or another executable.
+        if ($file.Extension -ine '.dll' -and $relative -cnotin $requiredRuntime[0..2]) {
+            continue
+        }
+        if ($relative -match '(?i)(^|/)(DK-Knowledge-Admin|DK-Knowledge-Builder)') {
+            throw "Admin/Builder dependency was found in Client runtime: $relative"
+        }
+        $destination = Join-Path $package ($relative.Replace('/', [IO.Path]::DirectorySeparatorChar))
+        New-Item -ItemType Directory -Path (Split-Path -Parent $destination) -Force | Out-Null
+        Copy-Item -LiteralPath $file.FullName -Destination $destination -Force
+        $clientRuntimePaths.Add($relative)
+    }
+    if ($clientRuntimePaths.Count -lt $requiredRuntime.Count) {
+        throw 'Missing Client runtime payload'
+    }
+    $packagedGui = Join-Path $package 'DK-Knowledge-Client.exe'
+    $iconDir = Join-Path $package 'assets'
+    New-Item -ItemType Directory -Path $iconDir -Force | Out-Null
+    $packageIcon = Join-Path $iconDir 'app.ico'
+    $defaultIcon = Join-Path $repo 'assets\client.ico'
+    if (-not (Test-Path -LiteralPath $defaultIcon -PathType Leaf)) {
+        $defaultIcon = Join-Path $repo 'assets\generated\client.ico'
+    }
+    $iconGenerator = Join-Path $repo 'assets\Generate-Icon.ps1'
+    if (-not (Test-Path -LiteralPath $iconGenerator)) {
+        $iconGenerator = Join-Path $repo 'tools\Generate-Icon.ps1'
+    }
+    $iconPatcher = Join-Path $PSScriptRoot 'Set-Exe-Icon.ps1'
+    if (-not (Test-Path -LiteralPath $iconPatcher -PathType Leaf)) {
+        throw 'Offline EXE icon editor is not included'
+    }
+    if ([string]::IsNullOrWhiteSpace($IconFile)) {
+        if (-not (Test-Path -LiteralPath $defaultIcon -PathType Leaf)) {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $iconGenerator -Kind client -Output $packageIcon
+            if ($LASTEXITCODE -ne 0) { throw 'Default icon generation failed' }
+        } else {
+            Copy-Item -LiteralPath $defaultIcon -Destination $packageIcon
+        }
+    } else {
+        $selectedIcon = (Resolve-Path -LiteralPath $IconFile -ErrorAction Stop).Path
+        if ([IO.Path]::GetExtension($selectedIcon) -ieq '.ico') {
+            # User ICOs often contain only one size. Preserve complete ICOs
+            # unchanged, or fill in the EXE-required 16/32/48/256px frames.
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $iconGenerator -Kind ico -SourceIco $selectedIcon -Output $packageIcon
+            if ($LASTEXITCODE -ne 0) { throw 'Custom ICO icon normalization failed' }
+        } elseif ([IO.Path]::GetExtension($selectedIcon) -ieq '.png') {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $iconGenerator -Kind png -SourcePng $selectedIcon -Output $packageIcon
+            if ($LASTEXITCODE -ne 0) { throw 'Custom PNG icon conversion failed' }
+        } else {
+            throw 'Only .ico and .png files are supported for package icons'
+        }
+    }
+    # Make changes to the staged EXE COPY before checksumming or signing.
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $iconPatcher -Exe $packagedGui -Icon $packageIcon
+    if ($LASTEXITCODE -ne 0) { throw 'Client EXE icon resource replacement failed' }
+
 
     # In developer mode $repo is the source tree. In standalone Admin mode
     # it resolves to the authoring bundle, which carries the same notices.
@@ -233,6 +310,7 @@ try {
         product_name = $ProductName.Trim()
         product_version = $ProductVersion
         app_name = $AppName.Trim()
+        icon_file = 'assets/app.ico'
     }
     [IO.File]::WriteAllText($productInfoPath, ($productInfo | ConvertTo-Json -Depth 4),
         (New-Object System.Text.UTF8Encoding($false)))
@@ -259,12 +337,19 @@ try {
         $manifest.immutable_files | Add-Member -NotePropertyName $embeddingRelative -NotePropertyValue $embeddingHash -Force
         $manifest | Add-Member -NotePropertyName embedding_model_sha256 -NotePropertyValue $embeddingHash -Force
     }
+    $manifest.immutable_files | Add-Member -NotePropertyName 'assets/app.ico' -NotePropertyValue (
+        (Get-FileHash -LiteralPath $packageIcon -Algorithm SHA256).Hash.ToLowerInvariant()
+    ) -Force
     $manifest.immutable_files | Add-Member -NotePropertyName 'package-info.json' -NotePropertyValue (
         (Get-FileHash -LiteralPath $productInfoPath -Algorithm SHA256).Hash.ToLowerInvariant()
     ) -Force
-    $guiHash = (Get-FileHash -LiteralPath (Join-Path $package 'DK-Knowledge-Client.exe') -Algorithm SHA256).Hash.ToLowerInvariant()
-
-    $manifest.immutable_files | Add-Member -NotePropertyName 'DK-Knowledge-Client.exe' -NotePropertyValue $guiHash -Force
+    # Protect EVERY runtime DLL and JSON descriptor, not only the EXE.
+    # A missing/modified dependent assembly invalidates the whole Client ZIP.
+    foreach ($relative in $clientRuntimePaths) {
+        $runtimeFile = Join-Path $package ($relative.Replace('/', [IO.Path]::DirectorySeparatorChar))
+        $runtimeHash = (Get-FileHash -LiteralPath $runtimeFile -Algorithm SHA256).Hash.ToLowerInvariant()
+        $manifest.immutable_files | Add-Member -NotePropertyName $relative -NotePropertyValue $runtimeHash -Force
+    }
     foreach ($name in @('LICENSE', 'README.md', 'THIRD_PARTY_NOTICES.md')) {
         $noticeHash = (Get-FileHash -LiteralPath (Join-Path $package $name) -Algorithm SHA256).Hash.ToLowerInvariant()
         $manifest.immutable_files | Add-Member -NotePropertyName $name -NotePropertyValue $noticeHash -Force
@@ -298,7 +383,12 @@ try {
         foreach ($entry in @($oldManifest.immutable_files.PSObject.Properties)) {
             $isManagedModel = $entry.Name -match '^models/[^/\\]+\.gguf$'
             $isManagedEmbeddingRuntime = $entry.Name -eq 'runtime/llama-embedding.exe'
-            if ((-not $isManagedModel -and -not $isManagedEmbeddingRuntime) -or
+            # Remove obsolete published DLLs only if the old tracked file
+            # is still byte-for-byte unmodified by the user.
+            $isManagedClientDll = ($entry.Name -match '(?i)^(?:[^/]+/)*[^/]+\.dll$' -and
+                $entry.Name -notmatch '^(engine|runtime|models|knowledge|config|licenses|assets)/')
+            if ((-not $isManagedModel -and -not $isManagedEmbeddingRuntime -and
+                -not $isManagedClientDll) -or
                 $newManifest.immutable_files.PSObject.Properties[$entry.Name]) {
                 continue
             }

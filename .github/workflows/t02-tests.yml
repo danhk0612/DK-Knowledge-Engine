@@ -18,5 +18,16 @@ jobs:
           python-version: "3.11"
       - name: Install Builder test dependencies
         run: python -m pip install -r requirements-test.txt
+      - name: Validate RAG field-QA setup in Windows PowerShell 5.1
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $file = (Resolve-Path '.\tests\Prepare-Windows-RAG-Recheck.ps1').Path
+          $bytes = [IO.File]::ReadAllBytes($file)
+          if ($bytes.Length -lt 3 -or $bytes[0] -ne 0xEF -or $bytes[1] -ne 0xBB -or $bytes[2] -ne 0xBF) {
+            throw 'Windows PowerShell 5.1 script requires UTF-8 BOM'
+          }
+          & powershell.exe -NoProfile -Command '$t=$null; $e=$null; [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path ".\tests\Prepare-Windows-RAG-Recheck.ps1").Path,[ref]$t,[ref]$e); if($e.Count){throw ($e -join "; ")}; Write-Output "V020_RAG_RECHECK_PS51_SYNTAX_OK"'
+          if ($LASTEXITCODE -ne 0) { throw 'Windows PowerShell 5.1 parse failed' }
       - name: Run T02 regression tests
         run: python -m unittest discover -s tests -v

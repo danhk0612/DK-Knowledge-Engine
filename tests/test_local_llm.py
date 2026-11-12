@@ -58,11 +58,11 @@ class GroundedAnswerTests(unittest.TestCase):
         self.assertEqual(answer["sources"][0]["source_path"], "app-one/manuals/setup.md")
         self.assertIn("3308", fake.calls[0][1])
         self.assertNotIn("9999", fake.calls[0][1])
-        self.assertIn("매뉴얼:", fake.calls[0][1])
-        self.assertIn("매뉴얼 내용만 사용하세요", fake.calls[0][0])
-        self.assertIn("매뉴얼의 실제 값을 직접 답하세요", fake.calls[0][0])
+        self.assertIn("근거 문서:", fake.calls[0][1])
+        self.assertIn("근거 문서(매뉴얼·FAQ·안내서 등)의 내용만 사용하세요", fake.calls[0][0])
+        self.assertIn("문서의 실제 값을 직접 답하세요", fake.calls[0][0])
         self.assertIn("문서 위치만 알려주지 마세요", fake.calls[0][0])
-        self.assertIn("코드·숫자·기호를 바꾸거나 생략하지 말고", fake.calls[0][1])
+        self.assertIn("코드·숫자·기호를 그대로 유지하세요", fake.calls[0][1])
         self.assertGreaterEqual(answer["elapsed_seconds"], 0)
 
     def test_multi_step_prompt_keeps_numbered_sources_and_bounded_context(self):
@@ -73,7 +73,7 @@ class GroundedAnswerTests(unittest.TestCase):
                 encoding="utf-8",
             )
         build(self.root, self.db, rebuild=True)
-        fake = FakeGenerator("1. 포트를 확인합니다. [1]")
+        fake = FakeGenerator("1. 포트를 확인합니다. [1] [2]")
         result = answer_from_knowledge(
             self.db, product_id="app-one", version="2.5",
             question="연결 오류 해결 절차는?", generator=fake,
@@ -84,6 +84,40 @@ class GroundedAnswerTests(unittest.TestCase):
         self.assertIn("[1]", fake.calls[0][1])
         self.assertIn("최대 5단계", fake.calls[0][0])
         self.assertLess(len(fake.calls[0][1]), 5300)
+
+
+    def test_explicit_ox_permission_table_uses_column_not_model_guess(self):
+        source = self.root / "app-one" / "manuals" / "permissions.md"
+        source.write_text(
+            "사용자별 등급 관리자 현장운영자 방문사용자\n"
+            "장치점검 O O X\n"
+            "정보조회 O O O\n", encoding="utf-8",
+        )
+        build(self.root, self.db, rebuild=True)
+        misleading = FakeGenerator("방문사용자는 장치점검을 사용할 수 있습니다.")
+        result = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="방문사용자는 장치점검을 할 수 있나요?", generator=misleading,
+        )
+        self.assertTrue(result["grounded"])
+        self.assertIn("사용할 수 없습니다", result["answer"])
+        self.assertEqual(result["sources"][0]["source_path"], "app-one/manuals/permissions.md")
+        self.assertEqual(misleading.calls, [])
+
+        allowed = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="현장운영자는 장치점검을 할 수 있나요?", generator=misleading,
+        )
+        self.assertIn("사용할 수 있습니다", allowed["answer"])
+        self.assertEqual(misleading.calls, [])
+
+    def test_no_permission_table_does_not_invent_decision(self):
+        fake = FakeGenerator(NO_DOCUMENT_ANSWER)
+        answer = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="일반사용자는 포트 변경할 수 있나요?", generator=fake,
+        )
+        self.assertFalse(answer["grounded"])
 
     def test_empty_evidence_never_calls_model(self):
         fake = FakeGenerator()
@@ -113,7 +147,78 @@ class GroundedAnswerTests(unittest.TestCase):
             self.db, product_id="app-one", version="2.5", question="연결", generator=fake,
         )
         self.assertFalse(answer["grounded"])
-        self.assertEqual(len(answer["sources"]), 1)
+        self.assertEqual(answer["sources"], [])
+
+    def test_explanatory_abstention_is_not_marked_grounded(self):
+        fake = FakeGenerator(
+            "매뉴얼에 명시되지 않았습니다. "
+            + NO_DOCUMENT_ANSWER + " [1]"
+        )
+        answer = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="연결 오류 발생 포트는?", generator=fake,
+        )
+        self.assertFalse(answer["grounded"])
+        self.assertEqual(answer["sources"], [])
+
+    def test_generic_prompt_preserves_conditions_and_focus(self):
+        fake = FakeGenerator("조건을 확인합니다. [1]")
+        answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="연결 오류 발생 포트는?", generator=fake,
+        )
+        system, prompt = fake.calls[0]
+        self.assertIn("질문과 관계없는 추가 기능", system)
+        self.assertIn("원문의 주체·조건·부정", system)
+        self.assertIn("실제 동작·안전 주의사항", system)
+        self.assertIn("실제로 사용한 근거 번호", prompt)
+        self.assertNotIn("JCMS24", system + prompt)
+
+    def test_citations_are_restricted_and_renumbered_for_any_product(self):
+        fake = FakeGenerator("조건 A와 조건 C가 필요합니다. [3] [1] [3]")
+        candidates = [
+            {"document_id": str(i), "chunk_id": str(i),
+             "source_path": f"product-z/{i}.md",
+             "page_from": i + 1, "excerpt": f"조건 {i}"}
+            for i in range(1, 5)
+        ]
+        with patch("llm.local_llm.search_documents", return_value=candidates):
+            result = answer_from_knowledge(
+                self.db, product_id="product-z", question="조건은?", generator=fake,
+            )
+        self.assertTrue(result["grounded"])
+        self.assertEqual([s["source_path"] for s in result["sources"]],
+                         ["product-z/1.md", "product-z/3.md"])
+        self.assertEqual(result["answer"], "조건 A와 조건 C가 필요합니다. [2] [1] [2]")
+
+    def test_uncited_generator_retains_only_top_retrieved_source(self):
+        fake = FakeGenerator("질문의 직접 답변입니다.")
+        candidates = [
+            {"document_id": str(i), "chunk_id": str(i),
+             "source_path": f"product-a/{i}.md",
+             "page_from": i, "excerpt": "근거가 됩니다"}
+            for i in range(1, 4)
+        ]
+        with patch("llm.local_llm.search_documents", return_value=candidates):
+            result = answer_from_knowledge(
+                self.db, product_id="product-a", question="어떻게 하나요?", generator=fake,
+            )
+        self.assertEqual(len(result["sources"]), 1)
+        self.assertEqual(result["sources"][0]["source_path"], "product-a/1.md")
+        self.assertEqual(result["answer"], "질문의 직접 답변입니다.")
+
+    def test_invalid_model_citation_cannot_become_wrong_source(self):
+        fake = FakeGenerator("허용되지 않는 인용입니다. [9]")
+        with patch("llm.local_llm.search_documents", return_value=[
+            {"document_id": "one", "chunk_id": "one", "source_path": "any/manual.md",
+             "page_from": 3, "excerpt": "실제 내용"}
+        ]):
+            result = answer_from_knowledge(
+                self.db, product_id="any", question="허용되나요?", generator=fake,
+            )
+        self.assertFalse(result["grounded"])
+        self.assertEqual(result["sources"], [])
+        self.assertEqual(result["answer"], NO_DOCUMENT_ANSWER)
 
     def test_invalid_request_does_not_call_llm(self):
         fake = FakeGenerator()
