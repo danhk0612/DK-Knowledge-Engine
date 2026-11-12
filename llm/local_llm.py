@@ -80,8 +80,14 @@ def _permission_answer_conflicts(question: str, answer: str, evidence: list[str]
             row_labels = [label.strip() for label in re.split(r"[,/·、]", cells[0])]
             if not any(label and label in question for label in row_labels):
                 continue
+            matched_roles = [name for name in header if len(name) >= 2 and name in question]
+            if any(len(name) >= 2 and name not in matched_roles and name in answer
+                   for name in header):
+                # Several roles are discussed; a single polarity does not
+                # describe the whole answer. Leave this to the model.
+                return False
             for i, name in enumerate(header):
-                if len(name) >= 2 and name in question:
+                if name in matched_roles:
                     values.add(cells[i + 1] in ("O", "○"))
     return len(values) == 1 and polarity not in values
 
