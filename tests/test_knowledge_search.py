@@ -147,6 +147,14 @@ class SearchTests(unittest.TestCase):
         self.assertEqual([h["document_id"] for h in hits[:2]], ["trial", "simulation"])
         self.assertEqual([h["page_from"] for h in hits[:2]], [39, 40])
         self.assertIn("toc", [h["document_id"] for h in hits])
+        self.assertEqual(
+            [h["document_id"] for h in self.docs("회로시험과 시뮬레이션 비교")[:2]],
+            ["trial", "simulation"],
+        )
+        self.assertEqual(
+            [h["document_id"] for h in self.docs("회로시험과 시뮬레이션의 다른 점")[:2]],
+            ["trial", "simulation"],
+        )
         self.assertEqual([h["document_id"] for h in self.docs(
             "회로시험과 시뮬레이션의 차이는?", limit=2,
         )], ["trial", "simulation"])
