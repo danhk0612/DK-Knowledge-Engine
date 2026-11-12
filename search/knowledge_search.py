@@ -22,7 +22,7 @@ _QUESTION_FILLER = frozenset({
     "해주세요", "하나요", "할까요", "인가요", "경우",
     "어떤", "무슨", "차이", "차이점", "수", "있나요",
     "가능한가요", "가능합니까", "가능할까요", "되나요", "되는지",
-    "다른가요", "무엇인지",
+    "다른가요", "무엇인지", "하는", "할",
 })
 # "프로그램" is a useful subject qualifier in two-term questions
 # ("프로그램 설치" must not match unrelated driver installation).
