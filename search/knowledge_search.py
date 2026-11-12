@@ -20,6 +20,9 @@ _SEARCH_TOKENS = re.compile(r"[^\W_]+", re.UNICODE)
 _QUESTION_FILLER = frozenset({
     "방법", "무엇인가요", "무엇입니까", "어떻게", "알려주세요",
     "해주세요", "하나요", "할까요", "인가요", "경우",
+    "어떤", "무슨", "차이", "차이점", "비교", "대비", "다른", "점", "수", "있나요",
+    "가능한가요", "가능합니까", "가능할까요", "되나요", "되는지",
+    "다른가요", "무엇인지", "하는", "할",
 })
 # "프로그램" is a useful subject qualifier in two-term questions
 # ("프로그램 설치" must not match unrelated driver installation).
@@ -29,6 +32,11 @@ _KOREAN_PARTICLES = (
     "에서는", "에게는", "으로는", "에서", "에게", "으로",
     "부터", "까지", "에는", "에도", "보다",
     "은", "는", "을", "를", "이", "가", "의", "와", "과",
+)
+# Conservative Korean predicate endings; avoid matching arbitrary substrings.
+_KOREAN_PREDICATE_ENDINGS = (
+    "하려면", "하는지", "했나요", "했을", "해야", "하면",
+    "하는", "하기", "할",
 )
 _HANGUL = re.compile(r"[가-힣]")
 
@@ -79,6 +87,11 @@ def _query_terms(question: str) -> list[tuple[str, bool]]:
                     and _HANGUL.search(token)):
                 token = token[:-len(particle)]
                 break
+        for ending in _KOREAN_PREDICATE_ENDINGS:
+            if (token.endswith(ending) and len(token) - len(ending) >= 2
+                    and _HANGUL.search(token)):
+                token = token[:-len(ending)]
+                break
         if token in _QUESTION_FILLER:
             continue
         prefix = len(token) >= 2 and (bool(_HANGUL.search(token)) or token != raw)
@@ -101,10 +114,12 @@ def _fts_query(question: str) -> str | None:
 
 
 def _matched_term_count(terms: list[tuple[str, bool]], content: str) -> int:
-    """Count distinct *indexed word* matches, not arbitrary substrings."""
+    """Count distinct whole-word or adjacent split-word matches."""
     words = set(_SEARCH_TOKENS.findall(content.casefold()))
     return sum(
         any(word == term or (prefix and word.startswith(term)) for word in words)
+        or (len(term) >= 3 and re.fullmatch(r"[가-힣]+", term) is not None
+            and _compound_at_word_start(content, term))
         for term, prefix in terms
     )
 
@@ -218,10 +233,13 @@ def _original_compound_fallback(
             not all(re.fullmatch(r"[가-힣]{2,}", term) for term, _ in terms)):
         return []
     compound = "".join(term for term, _ in terms)
-    # A single short term is too broad for whitespace-insensitive matching.
-    if len(terms) == 1 and len(compound) < 4:
+    # Two-syllable terms are too broad to reconstruct from whitespace.
+    if len(terms) == 1 and len(compound) < 3:
         return []
     first = terms[0][0][:2]
+    # A three-syllable word can be split 1+2 (재 기동) or 2+1
+    # (재기 동). Either intact two-syllable part is a narrow SQL prefilter.
+    other = compound[1:3] if len(terms) == 1 and len(compound) == 3 else first
     with _database(database) as db:
         candidates = db.execute("""
             SELECT d.document_id, d.title, d.source_path,
@@ -230,14 +248,14 @@ def _original_compound_fallback(
                    c.page_from, c.page_to
             FROM chunks c JOIN documents d ON d.document_id = c.document_id
             WHERE d.product_id = ?
-              AND (instr(c.content, ?) > 0 OR instr(coalesce(c.section_title, ''), ?) > 0)
+              AND (instr(c.content, ?) > 0 OR instr(c.content, ?) > 0)
             ORDER BY d.source_path, c.sequence
-        """, (product_id, first, first))
+        """, (product_id, first, other))
         fallback: list[dict] = []
         for row in candidates:
             if not _version_applies(requested, row["version_from"], row["version_to"]):
                 continue
-            original = (row["section_title"] or "") + "\n" + row["content"]
+            original = row["content"]  # Heading-only fallback is not evidence.
             if not _compound_at_word_start(original, compound):
                 continue
             fallback.append({
@@ -293,16 +311,27 @@ def search_documents(
             WHERE chunks_fts MATCH ? AND d.product_id = ?
             ORDER BY rank ASC, d.source_path ASC, c.sequence ASC
         """, (expression, product_id)).fetchall()
-    ranked: list[tuple[int, float, dict]] = []
+    ranked: list[tuple[int, int, float, dict]] = []
+    # Comparison questions may discuss two concepts on separate PDF pages.
+    # Collect single-concept detail passages for both sides, but never loosen
+    # ordinary multi-term questions or accept only one side of a comparison.
+    comparison = (
+        len(terms) == 2 and limit >= 2
+        and re.search(r"차이|비교|대비|다른\s*점|\bvs\.?\b", query, re.IGNORECASE)
+    )
+    sides: list[list[dict]] = [[], []]
     for row in rows:
         if not _version_applies(requested, row["version_from"], row["version_to"]):
             continue
+        # Section headings help recall, but only the original passage is
+        # evidence. Reject heading-only hits and rank body coverage first.
+        body_matches = _matched_term_count(terms, row["content"])
         matched = _matched_term_count(
             terms, (row["section_title"] or "") + " " + row["content"],
         )
-        if matched < minimum_matches:
+        if body_matches == 0:
             continue
-        ranked.append((matched, row["rank"], {
+        hit = {
             "document_id": row["document_id"],
             "chunk_id": row["chunk_id"],
             "title": row["title"],
@@ -311,11 +340,26 @@ def search_documents(
             "source_path": row["source_path"],
             "page_from": row["page_from"],
             "page_to": row["page_to"],
-        }))
-    # Prefer coverage of distinct query terms before FTS5 BM25 score.
-    # SQL's stable path/sequence ordering remains the tiebreaker.
-    ranked.sort(key=lambda hit: (-hit[0], hit[1]))
-    primary = [hit for _, _, hit in ranked[:limit]]
+        }
+        if comparison and body_matches == 1:
+            for index, term in enumerate(terms):
+                if _matched_term_count([term], row["content"]):
+                    sides[index].append(hit)
+                    break
+        if matched < minimum_matches:
+            continue
+        ranked.append((body_matches, matched, row["rank"], hit))
+    # Favor query coverage in the actual passage over repeated/general
+    # headings, then combined coverage and FTS5 BM25 rank.
+    ranked.sort(key=lambda hit: (-hit[0], -hit[1], hit[2]))
+    primary = [hit for _, _, _, hit in ranked[:limit]]
+    if comparison and all(sides):
+        # Put one source covering each side before possible index/TOC pages
+        # that merely mention both names. FTS rank orders each side's hits.
+        details = [group[0] for group in sides]
+        chosen = {hit["chunk_id"] for hit in details}
+        primary = (details + [hit for hit in primary
+                              if hit["chunk_id"] not in chosen])[:limit]
     if not primary:
         # Preserve the established original-text Korean spacing recovery
         # before optional dense or LLM-generated search expansions.

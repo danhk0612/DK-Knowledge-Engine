@@ -20,14 +20,102 @@ _SYSTEM_PROMPT = (
     "제공된 매뉴얼 내용만 사용하세요. 매뉴얼에 없는 정보는 추측하지 마세요. "
     "질문이 절차나 문제 해결이면 필요한 순서를 최대 5단계로 구분하세요. "
     "결론을 뒷받침하는 매뉴얼 근거 번호 [1], [2] 등을 명시하세요. "
-    "제공된 근거가 질문에 답하기에 부족하면 '제공된 근거 문서만으로는 답변을 확인할 수 없습니다.'라고 답하세요. "
+    "문서 근거가 부족한 질문은 추측하지 말고 답변을 확인할 수 없다고 짧게 답하세요. "
+    "근거가 충분하면 답과 출처 번호만 작성하고 답변 뒤에 거절 문장을 덧붙이지 마세요. "
     "사용자가 짧은 검색어로 물어도 질문에 해당하는 매뉴얼의 실제 값을 직접 답하세요. "
     "코드·포트·버전·파일명 등 정답 값이 매뉴얼에 있으면 정확히 복사해 답변에 포함하고, 문서 위치만 알려주지 마세요. "
     "답변은 한국어로 작성하세요. "
-    "불필요한 추론 과정이나 문서에 없는 원인을 만들어 내지 마세요."
+    "불필요한 추론 과정이나 문서에 없는 원인을 만들어 내지 마세요. "
+    "사용자 유형·권한·조건·예외를 확인하고, 허용과 금지 또는 실제 동작과 모의 동작을 혼동하지 마세요. "
+    "여러 출처를 조합하더라도 각각의 주장은 직접 뒷받침하는 근거가 있어야 합니다. "
+    "권한이나 기능을 표로 확인할 때는 질문의 행과 열을 찾아 교차 칸의 기호를 확인하고, "
+    "표의 허용·금지와 정반대로 답하지 마세요."
 )
 _ANSI = re.compile(r"\x1b\[[0-9;]*[A-Za-z]")
 _THINK = re.compile(r"<think>.*?</think>", re.DOTALL)
+_CITATION = re.compile(r"\[(\d+)\]")
+_NUMBER = re.compile(r"(?<![0-9])\d+(?:[.,]\d+)*(?![0-9])")
+_STEP_NUMBER = re.compile(r"(?m)^\s*\d{1,2}[.)]\s+")
+_TABLE_CELLS = re.compile(r"\s{2,}|\s*\|\s*")
+_TABLE_FLAGS = frozenset({"O", "X", "○", "×"})
+_PERMISSION_QUERY = re.compile(r"가능|권한|허용|할\s*수|제한|사용할")
+_NEGATIVE_ANSWER = re.compile(
+    r"할\s*수\s*없|불가능|가능하지\s*않|허용되지|금지|못합니다|"
+    r"권한이\s*없|지원하지\s*않|제한됩니다"
+)
+_POSITIVE_ANSWER = re.compile(
+    r"할\s*수\s*있|(?<!불)가능합니다|(?<!불)가능하다|(?<!불)가능해요|허용됩니다|"
+    r"권한이\s*있|지원합니다"
+)
+
+
+def _permission_answer_conflicts(question: str, answer: str, evidence: list[str]) -> bool:
+    """Reject only an unambiguous O/X permission-table polarity reversal.
+
+    The question must identify a column and a row; inferred permissions from
+    prose, broken table layouts and mixed answers remain outside this check.
+    """
+    if not _PERMISSION_QUERY.search(question):
+        return False
+    negative = bool(_NEGATIVE_ANSWER.search(answer))
+    positive = bool(_POSITIVE_ANSWER.search(answer))
+    if negative == positive:
+        return False
+    polarity = positive
+
+    values: set[bool] = set()
+    for passage in evidence:
+        header: list[str] | None = None
+        for line in passage.splitlines():
+            cells = [c.strip() for c in _TABLE_CELLS.split(line.strip()) if c.strip()]
+            if len(cells) < 3:
+                continue
+            if (any(name in question for name in cells[1:] if len(name) >= 2)
+                    and not all(c in _TABLE_FLAGS for c in cells[1:])):
+                header = cells[1:]
+                continue
+            if not header or len(cells) != len(header) + 1:
+                continue
+            if not all(flag in _TABLE_FLAGS for flag in cells[1:]):
+                continue
+            row_labels = [label.strip() for label in re.split(r"[,/·、]", cells[0])]
+            if not any(label and label in question for label in row_labels):
+                continue
+            matched_roles = [name for name in header if len(name) >= 2 and name in question]
+            if any(len(name) >= 2 and name not in matched_roles and name in answer
+                   for name in header):
+                # Several roles are discussed; a single polarity does not
+                # describe the whole answer. Leave this to the model.
+                return False
+            for i, name in enumerate(header):
+                if name in matched_roles:
+                    values.add(cells[i + 1] in ("O", "○"))
+    return len(values) == 1 and polarity not in values
+
+
+def _unsupported_numeric_claim(
+    answer: str, evidence: str, pages: set[str],
+) -> bool:
+    """Do not mistake a source filename or page number for factual evidence."""
+    clean = _STEP_NUMBER.sub("", _CITATION.sub("", answer))
+    supported = set(_NUMBER.findall(evidence))
+    for match in _NUMBER.finditer(clean):
+        token = match.group()
+        # A bare 1..9 can be a list/count; only check unambiguous numbers,
+        # decimals, versions and codes to avoid false rejections.
+        if sum(character.isdigit() for character in token) < 2 or token in supported:
+            continue
+        # A page number is evidence only when used explicitly as a page
+        # reference, never as a claimed port, version or quantity.
+        before = clean[max(0, match.start() - 8):match.start()]
+        after = clean[match.end():match.end() + 8]
+        if (token in pages and
+                (re.search(r"(?:p\.|페이지\s*)$", before, re.IGNORECASE)
+                 or re.match(r"\s*(?:쪽|페이지)", after))):
+            continue
+        return True
+    return False
+
 
 
 class TextGenerator(Protocol):
@@ -153,6 +241,8 @@ def answer_from_knowledge(
 
     excerpts = []
     sources = []
+    source_evidence = []
+    source_pages: set[str] = set()
     remaining_chars = 4400  # Keep source context bounded on the default 4096-token CPU package.
     for position, hit in enumerate(hits, 1):
         content = hit["excerpt"].strip()
@@ -170,6 +260,9 @@ def answer_from_knowledge(
             "page_from": hit["page_from"],
         })
         excerpts.append(label + "\n" + selected_text)
+        source_evidence.append(selected_text)
+        if hit["page_from"] is not None:
+            source_pages.add(str(hit["page_from"]))
     if not excerpts:
         return {"answer": NO_EVIDENCE, "grounded": False, "sources": []}
     prompt = (
@@ -177,7 +270,8 @@ def answer_from_knowledge(
         + "질문: " + question + "\n"
         + "질문과 일치하는 실제 값이나 코드를 매뉴얼에서 그대로 찾아 먼저 답하세요. "
         + "코드·숫자·기호를 바꾸거나 생략하지 말고, 문서 경로만 안내하지 마세요. "
-        + "한국어로 답하고 맨 끝에 근거 번호 [1] 등을 표시하세요.\n"
+        + "한국어로 답하고 맨 끝에 근거 번호 [1] 등을 표시하세요. "
+        + "근거로 답했다면 거절 문장을 추가하지 마세요.\n"
         + "답변:"
     )
     started = perf_counter()
@@ -185,6 +279,16 @@ def answer_from_knowledge(
     elapsed = round(perf_counter() - started, 3)
     if not answer:
         raise RuntimeError("Local LLM returned an empty answer")
+    # A retrieved passage is not proof that the generated claim is supported.
+    # When the model invents a page/port/version/code or references a missing
+    # evidence number, fail closed instead of labeling the reply grounded.
+    cited = [int(number) for number in _CITATION.findall(answer)]
+    if (any(phrase in answer for phrase in (
+            NO_DOCUMENT_ANSWER, "확인할 수 없습니다", "답변할 수 없습니다", "답할 수 없습니다"))
+            or any(number < 1 or number > len(excerpts) for number in cited)
+            or _unsupported_numeric_claim(answer, "\n".join(source_evidence), source_pages)
+            or _permission_answer_conflicts(question, answer, source_evidence)):
+        answer = NO_DOCUMENT_ANSWER
     return {
         "answer": answer,
         "grounded": answer != NO_DOCUMENT_ANSWER,

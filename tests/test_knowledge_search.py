@@ -46,7 +46,7 @@ class SearchTests(unittest.TestCase):
             db.execute("INSERT INTO schema_info VALUES ('schema_version', '1')")
 
     def doc(self, doc_id, product="app-a", start=None, end=None,
-            text="설치 오류 해결 안내", title="Manual", page=2):
+            text="설치 오류 해결 안내", title="Manual", page=2, section="Troubleshooting"):
         with closing(sqlite3.connect(self.path)) as db, db:
             db.execute("INSERT INTO documents VALUES (?,?,?,?,?,?,?,?,?,?)",
                        (doc_id, product, title, f"{product}/manuals/{doc_id}.md",
@@ -54,9 +54,9 @@ class SearchTests(unittest.TestCase):
             cur = db.execute("""INSERT INTO chunks
                 (chunk_id, document_id, section_title, content, page_from, page_to, sequence)
                 VALUES (?,?,?,?,?,?,?)""",
-                (f"{doc_id}:000001", doc_id, "Troubleshooting", text, page, page, 1))
+                (f"{doc_id}:000001", doc_id, section, text, page, page, 1))
             db.execute("INSERT INTO chunks_fts(rowid, section_title, content) VALUES (?,?,?)",
-                       (cur.lastrowid, "Troubleshooting", text))
+                       (cur.lastrowid, section, text))
 
     def rule(self, rule_id, doc_id, *, event=None, error=None, screen=None,
              start=None, end=None):
@@ -138,6 +138,52 @@ class SearchTests(unittest.TestCase):
         hits = self.docs("수신기 프로그램 적용하기")
         self.assertEqual([hit["document_id"] for hit in hits], ["receiver"])
 
+    def test_comparison_collects_distinct_pages_before_table_of_contents(self):
+        # One index page mentions both concepts, but is not detailed evidence.
+        self.doc("toc", text="목차: 회로시험 39, 시뮬레이션 40", page=3)
+        self.doc("trial", text="회로시험은 수신기에 실제 출력 신호를 전달합니다.", page=39)
+        self.doc("simulation", text="시뮬레이션은 실제 수신기 출력을 보내지 않습니다.", page=40)
+        hits = self.docs("회로시험과 시뮬레이션의 차이는?")
+        self.assertEqual([h["document_id"] for h in hits[:2]], ["trial", "simulation"])
+        self.assertEqual([h["page_from"] for h in hits[:2]], [39, 40])
+        self.assertIn("toc", [h["document_id"] for h in hits])
+        self.assertEqual(
+            [h["document_id"] for h in self.docs("회로시험과 시뮬레이션 비교")[:2]],
+            ["trial", "simulation"],
+        )
+        self.assertEqual(
+            [h["document_id"] for h in self.docs("회로시험과 시뮬레이션의 다른 점")[:2]],
+            ["trial", "simulation"],
+        )
+        self.assertEqual([h["document_id"] for h in self.docs(
+            "회로시험과 시뮬레이션의 차이는?", limit=2,
+        )], ["trial", "simulation"])
+
+    def test_comparison_does_not_accept_only_one_side(self):
+        self.doc("only", text="회로시험은 실제 출력 신호를 전달합니다.")
+        self.assertEqual(self.docs("회로시험과 시뮬레이션의 차이는?"), [])
+        # Non-comparison queries still require multiple concepts in one chunk.
+        self.assertEqual(self.docs("회로시험 시뮬레이션"), [])
+        self.doc("other", product="app-b", text="시뮬레이션은 다른 방식으로 동작합니다.")
+        self.assertEqual(self.docs("회로시험과 시뮬레이션의 차이는?"), [])
+
+    def test_question_filler_keeps_role_and_action_terms(self):
+        self.doc("restricted", text="일반사용자는 회로시험을 실행할 수 없습니다.")
+        self.doc("unrelated", text="관리자는 화면 설정을 변경할 수 있습니다.")
+        hits = self.docs("일반사용자가 회로시험 가능한가요?")
+        self.assertEqual([hit["document_id"] for hit in hits], ["restricted"])
+
+    def test_body_matches_win_over_generic_heading_and_heading_only_is_not_evidence(self):
+        self.doc("heading", section="회로시험 시뮬레이션 차이",
+                 text="회로시험 안내 사항입니다.")
+        self.doc("body", section="기능 비교",
+                 text="회로시험은 경종이 동작하며 시뮬레이션은 실제 수신기 출력을 발생시키지 않습니다.")
+        hits = self.docs("회로시험과 시뮬레이션의 차이는?")
+        self.assertEqual([hit["document_id"] for hit in hits][:2], ["body", "heading"])
+        self.doc("heading_only", section="일반사용자 회로시험",
+                 text="기능 설명은 다음 절을 참조합니다.")
+        self.assertEqual(self.docs("일반사용자가 회로시험 가능한가요?"), [])
+
     def test_korean_particles_and_prefix_without_substring_false_positives(self):
         self.doc("setup", text="수신기와 CRT의 IP 주소 대역이 같습니다. 설치하기를 진행합니다.")
         self.assertEqual(len(self.docs("수신기 CRT IP 주소")), 1)
@@ -169,6 +215,25 @@ class SearchTests(unittest.TestCase):
         self.doc("noise", text="빅데이터 베이스라인 성능 측정 결과를 확인합니다.")
         self.assertEqual([x["document_id"] for x in self.docs("데이터 베이스")], ["combined"])
         self.assertEqual([x["document_id"] for x in self.docs("사용자로그인")], ["split"])
+
+    def test_short_split_compound_reboot_retrieval_without_noise(self):
+        self.doc("restart", text="프로그램을 재 기동 시킬 때에는 상태를 확인합니다.", page=67)
+        self.doc("noise", text="프로그램을 재 확인하고 기동 상태를 점검합니다.")
+        self.doc("other-product", product="app-b",
+                 text="프로그램을 재 기동 시킬 때 확인합니다.")
+        self.assertEqual(
+            [hit["document_id"] for hit in self.docs("재기동")], ["restart"],
+        )
+        self.assertEqual(
+            [hit["document_id"] for hit in self.docs(
+                "프로그램을 재기동해야 하는 경우는?")], ["restart"],
+        )
+        self.assertEqual(
+            self.docs("프로그램을 재기동해야 하는 경우는?", version="1.0"),
+            [hit for hit in self.docs("프로그램을 재기동해야 하는 경우는?")
+             if hit["document_id"] == "restart"],
+        )
+        self.assertEqual(self.docs("기동재"), [])
 
     def test_compound_fallback_honors_document_version(self):
         self.doc("v2", start="2.0", text="데이터베이스 고급 구성")

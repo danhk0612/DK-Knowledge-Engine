@@ -107,6 +107,31 @@ class GroundedAnswerTests(unittest.TestCase):
         self.assertIn("9999", fake.calls[0][1])
         self.assertNotIn("3308", fake.calls[0][1])
 
+    def test_split_page_comparison_includes_both_detail_sources(self):
+        manuals = self.root / "app-one" / "manuals"
+        (manuals / "index.md").write_text(
+            "목차: 회로시험 39, 시뮬레이션 40", encoding="utf-8",
+        )
+        (manuals / "trial.md").write_text(
+            "회로시험은 실제 출력 신호가 나갑니다.", encoding="utf-8",
+        )
+        (manuals / "simulation.md").write_text(
+            "시뮬레이션은 실제 출력 신호가 나가지 않습니다.", encoding="utf-8",
+        )
+        build(self.root, self.db, rebuild=True)
+        fake = FakeGenerator("두 기능은 실제 출력 여부가 다릅니다. [1] [2]")
+        result = answer_from_knowledge(
+            self.db, product_id="app-one",
+            question="회로시험과 시뮬레이션의 차이는?", generator=fake,
+        )
+        self.assertTrue(result["grounded"])
+        self.assertEqual(
+            [source["source_path"].split("/")[-1] for source in result["sources"][:2]],
+            ["trial.md", "simulation.md"],
+        )
+        self.assertIn("실제 출력 신호가 나갑니다", fake.calls[0][1])
+        self.assertIn("실제 출력 신호가 나가지 않습니다", fake.calls[0][1])
+
     def test_no_document_answer_marks_ungrounded(self):
         fake = FakeGenerator(NO_DOCUMENT_ANSWER)
         answer = answer_from_knowledge(
@@ -114,6 +139,191 @@ class GroundedAnswerTests(unittest.TestCase):
         )
         self.assertFalse(answer["grounded"])
         self.assertEqual(len(answer["sources"]), 1)
+
+    def test_refusal_phrases_and_mixed_refusals_fail_closed(self):
+        fake = FakeGenerator("이 문서만으로는 답변을 확인할 수 없습니다.")
+        result = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="연결 오류 포트는?", generator=fake,
+        )
+        self.assertEqual(result["answer"], NO_DOCUMENT_ANSWER)
+        self.assertFalse(result["grounded"])
+        self.assertIn("거절 문장을 덧붙이지 마세요", fake.calls[0][0])
+        self.assertNotIn("제공된 근거 문서만으로는 답변을 확인할 수 없습니다.", fake.calls[0][0])
+
+        fake.answer = "연결 포트는 3308입니다. [1]\\n답변할 수 없습니다."
+        mixed = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="연결 오류 포트는?", generator=fake,
+        )
+        self.assertFalse(mixed["grounded"])
+        self.assertEqual(mixed["answer"], NO_DOCUMENT_ANSWER)
+
+        fake.answer = "연결 포트는 3308입니다. [1]"
+        grounded = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="연결 오류 포트는?", generator=fake,
+        )
+        self.assertTrue(grounded["grounded"])
+
+    def test_invented_numeric_fact_is_rejected_not_grounded(self):
+        fake = FakeGenerator("연결 포트는 7777입니다. [1]")
+        result = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="연결 오류 포트", generator=fake,
+        )
+        self.assertEqual(result["answer"], NO_DOCUMENT_ANSWER)
+        self.assertFalse(result["grounded"])
+        self.assertEqual(len(result["sources"]), 1)
+
+        fake.answer = "연결 포트는 3308입니다. [1]"
+        correct = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="연결 오류 포트", generator=fake,
+        )
+        self.assertTrue(correct["grounded"])
+
+    def test_invalid_citation_is_rejected_without_forcing_citations(self):
+        fake = FakeGenerator("포트를 확인합니다. [9]")
+        result = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="연결 오류", generator=fake,
+        )
+        self.assertFalse(result["grounded"])
+        self.assertEqual(result["answer"], NO_DOCUMENT_ANSWER)
+        fake.answer = "포트를 확인합니다."
+        valid = answer_from_knowledge(
+            self.db, product_id="app-one", version="2.5",
+            question="연결 오류", generator=fake,
+        )
+        self.assertTrue(valid["grounded"])
+
+    def test_page_number_must_match_retrieved_evidence(self):
+        mock_hits = [{
+            "document_id": "manual", "chunk_id": "manual:1",
+            "source_path": "documents/manual.pdf", "page_from": 51,
+            "excerpt": "XLS와 PDF 형식으로 저장할 수 있습니다.",
+        }]
+        fake = FakeGenerator("저장 기능은 51쪽에서 설명합니다. [1]")
+        with patch("llm.local_llm.search_documents", return_value=mock_hits):
+            correct = answer_from_knowledge(
+                self.db, product_id="app-one", question="XLS PDF 저장", generator=fake,
+            )
+            self.assertTrue(correct["grounded"])
+            fake.answer = "저장 기능은 52쪽에서 설명합니다. [1]"
+            incorrect = answer_from_knowledge(
+                self.db, product_id="app-one", question="XLS PDF 저장", generator=fake,
+            )
+            self.assertFalse(incorrect["grounded"])
+            self.assertEqual(incorrect["answer"], NO_DOCUMENT_ANSWER)
+            fake.answer = "포트는 51입니다. [1]"
+            fake_fact = answer_from_knowledge(
+                self.db, product_id="app-one", question="XLS PDF 저장", generator=fake,
+            )
+            self.assertFalse(fake_fact["grounded"])
+            fake.answer = "저장 기능은 p.51에 있습니다. [1]"
+            real_page = answer_from_knowledge(
+                self.db, product_id="app-one", question="XLS PDF 저장", generator=fake,
+            )
+            self.assertTrue(real_page["grounded"])
+
+    def test_permission_table_opposite_answers_are_not_grounded(self):
+        # A generic row/column matrix, never customer manual text.
+        mock_hits = [{
+            "document_id": "policy", "chunk_id": "policy:1",
+            "source_path": "manuals/permissions.md", "page_from": 9,
+            "excerpt": (
+                "권한표\n"
+                "기능             관리자        일반사용자\n"
+                "문서열람             O             O\n"
+                "설정변경             O             X\n"
+            ),
+        }]
+        fake = FakeGenerator("일반사용자도 설정변경이 가능합니다. [1]")
+        with patch("llm.local_llm.search_documents", return_value=mock_hits):
+            question = "일반사용자가 설정변경 가능한가요?"
+            wrong = answer_from_knowledge(
+                self.db, product_id="app-one", question=question, generator=fake,
+            )
+            self.assertFalse(wrong["grounded"])
+            self.assertEqual(wrong["answer"], NO_DOCUMENT_ANSWER)
+
+            fake.answer = "일반사용자는 설정변경을 할 수 없습니다. [1]"
+            right = answer_from_knowledge(
+                self.db, product_id="app-one", question=question, generator=fake,
+            )
+            self.assertTrue(right["grounded"])
+
+            fake.answer = "관리자는 설정변경을 할 수 없습니다. [1]"
+            wrong_admin = answer_from_knowledge(
+                self.db, product_id="app-one",
+                question="관리자는 설정변경 권한이 있나요?", generator=fake,
+            )
+            self.assertFalse(wrong_admin["grounded"])
+
+            # "불가능합니다" contains "가능합니다" as a substring. This
+            # must remain an explicitly negative statement, not mixed polarity.
+            fake.answer = "관리자는 설정변경이 불가능합니다. [1]"
+            wrong_negative = answer_from_knowledge(
+                self.db, product_id="app-one",
+                question="관리자는 설정변경 권한이 있나요?", generator=fake,
+            )
+            self.assertFalse(wrong_negative["grounded"])
+
+            fake.answer = "일반사용자는 설정변경이 불가능합니다. [1]"
+            correct_negative = answer_from_knowledge(
+                self.db, product_id="app-one",
+                question="일반사용자가 설정변경 가능한가요?", generator=fake,
+            )
+            self.assertTrue(correct_negative["grounded"])
+
+            fake.answer = "일반사용자는 문서열람이 가능합니다. [1]"
+            allowed = answer_from_knowledge(
+                self.db, product_id="app-one",
+                question="일반사용자가 문서열람 가능한가요?", generator=fake,
+            )
+            self.assertTrue(allowed["grounded"])
+            self.assertIn("교차 칸", fake.calls[-1][0])
+
+    def test_mixed_or_unparseable_permission_claim_is_not_misclassified(self):
+        mock_hits = [{
+            "document_id": "policy", "chunk_id": "policy:1",
+            "source_path": "manuals/policy.md", "page_from": None,
+            "excerpt": "기능 | 관리자 | 일반사용자\n설정변경 | O | X",
+        }]
+        fake = FakeGenerator("관리자는 설정변경이 가능하지만 일반사용자는 할 수 없습니다.")
+        with patch("llm.local_llm.search_documents", return_value=mock_hits):
+            result = answer_from_knowledge(
+                self.db, product_id="app-one",
+                question="일반사용자가 설정변경 가능한가요?", generator=fake,
+            )
+            self.assertTrue(result["grounded"])  # Mixed prose requires model review.
+            another_role = answer_from_knowledge(
+                self.db, product_id="app-one",
+                question="관리자는 설정변경 권한이 있나요?", generator=fake,
+            )
+            self.assertTrue(another_role["grounded"])
+            fake.answer = "일반사용자는 설정변경이 가능합니다."
+            rejected = answer_from_knowledge(
+                self.db, product_id="app-one",
+                question="일반사용자가 설정변경 가능한가요?", generator=fake,
+            )
+            self.assertFalse(rejected["grounded"])
+
+    def test_numeric_source_path_is_not_a_factual_answer(self):
+        mock_hits = [{
+            "document_id": "guide", "chunk_id": "guide:1",
+            "source_path": "archive/port-7777-guide.md", "page_from": 9,
+            "excerpt": "설정에 사용되는 연결 포트는 3308입니다.",
+        }]
+        fake = FakeGenerator("연결 포트는 7777입니다. [1]")
+        with patch("llm.local_llm.search_documents", return_value=mock_hits):
+            answer = answer_from_knowledge(
+                self.db, product_id="app-one", question="연결 포트",
+                generator=fake,
+            )
+        self.assertFalse(answer["grounded"])
+        self.assertEqual(answer["answer"], NO_DOCUMENT_ANSWER)
 
     def test_invalid_request_does_not_call_llm(self):
         fake = FakeGenerator()
