@@ -43,7 +43,7 @@ _NEGATIVE_ANSWER = re.compile(
     r"권한이\s*없|지원하지\s*않|제한됩니다"
 )
 _POSITIVE_ANSWER = re.compile(
-    r"할\s*수\s*있|가능합니다|가능하다|가능해요|허용됩니다|"
+    r"할\s*수\s*있|(?<!불)가능합니다|(?<!불)가능하다|(?<!불)가능해요|허용됩니다|"
     r"권한이\s*있|지원합니다"
 )
 
@@ -90,9 +90,6 @@ def _permission_answer_conflicts(question: str, answer: str, evidence: list[str]
                 if name in matched_roles:
                     values.add(cells[i + 1] in ("O", "○"))
     return len(values) == 1 and polarity not in values
-
-
-
 
 
 def _unsupported_numeric_claim(
