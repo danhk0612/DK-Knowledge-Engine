@@ -159,6 +159,35 @@ class SearchTests(unittest.TestCase):
             "회로시험과 시뮬레이션의 차이는?", limit=2,
         )], ["trial", "simulation"])
 
+    def test_comparison_prefers_subject_heading_to_incidental_mention(self):
+        # A short sidebar can rank above a detailed chapter by BM25.
+        # The selected evidence should begin with the matching subject.
+        self.doc("toc", text="목차: 회로시험 39, 시뮬레이션 40", page=3)
+        self.doc("trial", text="회로시험은 실제 수신기 출력을 전달합니다.", page=39)
+        self.doc("sidebar", text=(
+            "빠른 메뉴 안내\\n시뮬레이션은 수신기 출력을 내지 않습니다. "
+            "시뮬레이션은 수신기 출력을 내지 않습니다."
+        ), page=18)
+        self.doc("details", text=(
+            "3-3-2. 시뮬레이션\\n감지기의 연동 심볼을 확인합니다. "
+            "실제 수신기 출력은 발생하지 않습니다."
+        ), page=40)
+        hits = self.docs("회로시험과 시뮬레이션의 차이는?")
+        self.assertEqual([h["page_from"] for h in hits[:2]], [39, 40])
+
+    def test_role_subject_breaks_equal_coverage_tie(self):
+        # No model- or product-specific permission vocabulary.
+        self.doc("function", text=(
+            "회로시험을 실행합니다. 회로시험을 실행합니다. "
+            "회로시험을 실행합니다."
+        ), page=39)
+        self.doc("permissions", text=(
+            "사용자별 등급  관리자  일반사용자\\n"
+            "회로시험  O  X"
+        ), page=56)
+        hits = self.docs("일반사용자가 회로시험을 실행할 수 있나?")
+        self.assertEqual([hit["page_from"] for hit in hits[:2]], [56, 39])
+
     def test_comparison_does_not_accept_only_one_side(self):
         self.doc("only", text="회로시험은 실제 출력 신호를 전달합니다.")
         self.assertEqual(self.docs("회로시험과 시뮬레이션의 차이는?"), [])
