@@ -164,7 +164,7 @@ class BuilderTests(unittest.TestCase):
     def test_layout_excessive_padding_keeps_table_columns(self):
         from builder.knowledge_builder import _compact_pdf_layout_whitespace
 
-        normal = "Role  Admin  Viewer\\nSettings  O  X"
+        normal = "Role  Admin  Viewer\nSettings  O  X"
         self.assertEqual(_compact_pdf_layout_whitespace(normal), normal)
 
         # Synthetic pypdf-style padding; no customer document content.
@@ -173,7 +173,7 @@ class BuilderTests(unittest.TestCase):
         row = ("Settings" + " " * 220 + "O" + " " * 128
                + "O" + " " * 128 + "X")
         prose = ("word word" + " " * 60 + "policy policy" + " " * 60) * 12
-        padded = "\\n".join((header, row, prose))
+        padded = "\n".join((header, row, prose))
         compacted = _compact_pdf_layout_whitespace(padded)
         self.assertIn("Access levels  Admin  Operator  Viewer", compacted)
         self.assertIn("Settings  O  O  X", compacted)
