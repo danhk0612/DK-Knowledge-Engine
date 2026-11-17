@@ -38,7 +38,7 @@ def start_with_current_settings(package: Path, port: int) -> subprocess.Popen:
     raise AssertionError("Configured portable server never became ready")
 
 
-def assert_answer(port: int) -> None:
+def assert_answer(port: int, package: Path) -> None:
     search = call(port, "/search", {
         "product_id": "example-program", "version": "2.1.0", "query": "연결 오류",
     })
@@ -47,6 +47,38 @@ def assert_answer(port: int) -> None:
         "product_id": "example-program", "version": "2.1.0",
         "question": "데이터베이스 연결 오류 시 확인할 서버 포트는?",
     })
+    if not answer["grounded"] or "3308" not in answer["answer"]:
+        # Only synthetic T07 fixture data is inspected. Reproduce the same
+        # request with the selected GGUF and capture its raw completion so a
+        # model refusal can be distinguished from a grounding-validator veto.
+        from llm.local_llm import LlamaCli, answer_from_knowledge
+
+        selected = json.loads((package / "config" / "settings.json").read_text(encoding="utf-8"))["model"]
+        runner = LlamaCli(
+            package / selected["runtime"], package / selected["file"],
+            threads=selected["threads"], ctx_size=selected["context_size"],
+            max_tokens=selected["max_tokens"],
+            timeout_seconds=selected["timeout_seconds"],
+            gpu_layers=selected["gpu_layers"], prompt_mode=selected["prompt_mode"],
+        )
+
+        class TraceGenerator:
+            def __init__(self):
+                self.raw = None
+
+            def generate(self, system, user):
+                self.raw = runner.generate(system, user)
+                return self.raw
+
+        tracer = TraceGenerator()
+        repeated = answer_from_knowledge(
+            package / "knowledge" / "knowledge.db",
+            product_id="example-program", version="2.1.0",
+            question="데이터베이스 연결 오류 시 확인할 서버 포트는?",
+            generator=tracer,
+        )
+        print("T09_SYNTHETIC_RAW_COMPLETION " + json.dumps(tracer.raw, ensure_ascii=True), flush=True)
+        print("T09_SYNTHETIC_VALIDATED_RESULT " + json.dumps(repeated, ensure_ascii=True), flush=True)
     assert answer["grounded"] and answer["sources"], answer
     assert "3308" in answer["answer"], answer
     print("T09_CHAT_ANSWER_OK " + json.dumps(answer["answer"], ensure_ascii=True), flush=True)
@@ -55,7 +87,7 @@ def assert_answer(port: int) -> None:
 def restart_and_check(package: Path, port: int) -> None:
     server = start_with_current_settings(package, port)
     try:
-        assert_answer(port)
+        assert_answer(port, package)
     finally:
         server.terminate()
         server.wait(timeout=20)

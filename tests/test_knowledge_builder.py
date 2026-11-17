@@ -160,6 +160,26 @@ class BuilderTests(unittest.TestCase):
             self.assertIn("OCR 복구한", db.execute("SELECT content FROM chunks").fetchone()[0])
         self.assertEqual(hashlib.sha256(target.read_bytes()).hexdigest(), original)
 
+
+    def test_layout_excessive_padding_keeps_table_columns(self):
+        from builder.knowledge_builder import _compact_pdf_layout_whitespace
+
+        normal = "Role  Admin  Viewer\nSettings  O  X"
+        self.assertEqual(_compact_pdf_layout_whitespace(normal), normal)
+
+        # Synthetic pypdf-style padding; no customer document content.
+        header = ("Access" + " " * 65 + "levels" + " " * 111
+                  + "Admin" + " " * 128 + "Operator" + " " * 128 + "Viewer")
+        row = ("Settings" + " " * 220 + "O" + " " * 128
+               + "O" + " " * 128 + "X")
+        prose = ("word word" + " " * 60 + "policy policy" + " " * 60) * 12
+        padded = "\n".join((header, row, prose))
+        compacted = _compact_pdf_layout_whitespace(padded)
+        self.assertIn("Access levels  Admin  Operator  Viewer", compacted)
+        self.assertIn("Settings  O  O  X", compacted)
+        self.assertIn("word word", compacted)
+        self.assertLess(len(compacted), len(padded) // 4)
+
     def test_quality_report_json_and_pdf_mode_requires_rebuild(self):
         self.put("product-one/manuals/guide.md", "# Setup\n\nUser account help")
         report = self.out.with_suffix(".quality.json")
