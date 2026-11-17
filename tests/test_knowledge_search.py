@@ -229,6 +229,10 @@ class SearchTests(unittest.TestCase):
                 "프로그램을 재기동해야 하는 경우는?")], ["restart"],
         )
         self.assertEqual(
+            [hit["document_id"] for hit in self.docs(
+                "프로그램을 재기동해야 하는 상황은?")], ["restart"],
+        )
+        self.assertEqual(
             self.docs("프로그램을 재기동해야 하는 경우는?", version="1.0"),
             [hit for hit in self.docs("프로그램을 재기동해야 하는 경우는?")
              if hit["document_id"] == "restart"],

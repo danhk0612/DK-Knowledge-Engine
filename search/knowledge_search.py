@@ -19,7 +19,7 @@ _SEARCH_TOKENS = re.compile(r"[^\W_]+", re.UNICODE)
 # Remove conversational filler before scoring; keep specific product terminology.
 _QUESTION_FILLER = frozenset({
     "방법", "무엇인가요", "무엇입니까", "어떻게", "알려주세요",
-    "해주세요", "하나요", "할까요", "인가요", "경우",
+    "해주세요", "하나요", "할까요", "인가요", "경우", "상황",
     "어떤", "무슨", "차이", "차이점", "비교", "대비", "다른", "점", "수", "있나요",
     "가능한가요", "가능합니까", "가능할까요", "되나요", "되는지",
     "다른가요", "무엇인지", "하는", "할",
