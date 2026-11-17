@@ -165,11 +165,11 @@ class SearchTests(unittest.TestCase):
         self.doc("toc", text="목차: 회로시험 39, 시뮬레이션 40", page=3)
         self.doc("trial", text="회로시험은 실제 수신기 출력을 전달합니다.", page=39)
         self.doc("sidebar", text=(
-            "빠른 메뉴 안내\\n시뮬레이션은 수신기 출력을 내지 않습니다. "
+            "빠른 메뉴 안내\n시뮬레이션은 수신기 출력을 내지 않습니다. "
             "시뮬레이션은 수신기 출력을 내지 않습니다."
         ), page=18)
         self.doc("details", text=(
-            "3-3-2. 시뮬레이션\\n감지기의 연동 심볼을 확인합니다. "
+            "3-3-2. 시뮬레이션\n감지기의 연동 심볼을 확인합니다. "
             "실제 수신기 출력은 발생하지 않습니다."
         ), page=40)
         hits = self.docs("회로시험과 시뮬레이션의 차이는?")
@@ -182,7 +182,7 @@ class SearchTests(unittest.TestCase):
             "회로시험을 실행합니다."
         ), page=39)
         self.doc("permissions", text=(
-            "사용자별 등급  관리자  일반사용자\\n"
+            "사용자별 등급  관리자  일반사용자\n"
             "회로시험  O  X"
         ), page=56)
         hits = self.docs("일반사용자가 회로시험을 실행할 수 있나?")
