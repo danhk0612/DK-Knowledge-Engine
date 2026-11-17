@@ -18,6 +18,7 @@ import tempfile
 from contextlib import closing
 from dataclasses import dataclass
 from pathlib import Path
+from statistics import median
 from typing import Any
 
 
@@ -145,6 +146,31 @@ def _enumerate_sources(source_root: Path, default_product_id: str = "default") -
     return docs, rules
 
 
+
+def _compact_pdf_layout_whitespace(text: str) -> str:
+    """Reduce pathological layout-mode padding before splitting into chunks.
+
+    Some PDFs cause pypdf to emit hundreds of spaces between ordinary words,
+    consuming the entire chunk budget and separating table headers from rows.
+    Leave normally spaced PDFs unchanged. Preserve larger gaps as two spaces
+    so table cell boundaries remain distinguishable by the answer validator.
+    """
+    if len(text) < 1000 or text.count(" ") / len(text) < 0.80:
+        return text
+    lines = text.splitlines()
+    gaps = [len(run) for line in lines
+            for run in re.findall(r" +", line.strip())]
+    if not gaps:
+        return text
+    column_gap = max(3, round(median(gaps) * 1.5))
+    return "\n".join(
+        re.sub(r" {2,}",
+               lambda match: "  " if len(match.group()) >= column_gap else " ",
+               line.strip())
+        for line in lines
+    )
+
+
 def _text_segments(text: str, *, markdown: bool = False, page: int | None = None) -> list[Segment]:
     text = text.replace("\r\n", "\n").replace("\r", "\n")
     blocks = re.split(r"\n\s*\n", text)
@@ -204,6 +230,8 @@ def _extract(path: Path, *, pdf_layout: bool = False,
         for page_number, page in enumerate(reader.pages, start=1):
             text = (page.extract_text(extraction_mode="layout")
                     if pdf_layout else page.extract_text()) or ""
+            if pdf_layout:
+                text = _compact_pdf_layout_whitespace(text)
             extracted = _text_segments(text, page=page_number)
             if not extracted and ocr_scanned_pages:
                 text = _ocr_pdf_page(path, page_number, tesseract=tesseract,
